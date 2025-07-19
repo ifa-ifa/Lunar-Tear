@@ -17,7 +17,6 @@ Filename=path\to\LunarTearLoader.dll
 
 Change the filepath to point to your LunarTearLoader. Place that at the end of the Special K config file (e.g dxgi.ini or d3d11.ini)
  
-There will also be a launcher in case you dont want to use special k. Just place it in the same directory and launch from that exe
 
 ## Future Improvements
 

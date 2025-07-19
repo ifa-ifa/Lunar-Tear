@@ -6,4 +6,4 @@ add_library (LunarTearLoader SHARED "src/LunarTearLoader.cpp" "src/stubs.asm" "s
 
 target_link_libraries(LunarTearLoader PRIVATE minhook::minhook)
 
-add_executable(LunarTearLauncher "src/launcher.cpp")
+#add_executable(LunarTearLauncher "src/launcher.cpp")

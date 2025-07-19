@@ -1,10 +1,12 @@
 #include "Logger.h"
 #include <map>
+#include <atomic>
 
 namespace
 {
     bool s_log_to_console = true;
     bool s_log_to_file = true;
+
 
     std::map<Logger::LogCategory, bool> s_category_enabled;
 
@@ -19,6 +21,7 @@ namespace
 
     std::ofstream s_log_file;
     std::mutex s_log_mutex;
+    std::atomic<bool> s_logger_initialized = false; 
 
 
     std::string CategoryToString(Logger::LogCategory category) {
@@ -96,6 +99,8 @@ void Logger::Init()
     if (s_log_to_file) {
         s_log_file.open("LunarTear/lunartear.log", std::ios::out | std::ios::trunc);
     }
+
+    s_logger_initialized = true;
 }
 
 Logger::LogStream::LogStream(LogCategory category, bool active)
@@ -111,6 +116,6 @@ Logger::LogStream::~LogStream()
 
 Logger::LogStream Logger::Log(LogCategory category)
 {
-    bool is_active = s_category_enabled.count(category) ? s_category_enabled.at(category) : false;
+    bool is_active = s_logger_initialized && (s_category_enabled.count(category) ? s_category_enabled.at(category) : false);
     return LogStream{ category, is_active };
 }

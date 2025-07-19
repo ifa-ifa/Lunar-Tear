@@ -20,8 +20,6 @@ Filename=path\to\LunarTearLoader.dll
 
 To the end of the Special K config file (e.g dxgi.ini or d3d11.ini). Change the filepath to point to your LunarTearLoader.
 
-If you don't want to use specialk you can use any injection tool / launcher you want. There is LunarTearLauncher.exe which works by placing it in the same directory and usinf that to launch, but if you are using specialK then its unnecessary.
-
 Install mods by dropping the folder with the files in `LunarTear/mods/`. If there is a conflict, the alphabetically first mod will be favoured and the unfavoured mods will have none of their files loaded.
 
 ## Build

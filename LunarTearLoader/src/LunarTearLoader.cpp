@@ -61,13 +61,15 @@ void* LoadLooseFile(const char* filename, size_t& out_size) {
     out_size = file_cache[full_path].size();
     return file_cache[full_path].data();
 }
-
+ 
 extern "C" void* HandleSettbllHook(char* stbl_filename, void* STBL_data) {
-    Logger::Log(FileInfo) <<  "stbl hook triggered for file: " << stbl_filename;
+    Logger::Log(Info) <<  "stbl hook triggered for file: " << stbl_filename;
     size_t file_size = 0;
     void* loose_stbl_data = LoadLooseFile(stbl_filename, file_size);
     if (loose_stbl_data) {
-        Logger::Log(Info) << " Found loose file";
+        Logger::Log(Info) << " Found loose file: " << stbl_filename;
+
+
         return loose_stbl_data;
     }
     return STBL_data;
@@ -90,80 +92,6 @@ extern "C" void HandleLubHook(char* lub_filename, void** p_lub_data, int* p_lub_
     }
 }
 
-void ScanModsAndResolveConflicts() {
-    const std::string mods_root = "LunarTear/mods/";
-    if (!std::filesystem::exists(mods_root) || !std::filesystem::is_directory(mods_root)) {
-        Logger::Log(Info) << "Mods directory not found, skipping mod scan";
-        return;
-    }
-
-    Logger::Log(Info) << "Scanning for mods...\n";
-
-    // Step 1: Discover all files provided by all mods
-    std::map<std::string, std::vector<std::string>> file_to_mods_map;
-    for (const auto& mod_entry : std::filesystem::directory_iterator(mods_root)) {
-        if (!mod_entry.is_directory()) continue;
-
-        std::string mod_name = mod_entry.path().filename().string();
-        Logger::Log(Verbose) << "Found mod: " << mod_name;
-
-        for (const auto& file_entry : std::filesystem::recursive_directory_iterator(mod_entry.path())) {
-            if (!file_entry.is_regular_file()) continue;
-
-            std::string relative_path = std::filesystem::relative(file_entry.path(), mod_entry.path()).string();
-            std::replace(relative_path.begin(), relative_path.end(), '\\', '/');
-            file_to_mods_map[relative_path].push_back(mod_name);
-        }
-    }
-
-    std::set<std::string> disabled_mods;
-    std::string conflict_report = "";
-
-    for (auto const& [file, mods] : file_to_mods_map) {
-        if (mods.size() > 1) {
-            std::vector<std::string> sorted_mods = mods;
-            std::sort(sorted_mods.begin(), sorted_mods.end());
-
-            conflict_report += "Conflict for file: " + file + "\n";
-            conflict_report += "  - Winner (loaded): " + sorted_mods[0] + "\n";
-
-            for (size_t i = 1; i < sorted_mods.size(); ++i) {
-                conflict_report += "  - Loser (disabled): " + sorted_mods[i] + "\n";
-                disabled_mods.insert(sorted_mods[i]);
-            }
-            conflict_report += "\n";
-        }
-    }
-
-    // Step 3: Build the final resolved file map, excluding files from disabled mods
-    {
-        const std::lock_guard<std::mutex> lock(g_fileMapMutex);
-        g_resolvedFileMap.clear();
-
-        for (auto const& [file, mods] : file_to_mods_map) {
-            std::string winner_mod = mods[0];
-            if (mods.size() > 1) {
-                winner_mod = *std::min_element(mods.begin(), mods.end());
-            }
-
-            if (disabled_mods.find(winner_mod) == disabled_mods.end()) {
-                std::filesystem::path full_path = std::filesystem::path(mods_root) / winner_mod / file;
-                g_resolvedFileMap[file] = full_path.string();
-                Logger::Log(Verbose) << "Mapping " << file << " -> " << g_resolvedFileMap[file];
-            }
-        }
-    }
-
-    if (!conflict_report.empty()) {
-        std::string final_message = "LunarTear found mod conflicts\n\n";
-        final_message += "The alphabetically first mod is loaded. All files from other conflicting mods are disabled.\n\n";
-        final_message += conflict_report;
-
-        MessageBoxA(GetActiveWindow(), final_message.c_str(), "LunarTear Mod Conflict", MB_OK | MB_ICONWARNING | MB_APPLMODAL);
-    }
-
-    Logger::Log(Info) << "Mod scan complete";
-}
 
 extern "C" void SettbllAssemblyStub();
 extern "C" void LubAssemblyStub();
@@ -272,6 +200,103 @@ uint64_t TexHook_detoured(tpgxResTexture* tex, void* param_2, void* param_3) {
     }
     return TexHook_original(tex, param_2, param_3);
 }
+
+
+void ScanModsAndResolveConflicts() {
+    const std::string mods_root = "LunarTear/mods/";
+    if (!std::filesystem::exists(mods_root) || !std::filesystem::is_directory(mods_root)) {
+        Logger::Log(Info) << "Mods directory not found, skipping mod scan";
+        return;
+    }
+
+    Logger::Log(Info) << "Scanning for mods...\n";
+
+    // Step 1: Discover all files provided by all mods
+    std::map<std::string, std::vector<std::string>> file_to_mods_map;
+    for (const auto& mod_entry : std::filesystem::directory_iterator(mods_root)) {
+        if (!mod_entry.is_directory()) continue;
+
+        std::string mod_name = mod_entry.path().filename().string();
+        Logger::Log(Verbose) << "Found mod: " << mod_name;
+
+        for (const auto& file_entry : std::filesystem::recursive_directory_iterator(mod_entry.path())) {
+            if (!file_entry.is_regular_file()) continue;
+
+            std::string relative_path = std::filesystem::relative(file_entry.path(), mod_entry.path()).string();
+            std::replace(relative_path.begin(), relative_path.end(), '\\', '/');
+            file_to_mods_map[relative_path].push_back(mod_name);
+        }
+    }
+
+    // Define the extensions we care about for loading and conflict resolution.
+    const std::set<std::string> relevant_extensions = { ".dds", ".lua", ".settbll" };
+    std::set<std::string> disabled_mods;
+    std::string conflict_report = "";
+
+    // Step 2: Detect conflicts ONLY for relevant file types
+    for (auto const& [file, mods] : file_to_mods_map) {
+        if (mods.size() <= 1) {
+            continue;
+        }
+
+        std::filesystem::path p(file);
+        std::string extension = p.extension().string();
+        std::transform(extension.begin(), extension.end(), extension.begin(),
+            [](unsigned char c) { return std::tolower(c); });
+
+        if (relevant_extensions.count(extension)) {
+            std::vector<std::string> sorted_mods = mods;
+            std::sort(sorted_mods.begin(), sorted_mods.end());
+
+            conflict_report += "Conflict for file: " + file + "\n";
+            conflict_report += "  - Winner (loaded): " + sorted_mods[0] + "\n";
+
+            for (size_t i = 1; i < sorted_mods.size(); ++i) {
+                conflict_report += "  - Loser (disabled): " + sorted_mods[i] + "\n";
+                disabled_mods.insert(sorted_mods[i]);
+            }
+            conflict_report += "\n";
+        }
+    }
+
+    // Step 3: Build the final resolved file map, ONLY including relevant file types
+    {
+        const std::lock_guard<std::mutex> lock(g_fileMapMutex);
+        g_resolvedFileMap.clear();
+
+        for (auto const& [file, mods] : file_to_mods_map) {
+            // First, check if the file type is one we want to load at all
+            std::filesystem::path p(file);
+            std::string extension = p.extension().string();
+            std::transform(extension.begin(), extension.end(), extension.begin(),
+                [](unsigned char c) { return std::tolower(c); });
+
+            // Only process files with relevant extensions. Ignore everything else.
+            if (relevant_extensions.count(extension)) {
+                std::string winner_mod = *std::min_element(mods.begin(), mods.end());
+
+                // A mod is disabled entirely if it loses even one conflict.
+                // We only map files from mods that are not disabled.
+                if (disabled_mods.find(winner_mod) == disabled_mods.end()) {
+                    std::filesystem::path full_path = std::filesystem::path(mods_root) / winner_mod / file;
+                    g_resolvedFileMap[file] = full_path.string();
+                    Logger::Log(Verbose) << "Mapping " << file << " -> " << g_resolvedFileMap[file];
+                }
+            }
+        }
+    }
+
+    if (!conflict_report.empty()) {
+        std::string final_message = "LunarTear found mod conflicts\n\n";
+        final_message += "The alphabetically first mod is loaded. All files from other conflicting mods are disabled.\n\n";
+        final_message += conflict_report;
+
+        MessageBoxA(GetActiveWindow(), final_message.c_str(), "LunarTear Mod Conflict", MB_OK | MB_ICONWARNING | MB_APPLMODAL);
+    }
+
+    Logger::Log(Info) << "Mod scan complete";
+}
+
 
 template <typename T>
 inline MH_STATUS MH_CreateHookEx(LPVOID pTarget, LPVOID pDetour, T** ppOriginal) {
