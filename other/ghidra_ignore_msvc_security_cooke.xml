@@ -1,0 +1,7 @@
+<prototype name="__security_check_cookie" extrapop="0" stackshift="0">
+  <input/>
+  <output/>
+  <unaffected>
+    <register name="RAX"/>
+  </unaffected>
+</prototype>

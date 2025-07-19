@@ -1,0 +1,7 @@
+out
+.vs
+build
+cpp.hint
+CMakePresets.user.json
+*.user
+.editorconfig

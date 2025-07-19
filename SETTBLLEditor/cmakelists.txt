@@ -1,0 +1,25 @@
+find_package(Qt6 REQUIRED COMPONENTS Widgets)
+
+set(CMAKE_AUTOMOC ON)
+set(CMAKE_AUTOUIC ON)
+set(CMAKE_AUTORCC ON)
+
+add_executable(SETTBLLEditor
+    src/main.cpp
+ "src/stbltablemodel.cpp"
+ "src/stbltablemodel.h" "src/mainwindow.h" "src/mainwindow.cpp"  "src/spatialentitymodel.cpp" "src/spatialentitymodel.h"  "src/schema.h")
+
+target_link_libraries(SETTBLLEditor
+    PRIVATE
+        Qt6::Widgets
+        libsettbll 
+)
+
+add_custom_command(TARGET SETTBLLEditor POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+    "${CMAKE_CURRENT_SOURCE_DIR}/schemas"
+    "$<TARGET_FILE_DIR:SETTBLLEditor>/schemas"
+    COMMENT "Copying schemas to build directory..."
+)
+
+install(DIRECTORY schemas DESTINATION .)

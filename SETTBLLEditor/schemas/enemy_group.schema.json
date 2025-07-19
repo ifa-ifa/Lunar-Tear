@@ -1,0 +1,26 @@
+{
+  "tableName": "enemy_group",
+  "columns": [
+    {
+      "name": "Group Id",
+      "type": "int",
+      "description": "Unique identifier for this group"
+    },
+    {
+      "name": "Field 1",
+      "type": "string",
+      "description": ""
+    },
+    {
+      "name": "Field 2",
+      "type": "string",
+      "description": ""
+    },
+    {
+      "name": "Enemy Local ID",
+      "type": "int",
+      "description": "The enemy that is spawned in this group. joins with enemy table"
+    }
+
+  ]
+}

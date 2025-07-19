@@ -1,0 +1,16 @@
+{
+  "tableName": "enemy",
+  "columns": [
+    {
+      "name": "Enemy Local Id",
+      "type": "int",
+      "description": "Unique identifier for this enemy, only within this database."
+    },
+    {
+      "name": "Enemy Name",
+      "type": "string",
+      "description": "The name of the base enemy type for this group."
+    }
+    
+  ]
+}
