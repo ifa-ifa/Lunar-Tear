@@ -28,7 +28,7 @@ Place both LunarTearLoader.dll and LunarTearLauncher.exe into the game directory
 
 ## Install Mods
 
-Install mods by dropping the folder with the files in `LunarTear/mods/`. For conflicting files, the alphabeticaly last file is loaded and a warning is logged.
+Install mods by dropping the folder with the files in `LunarTear/mods/`. For conflicting files, the alphabeticaly last file is loaded and a warning is logged. If a mod requires a plugin, you will have to enable plugins in LunarTear/LunarTear.ini
 
 
 ## Build
