@@ -20,7 +20,9 @@ add_library(LunarTearLoader SHARED
     "src/Hooks/TableHook.cpp"
     "src/Hooks/TextureHook.cpp"
     "src/Hooks/Hooks.h"
-)
+  )
+
+add_executable(LunarTearLauncher "src/Launcher.cpp")
 
 target_include_directories(LunarTearLoader PRIVATE ${PROJECT_SOURCE_DIR}/src)
 

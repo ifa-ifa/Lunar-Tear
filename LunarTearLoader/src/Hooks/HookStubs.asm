@@ -27,18 +27,15 @@ SettbllAssemblyStub:
     push r13
     push r14
     push r15
-    
 
-    sub rsp, 0x20
+    mov rbp, rsp
+    and rsp, -16 
+    sub rsp, 32
 
-    lea rcx, [rsp + 0xF8] ; filename - used previously in target function, stored on stack here       
-    ; rdx: stbl data pointer
+    lea rcx, [rbp + 0xD8] ; filename
 
-   
     call HandleSettbllHook
-
-
-    add rsp, 0x20
+    mov rsp, rbp
 
     mov rdx, rax ; move result of hook back into rdx, regardles of wherever it found a loose file
 
@@ -78,14 +75,25 @@ LubAssemblyStub:
     push r14
     push r15
 
+    mov rbp, rsp
+
+    and rsp, -16
+
+
     sub rsp, 0x30
 
-    lea rcx, [rsp + 0x300] ; filename
+    ; move args to stack and pass pointers so the handler can modify them
+    mov [rsp + 0x20], rdx ; data double pointer
+    mov [rsp + 0x28], r8 ; size pointer
 
-    mov [rsp + 0x20], rdx
-    mov [rsp + 0x28], r8
+    lea rcx, [rbp + 0x2D0] ; filename
 
+
+
+    ; Arg2 (RDX): double pointer to data
     lea rdx, [rsp + 0x20]
+
+    ; Arg3 (R8): pointer to size
     lea r8, [rsp + 0x28]
 
     call HandleLubHook
@@ -93,12 +101,12 @@ LubAssemblyStub:
 
     ; The function called immediately after trampolining takes the bytecode buffer in rdx and the buffer size in R8
 
-    mov r8, [rsp + 0x28] ; new bytecode size calculated by the hook
-    mov rdx, [rsp + 0x20] ; new bytecode pointer calculated by the hook
+    mov rdx, [rsp + 0x20] ; Load the new data pointer for the original function
+    mov r8, [rsp + 0x28]  ; Load the new size for the original function
+
     ; both r8 and rdx are intentionally modified and passed into ScriptManager_LoadAndRunBuffer
 
-    add rsp, 0x30
-
+    mov rsp, rbp
     pop r15
     pop r14
     pop r13

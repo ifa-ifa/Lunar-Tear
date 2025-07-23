@@ -22,9 +22,10 @@ Change the filepath to point to your LunarTearLoader. Place that at the end of t
 
 ## Future Improvements
 
--   DLL Injection built in
--   Custom amount of mipmaps
--   Deallocation, at least for textures
+- Plugin support
+- Cache eviction
+- hook for all tables
+- 
 
 
 ## Modding
