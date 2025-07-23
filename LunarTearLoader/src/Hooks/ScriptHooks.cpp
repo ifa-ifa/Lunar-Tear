@@ -43,7 +43,7 @@ namespace {
 }
 
 extern "C" void HandleLubHook(char* lub_filename, void** p_lub_data, int* p_lub_size) {
-    Logger::Log(Info) << "Hooked Script: " << lub_filename;
+    Logger::Log(FileInfo) << "Hooked Script: " << lub_filename;
 
     if (Settings::Instance().DumpScripts) {
         Logger::Log(Info) << "Dumping file: " << lub_filename;
