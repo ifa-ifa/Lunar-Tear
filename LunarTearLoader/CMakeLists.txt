@@ -19,10 +19,11 @@ add_library(LunarTearLoader SHARED
     "src/Common/Logger.h"
     "src/Common/Settings.h"
     "src/Formats/TextureFormats.h"
-    "src/Hooks/HookStubs.asm"
-    "src/Hooks/ScriptHook.cpp"
-    "src/Hooks/TableHook.cpp"
-    "src/Hooks/TextureHook.cpp"
+    "src/Hooks/TableStubs.asm"
+    "src/Hooks/ScriptStubs.asm"
+    "src/Hooks/ScriptHooks.cpp"
+    "src/Hooks/TableHooks.cpp"
+    "src/Hooks/TextureHooks.cpp"
     "src/Hooks/Hooks.h"
   )
 

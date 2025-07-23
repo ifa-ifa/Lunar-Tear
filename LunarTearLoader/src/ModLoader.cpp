@@ -73,7 +73,6 @@ void ScanModsAndResolveConflicts() {
         return;
     }
 
-    Logger::Log(Info) << "Scanning for mods and resolving conflicts...";
 
     std::map<std::string, std::vector<std::string>> file_to_mods_map;
     for (const auto& mod_entry : std::filesystem::directory_iterator(mods_root)) {
@@ -91,7 +90,7 @@ void ScanModsAndResolveConflicts() {
         }
     }
 
-    const std::set<std::string> relevant_extensions = { ".dds", ".lua", ".settbll" };
+    const std::set<std::string> relevant_extensions = { ".dds", ".lua", ".settbll", ".settb"};
 
     const std::lock_guard<std::mutex> lock(s_fileMapMutex);
     s_resolvedFileMap.clear();

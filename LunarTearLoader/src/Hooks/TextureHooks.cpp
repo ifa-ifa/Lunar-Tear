@@ -120,7 +120,7 @@ uint64_t TexHook_detoured(tpgxResTexture* tex, void* param_2, void* param_3) {
 }
 
 
-bool InstallTextureHook() {
+bool InstallTextureHooks() {
     if (MH_CreateHookEx(TexHook_target, &TexHook_detoured, &TexHook_original) != MH_OK) {
         Logger::Log(Error) << "Could not create texture hook";
         return false;

@@ -1,5 +1,5 @@
 #pragma once
 
-bool InstallTextureHook();
-bool InstallScriptHook();
-bool InstallTableHook();
+bool InstallTextureHooks();
+bool InstallScriptHooks();
+bool InstallTableHooks();

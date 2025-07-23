@@ -18,13 +18,13 @@ static DWORD WINAPI Initialize(LPVOID lpParameter) {
 
     switch (ret) {
         case 0:
-            Logger::Log(Info) << "Settings loaded successfully from INI file.\n";
+            Logger::Log(Info) << "Settings loaded successfully from INI file";
             break;
         case 1:
-            Logger::Log(Warning) << "WARNING: INI file exists but is corrupt. Using default settings for this session. Correct the error, or delete the ini file to regenerate a new one on restart.\n";
+            Logger::Log(Warning) << "WARNING: INI file exists but is corrupt. Using default settings for this session. Correct the error, or delete the ini file to regenerate a new one on restart";
             break;
         case 2:
-            Logger::Log(Info) << "INI file not found. A new one has been created with default settings.\n";
+            Logger::Log(Info) << "INI file not found. A new one has been created with default settings";
             break;
     }
     uintptr_t g_processBaseAddress = (uintptr_t)GetModuleHandle(NULL);
@@ -42,9 +42,9 @@ static DWORD WINAPI Initialize(LPVOID lpParameter) {
     StartCacheCleanupThread();
 
     bool hooks_ok = true;
-    hooks_ok &= InstallTextureHook();
-    hooks_ok &= InstallScriptHook();
-    hooks_ok &= InstallTableHook();
+    hooks_ok &= InstallTextureHooks();
+    hooks_ok &= InstallScriptHooks();
+    hooks_ok &= InstallTableHooks();
 
     if (!hooks_ok) {
         Logger::Log(Warning) << "Failed to initialise hooks. Mod loader may not work correctly";
