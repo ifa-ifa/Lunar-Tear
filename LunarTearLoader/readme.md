@@ -23,8 +23,7 @@ Change the filepath to point to your LunarTearLoader. Place that at the end of t
 ## Future Improvements
 
 - Plugin support
-- hook for all tables
-
+- custom mipmaps / resolution
 
 
 ## Modding
