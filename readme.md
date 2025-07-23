@@ -20,7 +20,7 @@ Filename=path\to\LunarTearLoader.dll
 
 To the end of the Special K config file (e.g dxgi.ini or d3d11.ini). Change the filepath to point to your LunarTearLoader.
 
-Install mods by dropping the folder with the files in `LunarTear/mods/`. If there is a conflict, the alphabetically first mod will be favoured and the unfavoured mods will have none of their files loaded.
+Install mods by dropping the folder with the files in `LunarTear/mods/`. For conflicting files, the alphabeticaly last file is loaded and a warning is logged.
 
 ## Build
 
@@ -34,3 +34,4 @@ If building the editor, you will need Qt 6. The recommended way is to install it
 
 "Kaine" by yretenai (https://github.com/yretenai/kaine) and binary templates by WoefulWolf (https://github.com/WoefulWolf/replicant_templates/tree/main) were very helpful when making this mod
 
+iffyfuistatement for helping me test the mod and providing test files.

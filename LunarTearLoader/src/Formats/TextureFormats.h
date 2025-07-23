@@ -1,7 +1,7 @@
 #pragma once
 #include <cstdint>
 
-
+#pragma pack(push, 1)
 
 struct BXON_Header {
 	char    magic[4];
@@ -43,7 +43,7 @@ struct tpGxTex_Header {
 
 struct mipSurface {
 	uint32_t offset;
-	uint32_t unknown_1;
+	uint32_t rowPitch;
 	uint32_t unknown_2;
 	uint32_t unknown_3;
 	uint32_t size;
@@ -65,6 +65,8 @@ struct tpgxResTexture {
 	int64_t unk3[3];
 	tpGxTex_Header* bxonAssetHeader; // always tpGxTexHead for us
 };
+
+#pragma pack(pop)
 
 inline const char* XonFormatToString(XonSurfaceDXGIFormat format) {
 	switch (format) {
@@ -113,10 +115,11 @@ struct DDS_HEADER {
 	uint32_t dwCaps4;             
 	uint32_t dwReserved2;          
 };
+#pragma pack(pop)
 
 #pragma pack(push, 1)
 struct DDS_HEADER_DXT10 {
-	uint32_t dxgiFormat;          // A DXGI_FORMAT enum value
+	uint32_t dxgiFormat;       
 	uint32_t resourceDimension;
 	uint32_t miscFlag;
 	uint32_t arraySize;
@@ -125,6 +128,11 @@ struct DDS_HEADER_DXT10 {
 #pragma pack(pop)
 
 enum DXGI_FORMAT {
+	DXGI_FORMAT_UNKNOWN = 0,
+	DXGI_FORMAT_R32G32B32A32_FLOAT = 2,
+	DXGI_FORMAT_R8G8B8A8_UNORM = 28,
+	DXGI_FORMAT_R8G8B8A8_UNORM_SRGB = 29,
+	DXGI_FORMAT_A8_UNORM = 65,
 	DXGI_FORMAT_BC1_UNORM = 71,
 	DXGI_FORMAT_BC1_UNORM_SRGB = 72,
 	DXGI_FORMAT_BC2_UNORM = 74,
@@ -136,6 +144,27 @@ enum DXGI_FORMAT {
 	DXGI_FORMAT_BC7_UNORM = 98,
 	DXGI_FORMAT_BC7_UNORM_SRGB = 99,
 };
+
+inline uint32_t XonFormatToDxgiFormat(XonSurfaceDXGIFormat xonFormat) {
+	switch (xonFormat) {
+	case R32G32B32A32_FLOAT:    return DXGI_FORMAT_R32G32B32A32_FLOAT;
+	case R8G8B8A8_UNORM_STRAIGHT: return DXGI_FORMAT_R8G8B8A8_UNORM;
+	case R8G8B8A8_UNORM:          return DXGI_FORMAT_R8G8B8A8_UNORM;
+	case R8G8B8A8_UNORM_SRGB:     return DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
+	case UNKN_A8_UNORM:           return DXGI_FORMAT_A8_UNORM;
+	case BC1_UNORM:               return DXGI_FORMAT_BC1_UNORM;
+	case BC1_UNORM_SRGB:          return DXGI_FORMAT_BC1_UNORM_SRGB;
+	case BC2_UNORM:               return DXGI_FORMAT_BC2_UNORM;
+	case BC2_UNORM_SRGB:          return DXGI_FORMAT_BC2_UNORM_SRGB;
+	case BC3_UNORM:               return DXGI_FORMAT_BC3_UNORM;
+	case BC3_UNORM_SRGB:          return DXGI_FORMAT_BC3_UNORM_SRGB;
+	case BC4_UNORM:               return DXGI_FORMAT_BC4_UNORM;
+	case BC5_UNORM:               return DXGI_FORMAT_BC5_UNORM;
+	case BC7_UNORM:               return DXGI_FORMAT_BC7_UNORM;
+	default:                      return DXGI_FORMAT_UNKNOWN;
+	}
+}
+
 
 inline XonSurfaceDXGIFormat DXGIFormatToXonFormat(uint32_t dxgiFormat) {
 	switch (dxgiFormat) {

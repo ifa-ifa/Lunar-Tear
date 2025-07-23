@@ -43,5 +43,7 @@ namespace Logger
 
     void Init();
 
-    [[nodiscard]] LogStream Log(LogCategory category);
+    bool IsActive(LogCategory category);
+
+    LogStream Log(LogCategory category);
 }

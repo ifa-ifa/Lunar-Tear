@@ -25,5 +25,8 @@ if(BUILD_SETTBLLEDITOR)
 endif()
 
 if(BUILD_LunarTearLoader)
+    if(NOT TARGET libsettbll)
+        message(FATAL_ERROR "BUILD_LunarTearLoader is ON but its dependency BUILD_LIBSETTBLL is OFF.")
+    endif()
     add_subdirectory(LunarTearLoader)
 endif()

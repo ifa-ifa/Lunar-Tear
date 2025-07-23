@@ -1,6 +1,7 @@
 {
   "dependencies": [
-    "minhook"
+    "minhook",
+    "inih"
   ],
   "builtin-baseline": "984f9232b2fe0eb94f5e9f161d6c632c581fff0c"
 }

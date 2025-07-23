@@ -28,6 +28,7 @@ SettbllAssemblyStub:
     push r14
     push r15
     
+
     sub rsp, 0x20
 
     lea rcx, [rsp + 0xF8] ; filename - used previously in target function, stored on stack here       
@@ -35,8 +36,6 @@ SettbllAssemblyStub:
 
    
     call HandleSettbllHook
-
-
 
 
     add rsp, 0x20

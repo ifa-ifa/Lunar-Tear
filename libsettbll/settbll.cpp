@@ -154,6 +154,7 @@ bool StblFile::saveToFile(const std::string& filepath) {
     std::ofstream file(filepath, std::ios::binary);
     if (!file) { return false; }
 
+    // Using a single string pool for the whole file in theory shouldn't be problematic, but i have no idea why the original game ones didnt do this
     std::set<std::string> string_set;
     for (const auto& table : m_tables) {
         for (const auto& row : table.m_rows) {
@@ -266,6 +267,54 @@ bool StblFile::saveToFile(const std::string& filepath) {
     file.write(buffer.data(), buffer.size());
     return true;
 }
+
+size_t StblFile::InferSize(const char* buffer) {
+    if (!buffer) {
+        return 0;
+    }
+
+    const auto* header = reinterpret_cast<const STBL_FileHeader*>(buffer);
+    if (strncmp(header->magic_bytes, "STBL", 4) != 0) {
+        return 0; 
+    }
+
+
+    size_t max_extent = sizeof(STBL_FileHeader);
+
+    if (header->spatialEntityCount > 0) {
+        max_extent = std::max(max_extent, (size_t)header->header_size + (header->spatialEntityCount * sizeof(STBL_SpatialEntity)));
+    }
+
+    if (header->table_count > 0) {
+        max_extent = std::max(max_extent, (size_t)header->table_descriptor_offset + (header->table_count * sizeof(STBL_TableDescriptor)));
+    }
+
+    const auto* descriptors = reinterpret_cast<const STBL_TableDescriptor*>(buffer + header->table_descriptor_offset);
+    for (int32_t i = 0; i < header->table_count; ++i) {
+        const auto& desc = descriptors[i];
+
+        size_t table_data_end = desc.dataOffset + (desc.rowCount * desc.rowSizeInFields * sizeof(STBL_Field));
+        max_extent = std::max(max_extent, table_data_end);
+
+        const auto* fields_base = reinterpret_cast<const STBL_Field*>(buffer + desc.dataOffset);
+        for (int32_t r = 0; r < desc.rowCount; ++r) {
+            for (int32_t f = 0; f < desc.rowSizeInFields; ++f) {
+                const auto& field = fields_base[r * desc.rowSizeInFields + f];
+
+                if (static_cast<StblFieldType>(field.field_type) == StblFieldType::STRING) {
+                    int32_t offset = field.data.offset_to_string;
+                    if (offset > 0) {
+                        size_t string_end = offset + strlen(buffer + offset) + 1;
+                        max_extent = std::max(max_extent, string_end);
+                    }
+                }
+            }
+        }
+    }
+
+    return max_extent;
+}
+
 
 static_assert(sizeof(STBL_FileHeader) == 80, "STBL_FileHeader size mismatch");
 static_assert(sizeof(STBL_SpatialEntity) == 96, "STBL_SpatialEntity size mismatch");
