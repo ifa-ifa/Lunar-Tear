@@ -1,12 +1,14 @@
-# Lunar Tear
+ # Lunar Tear
 
-Loose File loader for Nier Replicant. Can load textures, lua scripts, and game tables. 
+Loose File loader for Nier Replicant. Can load textures, lua scripts, game tables and plugins.
 
 This repository also includes some mod development tools, documentation for the games internal types and functionality, and some misc scripts.
 
 For modding instructions see `modderinstructions.md`
 
-## Install and use
+## Install
+
+#### With SpecialK 
 
 Place LunarTearLoader.dll in the game directory. You can use SpecialK to automatically load the dll by adding:
 
@@ -15,12 +17,19 @@ Place LunarTearLoader.dll in the game directory. You can use SpecialK to automat
 Architecture=x64
 Role=ThirdParty
 When=PlugIn
-Filename=path\to\LunarTearLoader.dll
+Filename=LunarTearLoader.dll 
 ```	
 
-To the end of the Special K config file (e.g dxgi.ini or d3d11.ini). Change the filepath to point to your LunarTearLoader.
+To the end of the Special K config file (e.g dxgi.ini or d3d11.ini). Change the filepath to point to your LunarTearLoader if you havnt put it in the same directory.
+
+#### Without Special K
+
+Place both LunarTearLoader.dll and LunarTearLauncher.exe into the game directory. Load with that exe whenever you want the loader to activate.
+
+## Install Mods
 
 Install mods by dropping the folder with the files in `LunarTear/mods/`. For conflicting files, the alphabeticaly last file is loaded and a warning is logged.
+
 
 ## Build
 
@@ -28,7 +37,7 @@ Set the flags in the main cmakelists.txt to determine which subprojects you want
 
 If building the loader you will need to install vcpkg and set the vcpkg root environment variable.
 
-If building the editor, you will need Qt 6. The recommended way is to install it yourself and then add its path to CMakePresets.json in the cacheVariables dictionary, like this: "CMAKE_PREFIX_PATH": "C:/path/to/Qt/6.x.x/msvcxxxx_64". Alternatively, you can have vcpkg manage Qt by adding "qt6-base" to the dependencies in vcpkg.json. Be aware that this will download and build Qt from source, which can take a very long time.
+If building the editor, you will need Qt 6. I reccomend you install it yourself and then add its path to CMakePresets.json in the cacheVariables dictionary like this: "CMAKE_PREFIX_PATH": "C:/path/to/Qt/6.x.x/msvcxxxx_64". Alternatively, you can have vcpkg manage it by adding "qt6-base" to the dependencies in vcpkg.json. This will download and build Qt from source, which can take a very long time and a lot of storage.
 
 ## Credits
 
