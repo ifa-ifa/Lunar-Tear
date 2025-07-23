@@ -19,6 +19,7 @@
         "lhs": "${hostSystemName}",
         "rhs": "Windows"
       }
+
     },
     {
       "name": "x64-debug",
