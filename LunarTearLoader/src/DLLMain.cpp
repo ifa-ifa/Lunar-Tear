@@ -39,6 +39,7 @@ static DWORD WINAPI Initialize(LPVOID lpParameter) {
     }
 
     ScanModsAndResolveConflicts();
+    StartCacheCleanupThread();
 
     bool hooks_ok = true;
     hooks_ok &= InstallTextureHook();
@@ -67,6 +68,7 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
         if (hThread) CloseHandle(hThread);
     }
     else if (ul_reason_for_call == DLL_PROCESS_DETACH) {
+        StopCacheCleanupThread();
         MH_Uninitialize();
     }
     return TRUE;

@@ -1,16 +1,70 @@
 #include "ModLoader.h"
 #include "Common/Logger.h"
+#include "Common/Settings.h"
 #include <set>
 #include <vector>
 #include <algorithm>
 #include <sstream>
+#include <chrono>
+#include <thread>
+#include <atomic>
+#include <iterator>
 
 using enum Logger::LogCategory;
 
-static std::map<std::string, std::string> s_resolvedFileMap;
-static std::mutex s_fileMapMutex;
-static std::map<std::string, std::vector<char>> s_fileCache;
-static std::mutex s_cacheMutex;
+namespace {
+    struct CachedFile {
+        std::vector<char> data;
+        std::chrono::steady_clock::time_point lastAccessTime;
+    };
+
+    static std::map<std::string, std::string> s_resolvedFileMap;
+    static std::mutex s_fileMapMutex;
+    static std::map<std::string, CachedFile> s_fileCache;
+    static std::mutex s_cacheMutex;
+
+    static std::thread s_cleanupThread;
+    static std::atomic<bool> s_stopCleanup(false);
+
+    void CacheCleanupRoutine() {
+        Logger::Log(Info) << "Texture cache cleanup thread started.";
+        while (!s_stopCleanup) {
+            std::this_thread::sleep_for(std::chrono::seconds(3));
+
+            const auto now = std::chrono::steady_clock::now();
+            const auto unload_delay = std::chrono::seconds(Settings::Instance().TextureUnloadDelaySeconds);
+
+            std::lock_guard<std::mutex> lock(s_cacheMutex);
+
+            float size = 0;
+
+            for (auto it = s_fileCache.begin(); it != s_fileCache.end();) {
+
+                size += it->second.data.size();
+
+                // Only evict textures
+                std::filesystem::path p(it->first);
+                if (p.extension() == ".dds") {
+                    auto elapsed = now - it->second.lastAccessTime;
+                    if (elapsed > unload_delay) {
+                        Logger::Log(Verbose) << "Unloading texture from cache: " << it->first;
+                        it = s_fileCache.erase(it);
+                    }
+                    else {
+                        ++it;
+                    }
+                }
+                else {
+                    ++it;
+                }
+            }
+
+            Logger::Log(Verbose) << "Cache usage: " << size / 1e6 << "MB";
+        }
+        Logger::Log(Info) << "Texture cache cleanup thread stopped.";
+    }
+}
+
 
 void ScanModsAndResolveConflicts() {
     const std::string mods_root = "LunarTear/mods/";
@@ -96,11 +150,16 @@ void* LoadLooseFile(const char* filename, size_t& out_size) {
 
     const std::lock_guard<std::mutex> lock(s_cacheMutex);
 
-    if (s_fileCache.count(full_path)) {
-        out_size = s_fileCache[full_path].size();
-        return s_fileCache[full_path].data();
+    // Use find to avoid double lookup (count + at)
+    auto cache_it = s_fileCache.find(full_path);
+    if (cache_it != s_fileCache.end()) {
+        auto& cachedEntry = cache_it->second;
+        cachedEntry.lastAccessTime = std::chrono::steady_clock::now();
+        out_size = cachedEntry.data.size();
+        return cachedEntry.data.data();
     }
 
+    // File not in cache, load it.
     std::ifstream file(full_path, std::ios::binary);
     if (!file.is_open()) {
         Logger::Log(Error) << "Error: Could not open resolved file: " << full_path;
@@ -108,10 +167,33 @@ void* LoadLooseFile(const char* filename, size_t& out_size) {
         return nullptr;
     }
 
-    s_fileCache[full_path] = std::vector<char>(
-        std::istreambuf_iterator<char>(file),
-        std::istreambuf_iterator<char>()
-    );
-    out_size = s_fileCache[full_path].size();
-    return s_fileCache[full_path].data();
+    // Construct the CachedFile object with the file data and current time
+    CachedFile newFile{
+        std::vector<char>(
+            std::istreambuf_iterator<char>(file),
+            std::istreambuf_iterator<char>()
+        ),
+        std::chrono::steady_clock::now()
+    };
+
+    // Use emplace to insert the new entry and get an iterator to it.
+    auto [inserted_it, success] = s_fileCache.emplace(std::move(full_path), std::move(newFile));
+
+    auto& newEntry = inserted_it->second;
+    out_size = newEntry.data.size();
+    return newEntry.data.data();
+}
+
+void StartCacheCleanupThread() {
+    if (Settings::Instance().TextureUnloading) {
+        s_stopCleanup = false;
+        s_cleanupThread = std::thread(CacheCleanupRoutine);
+    }
+}
+
+void StopCacheCleanupThread() {
+    if (s_cleanupThread.joinable()) {
+        s_stopCleanup = true;
+        s_cleanupThread.join();
+    }
 }

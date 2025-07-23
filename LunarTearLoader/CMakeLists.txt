@@ -1,4 +1,8 @@
-﻿project ("LunarTearLoader" LANGUAGES C CXX ASM_NASM)
+﻿set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+
+project ("LunarTearLoader" LANGUAGES C CXX ASM_NASM)
 
 find_package(minhook REQUIRED CONFIG)
 find_package(unofficial-inih REQUIRED CONFIG)

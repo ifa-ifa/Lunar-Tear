@@ -24,7 +24,7 @@ namespace {
 }
 
 extern "C" void* HandleSettbllHook(char* stbl_filename, void* STBL_data) {
-    Logger::Log(Info) << "Table hook triggered for file: " << stbl_filename;
+    Logger::Log(FileInfo) << "Hooked Table: " << stbl_filename;
 
     if (Settings::Instance().DumpTables) {
         dumpTable(std::string(stbl_filename), (char*)STBL_data);

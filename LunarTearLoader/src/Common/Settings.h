@@ -89,7 +89,8 @@ public:
     bool DumpScripts;
     bool DumpTables;
 
-
+    bool TextureUnloading;
+    int TextureUnloadDelaySeconds;
 
     static Settings& Instance() {
         static std::unique_ptr<Settings> instance = [] {
@@ -114,6 +115,9 @@ public:
         registerSetting("DumpTextures", false, &Settings::DumpTextures, "");
         registerSetting("DumpScripts", false, &Settings::DumpScripts, "");
         registerSetting("DumpTables", false, &Settings::DumpTables, "");
+
+        registerSetting("TextureUnloading", false, &Settings::TextureUnloading, "EXPERIMENTAL - Reduce memory usage when using lots of mods, may cause crashes");
+        registerSetting("TextureUnloadDelaySeconds", 3, &Settings::TextureUnloadDelaySeconds, "");
    
 
 
