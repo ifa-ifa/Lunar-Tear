@@ -149,7 +149,6 @@ void* LoadLooseFile(const char* filename, size_t& out_size) {
 
     const std::lock_guard<std::mutex> lock(s_cacheMutex);
 
-    // Use find to avoid double lookup (count + at)
     auto cache_it = s_fileCache.find(full_path);
     if (cache_it != s_fileCache.end()) {
         auto& cachedEntry = cache_it->second;
@@ -166,7 +165,6 @@ void* LoadLooseFile(const char* filename, size_t& out_size) {
         return nullptr;
     }
 
-    // Construct the CachedFile object with the file data and current time
     CachedFile newFile{
         std::vector<char>(
             std::istreambuf_iterator<char>(file),
@@ -175,7 +173,6 @@ void* LoadLooseFile(const char* filename, size_t& out_size) {
         std::chrono::steady_clock::now()
     };
 
-    // Use emplace to insert the new entry and get an iterator to it.
     auto [inserted_it, success] = s_fileCache.emplace(std::move(full_path), std::move(newFile));
 
     auto& newEntry = inserted_it->second;
@@ -195,4 +192,39 @@ void StopCacheCleanupThread() {
         s_stopCleanup = true;
         s_cleanupThread.join();
     }
+}
+
+void LoadPlugins() {
+    const std::string mods_root = "LunarTear/mods/";
+    if (!std::filesystem::exists(mods_root) || !std::filesystem::is_directory(mods_root)) {
+        return; // main scan function already logs this, so can be silent
+    }
+
+    Logger::Log(Info) << "Scanning for plugins...";
+
+    for (const auto& mod_entry : std::filesystem::directory_iterator(mods_root)) {
+        if (!mod_entry.is_directory()) continue;
+
+        for (const auto& file_entry : std::filesystem::recursive_directory_iterator(mod_entry.path())) {
+            if (file_entry.is_regular_file() && file_entry.path().extension() == ".dll") {
+                std::string plugin_path_str = file_entry.path().string();
+                Logger::Log(Info) << "Attempting to load plugin: " << plugin_path_str;
+
+                if (LoadLibraryA(plugin_path_str.c_str())) {
+                    Logger::Log(Info) << "Successfully loaded plugin: " << plugin_path_str;
+                }
+                else {
+                    DWORD error = GetLastError();
+                    LPSTR messageBuffer = nullptr;
+                    size_t size = FormatMessageA(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+                        NULL, error, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPSTR)&messageBuffer, 0, NULL);
+                    std::string message(messageBuffer, size);
+                    LocalFree(messageBuffer);
+
+                    Logger::Log(Error) << "Failed to load plugin '" << plugin_path_str << "'. Error " << error << ": " << message;
+                }
+            }
+        }
+    }
+    Logger::Log(Info) << "Plugin scan complete.";
 }

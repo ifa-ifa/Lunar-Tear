@@ -85,12 +85,15 @@ public:
     bool LogToConsole;
     bool LogToFile;
 
+    bool EnablePlugins;
+
     bool DumpTextures;
     bool DumpScripts;
     bool DumpTables;
 
     bool TextureUnloading;
     int TextureUnloadDelaySeconds;
+
 
     static Settings& Instance() {
         static std::unique_ptr<Settings> instance = [] {
@@ -102,7 +105,6 @@ public:
 
     Settings() {
 
-
         registerSetting("LogInfo", true, &Settings::LogInfo, "");
         registerSetting("LogVerbose", false, &Settings::LogVerbose, "");
         registerSetting("LogWarning", true, &Settings::LogWarning, "");
@@ -111,6 +113,8 @@ public:
 
         registerSetting("LogToConsole", false, &Settings::LogToConsole, "");
         registerSetting("LogToFile", true, &Settings::LogToFile, "");
+
+        registerSetting("EnablePlugins", false, &Settings::EnablePlugins, "Allows mods to execute code. Please make sure you trust all mods you install before enabling this");
 
         registerSetting("DumpTextures", false, &Settings::DumpTextures, "");
         registerSetting("DumpScripts", false, &Settings::DumpScripts, "");

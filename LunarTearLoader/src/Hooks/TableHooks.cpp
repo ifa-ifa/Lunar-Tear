@@ -44,7 +44,7 @@ extern "C" void* HandleSettbllHook(char* stbl_filename, void* STBL_data) {
     size_t file_size = 0;
     void* loose_stbl_data = LoadLooseFile(stbl_filename, file_size);
     if (loose_stbl_data) {
-        Logger::Log(Info) << " Found loose table file: " << stbl_filename;
+        Logger::Log(Info) << "Found loose table file: " << stbl_filename;
         return loose_stbl_data;
     }
     return STBL_data;

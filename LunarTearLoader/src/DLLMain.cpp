@@ -41,6 +41,10 @@ static DWORD WINAPI Initialize(LPVOID lpParameter) {
     ScanModsAndResolveConflicts();
     StartCacheCleanupThread();
 
+    if (Settings::Instance().EnablePlugins) {
+        LoadPlugins();
+    }
+
     bool hooks_ok = true;
     hooks_ok &= InstallTextureHooks();
     hooks_ok &= InstallScriptHooks();

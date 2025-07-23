@@ -84,11 +84,11 @@ bool InstallScriptHooks() {
         return false;
     }
     if (MH_CreateHook(GameScriptTarget, &GameScriptStub, &GameScriptTrampoline) != MH_OK) {
-        Logger::Log(Error) << "Could not create lib script hook";
+        Logger::Log(Error) << "Could not create game script hook";
         return false;
     }  
     if (MH_CreateHook(RootScriptTarget, &RootScriptStub, &RootScriptTrampoline) != MH_OK) {
-        Logger::Log(Error) << "Could not create lib script hook";
+        Logger::Log(Error) << "Could not create root script hook";
         return false;
     }
 
