@@ -268,8 +268,8 @@ bool StblFile::saveToFile(const std::string& filepath) {
     return true;
 }
 
-size_t StblFile::InferSize(const char* buffer) {
-    if (!buffer) {
+size_t StblFile::InferSize(const char* buffer, size_t size) {
+    if (!buffer || size < sizeof(STBL_FileHeader)) {
         return 0;
     }
 
@@ -278,22 +278,40 @@ size_t StblFile::InferSize(const char* buffer) {
         return 0; 
     }
 
-
     size_t max_extent = sizeof(STBL_FileHeader);
 
     if (header->spatialEntityCount > 0) {
-        max_extent = std::max(max_extent, (size_t)header->header_size + (header->spatialEntityCount * sizeof(STBL_SpatialEntity)));
+        if (header->header_size > size) return 0;
+
+        size_t spatial_block_end = (size_t)header->header_size + (header->spatialEntityCount * sizeof(STBL_SpatialEntity));
+        if (spatial_block_end > size) {
+            return 0; 
+        }
+        max_extent = std::max(max_extent, spatial_block_end);
     }
 
     if (header->table_count > 0) {
-        max_extent = std::max(max_extent, (size_t)header->table_descriptor_offset + (header->table_count * sizeof(STBL_TableDescriptor)));
+        if (header->table_descriptor_offset > size) return 0;
+
+        size_t descriptor_block_end = (size_t)header->table_descriptor_offset + (header->table_count * sizeof(STBL_TableDescriptor));
+        if (descriptor_block_end > size) {
+            return 0;
+        }
+        max_extent = std::max(max_extent, descriptor_block_end);
+    }
+    else {
+        return max_extent;
     }
 
     const auto* descriptors = reinterpret_cast<const STBL_TableDescriptor*>(buffer + header->table_descriptor_offset);
     for (int32_t i = 0; i < header->table_count; ++i) {
         const auto& desc = descriptors[i];
 
+        if (desc.dataOffset > size) return 0;
         size_t table_data_end = desc.dataOffset + (desc.rowCount * desc.rowSizeInFields * sizeof(STBL_Field));
+        if (table_data_end > size) {
+            return 0; 
+        }
         max_extent = std::max(max_extent, table_data_end);
 
         const auto* fields_base = reinterpret_cast<const STBL_Field*>(buffer + desc.dataOffset);
@@ -303,9 +321,20 @@ size_t StblFile::InferSize(const char* buffer) {
 
                 if (static_cast<StblFieldType>(field.field_type) == StblFieldType::STRING) {
                     int32_t offset = field.data.offset_to_string;
-                    if (offset > 0) {
-                        size_t string_end = offset + strlen(buffer + offset) + 1;
+
+                    if (offset > 0 && (size_t)offset < size) {
+                        size_t max_possible_len = size - offset;
+                        size_t actual_len = strnlen(buffer + offset, max_possible_len);
+
+                        if (actual_len == max_possible_len) {
+                            return 0; 
+                        }
+
+                        size_t string_end = offset + actual_len + 1;
                         max_extent = std::max(max_extent, string_end);
+                    }
+                    else if (offset != 0) {
+                        return 0; 
                     }
                 }
             }

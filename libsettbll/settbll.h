@@ -111,7 +111,7 @@ private:
 class StblFile {
 public:
 
-    static size_t InferSize(const char* buffer);
+    static size_t InferSize(const char* buffer, size_t size);
 
     bool loadFromFile(const std::string& filepath);
     bool loadFromMemory(const char* buffer, size_t size);
