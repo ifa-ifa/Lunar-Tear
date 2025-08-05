@@ -159,8 +159,8 @@ void dumpTexture(const tpgxResTexture* tex) {
 }
 
 
-void dumpTable(const std::string& name, const char* data) {
-    size_t inferred_size = StblFile::InferSize(data);
+void dumpTable(const std::string& name, const char* data, size_t size) {
+    size_t inferred_size = StblFile::InferSize(data, size);
 
     if (inferred_size == 0) {
         Logger::Log(Error) << "Failed to infer size for table dump: " << name;
