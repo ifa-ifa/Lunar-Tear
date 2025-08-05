@@ -216,8 +216,8 @@ bool StblFile::saveToFile(const std::string& filepath) {
 
     auto* raw_descriptors = reinterpret_cast<STBL_TableDescriptor*>(buffer.data() + table_descriptors_offset);
     for (size_t i = 0; i < m_tables.size(); ++i) {
-        strncpy(raw_descriptors[i].tableName, m_tables[i].getName().c_str(), 31);
-        raw_descriptors[i].tableName[31] = '\0';
+        strncpy_s(raw_descriptors[i].tableName, sizeof(raw_descriptors[i].tableName), m_tables[i].getName().c_str(), _TRUNCATE);
+
         raw_descriptors[i].rowCount = m_tables[i].getRowCount();
         raw_descriptors[i].rowSizeInFields = m_tables[i].getFieldCount();
         raw_descriptors[i].dataOffset = table_data_offsets[i];
