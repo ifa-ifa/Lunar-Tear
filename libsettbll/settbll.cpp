@@ -269,8 +269,8 @@ bool StblFile::saveToFile(const std::string& filepath) {
     return true;
 }
 
-size_t StblFile::InferSize(const char* buffer, size_t size) {
-    if (!buffer || size < sizeof(STBL_FileHeader)) {
+size_t StblFile::InferSize(const char* buffer, size_t maxSize) {
+    if (!buffer || maxSize < sizeof(STBL_FileHeader)) {
         return 0;
     }
 
@@ -282,20 +282,20 @@ size_t StblFile::InferSize(const char* buffer, size_t size) {
     size_t max_extent = sizeof(STBL_FileHeader);
 
     if (header->spatialEntityCount > 0) {
-        if (header->header_size > size) return 0;
+        if (header->header_size > maxSize) return 0;
 
         size_t spatial_block_end = (size_t)header->header_size + (header->spatialEntityCount * sizeof(STBL_SpatialEntity));
-        if (spatial_block_end > size) {
+        if (spatial_block_end > maxSize) {
             return 0; 
         }
         max_extent = std::max(max_extent, spatial_block_end);
     }
 
     if (header->table_count > 0) {
-        if (header->table_descriptor_offset > size) return 0;
+        if (header->table_descriptor_offset > maxSize) return 0;
 
         size_t descriptor_block_end = (size_t)header->table_descriptor_offset + (header->table_count * sizeof(STBL_TableDescriptor));
-        if (descriptor_block_end > size) {
+        if (descriptor_block_end > maxSize) {
             return 0;
         }
         max_extent = std::max(max_extent, descriptor_block_end);
@@ -308,9 +308,9 @@ size_t StblFile::InferSize(const char* buffer, size_t size) {
     for (int32_t i = 0; i < header->table_count; ++i) {
         const auto& desc = descriptors[i];
 
-        if (desc.dataOffset > size) return 0;
+        if (desc.dataOffset > maxSize) return 0;
         size_t table_data_end = desc.dataOffset + (desc.rowCount * desc.rowSizeInFields * sizeof(STBL_Field));
-        if (table_data_end > size) {
+        if (table_data_end > maxSize) {
             return 0; 
         }
         max_extent = std::max(max_extent, table_data_end);
@@ -323,8 +323,8 @@ size_t StblFile::InferSize(const char* buffer, size_t size) {
                 if (static_cast<StblFieldType>(field.field_type) == StblFieldType::STRING) {
                     int32_t offset = field.data.offset_to_string;
 
-                    if (offset > 0 && (size_t)offset < size) {
-                        size_t max_possible_len = size - offset;
+                    if (offset > 0 && (size_t)offset < maxSize) {
+                        size_t max_possible_len = maxSize - offset;
                         size_t actual_len = strnlen(buffer + offset, max_possible_len);
 
                         if (actual_len == max_possible_len) {
