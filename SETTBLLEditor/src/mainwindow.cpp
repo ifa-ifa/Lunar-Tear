@@ -183,6 +183,11 @@ void MainWindow::openFile()
     QString filePath = QFileDialog::getOpenFileName(this, tr("Open STBL File"), "", tr("STBL Files (*.settbll *.stbl);;All Files (*)"));
     if (filePath.isEmpty()) { return; }
 
+    m_tableModel->setTable(nullptr, std::nullopt);
+    m_spatialEntityModel->setEntities(nullptr);
+    m_tableView->setModel(nullptr); 
+
+
     m_stblFile = std::make_shared<StblFile>();
     if (m_stblFile->loadFromFile(filePath.toStdString())) {
         m_currentFilePath = filePath;
