@@ -205,8 +205,9 @@ bool StblFile::saveToFile(const std::string& filepath) {
     for (size_t i = 0; i < m_spatial_entities.size(); ++i) {
         raw_entities[i].position = m_spatial_entities[i].position;
         raw_entities[i].volume_data = m_spatial_entities[i].volume_data;
-        strncpy(raw_entities[i].name, m_spatial_entities[i].name.c_str(), 31);
-        raw_entities[i].name[31] = '\0';
+
+        strncpy_s(raw_entities[i].name, sizeof(raw_entities[i].name), m_spatial_entities[i].name.c_str(), _TRUNCATE);
+
         std::copy(std::begin(m_spatial_entities[i].unknown_params), std::end(m_spatial_entities[i].unknown_params), std::begin(raw_entities[i].unknown_params));
         if (m_spatial_entities[i].padding.size() == 16) {
             memcpy(raw_entities[i].padding, m_spatial_entities[i].padding.data(), 16);
