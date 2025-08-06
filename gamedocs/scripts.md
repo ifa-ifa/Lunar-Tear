@@ -1,3 +1,7 @@
+The game has a script for every phase (map) plus 3 more: \_\_root__ \_\_libnier__ and \_\_game__. There is a PhaseScriptManager which loads the phase scripts and  \_\_libnier__, a GameScriptManager and a RootScriptManager. These all contain a ScriptManager.
+
+
+
 The game has a single PhaseScriptManager at +48923c0. This contains a ScriptManager, which containts a pointer to one (or more?) LuaState objects. Creating our own state doesn't seem to be easy to due to global state / memory managment issues. Its better to just use an existing state and make sure you clean the stack.
 
 The games binding table can be found at +b9f6e0.

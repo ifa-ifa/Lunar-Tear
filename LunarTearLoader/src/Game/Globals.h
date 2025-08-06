@@ -1,0 +1,14 @@
+#pragma once
+#include <Game/Types.h>
+
+
+extern uintptr_t g_processBaseAddress;
+extern PhaseScriptManager* phaseScriptManager; // __libnier__ script is also handled by the phaseScriptManager
+extern RootScriptManager* rootScriptManager;
+extern GameScriptManager* gameScriptManager;
+extern EndingsData* endingsData;
+extern void* localeData;
+
+extern PlayerSaveData* playerSaveData;
+
+void InitialiseGlobals();

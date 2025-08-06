@@ -7,10 +7,7 @@
 #include <fstream>
 #include <type_traits>
 
-
-
 struct Settings;
-
 
     class ISetting {
     public:
@@ -70,18 +67,16 @@ struct Settings;
         std::string m_comment;
     };
 
-
-
 class Settings {
 public:
-
 
     bool LogInfo;
     bool LogVerbose;
     bool LogWarning;
     bool LogError;
     bool LogOriginalFileInfo;
-    
+    bool LogLua;
+
     bool LogToConsole;
     bool LogToFile;
 
@@ -93,7 +88,6 @@ public:
 
     bool TextureUnloading;
     int TextureUnloadDelaySeconds;
-
 
     static Settings& Instance() {
         static std::unique_ptr<Settings> instance = [] {
@@ -110,6 +104,7 @@ public:
         registerSetting("LogWarning", true, &Settings::LogWarning, "");
         registerSetting("LogError", true, &Settings::LogError, "");
         registerSetting("LogOriginalFileInfo", false, &Settings::LogOriginalFileInfo, "");
+        registerSetting("LogLua", false, &Settings::LogLua, "");
 
         registerSetting("LogToConsole", false, &Settings::LogToConsole, "");
         registerSetting("LogToFile", true, &Settings::LogToFile, "");
@@ -123,9 +118,6 @@ public:
         registerSetting("TextureUnloading", false, &Settings::TextureUnloading, "EXPERIMENTAL - Reduce memory usage when using lots of mods, may cause crashes");
         registerSetting("TextureUnloadDelaySeconds", 3, &Settings::TextureUnloadDelaySeconds, "");
    
-
-
-
     }
 
     // Returns: 0 = success, 1 = used defaults (corrupt file), 2 = used defaults (created new file)

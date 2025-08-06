@@ -1,6 +1,6 @@
 #pragma once
 #include<vector>
-#include "Formats/TextureFormats.h"
+#include "Game/TextureFormats.h"
 #include<string>
 
 

@@ -12,12 +12,13 @@ GLOBAL LibScriptStub
 GLOBAL GameScriptStub
 GLOBAL RootScriptStub
 
+
+
 SECTION .data
 
     libScriptName db "__libnier__.lub", 0  
     gameScriptName db "__game__.lub", 0
     rootScriptName db "__root__.lub", 0
-
 
 SECTION .text
 
@@ -41,6 +42,8 @@ PhaseScriptStub:
     mov rbp, rsp
     and rsp, -16
     sub rsp, 0x30
+
+    mov r9, rcx ; scriptman
 
     lea rcx, [rbp + 0x2D0] ; filename
     mov [rsp + 0x20], rdx ; data  pointer
@@ -230,3 +233,5 @@ RootScriptStub:
     popfq
 
     jmp [rel RootScriptTrampoline]
+
+

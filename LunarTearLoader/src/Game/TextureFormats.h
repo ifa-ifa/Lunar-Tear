@@ -33,49 +33,18 @@ struct tpGxTex_Header {
 	uint32_t texWidth;
 	uint32_t texHeight;
 	uint32_t surfaces;
-	uint32_t unknownInt0;
+	uint32_t mipmapLevels;      // Number of mipmap levels PER surface/face.
+								// For a texture with no mips, this is 1.
+								// For a full mip chain, this is log2(max(width, height)) + 1.
 	uint32_t texSize;
-	uint32_t unknownInt1;
+	uint32_t unknownInt1;                     // constant: 2147483648
 	XonSurfaceDXGIFormat XonSurfaceFormat;
-	uint32_t numMipSurfaces;
-	uint32_t offsetToMipSurfaces; // offset from this member
+	uint32_t numMipSurfaces;                  // The total number of mipmap surfaces in the file.
+									          // For a standard 2D texture, this equals mipmapLevels.
+						  	           	      // For a cubemap, this is (mipmapLevels * 6).
+	uint32_t offsetToMipSurfaces;        // offset from this member
 };
 
-struct mipSurface {
-	uint32_t offset;
-	uint32_t rowPitch;
-	uint32_t unknown_2;
-	uint32_t unknown_3;
-	uint32_t size;
-	uint32_t unknown_5;
-	uint32_t width;
-	uint32_t height;
-	uint32_t unknown_8;
-	uint32_t unknown_9;
-};
-
-
-/*
-
-struct tpGxTex_Header {
-	uint32_t texWidth;
-	uint32_t texHeight;
-	uint32_t surfaces;
-	uint32_t mipmapLevels;          // (unknownInt0) Number of mipmap levels PER surface/face.
-									// For a texture with no mips, this is 1.
-									// For a full mip chain, this is log2(max(width, height)) + 1.
-
-	uint32_t texSize;              // in bytes
-	uint32_t unknownInt1;           // constant: 2147483648
-
-	XonSurfaceDXGIFormat XonSurfaceFormat;
-
-	uint32_t numMipSurfaces;        // The total number of mipmap surfaces in the file.
-									// For a standard 2D texture, this equals mipmapLevels.
-									// For a cubemap, this is (mipmapLevels * 6).
-
-	uint32_t offsetToMipSurfaces; // offset from this member
-};
 
 struct mipSurface {
 	uint32_t offset;
@@ -90,7 +59,7 @@ struct mipSurface {
 	uint32_t rowCount; //  in pixels (uncompressed) or blocks (compressed)
 };
 
-*/
+
 
 struct tpgxResTexture {
 	int64_t unk0[8];

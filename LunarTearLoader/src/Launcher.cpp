@@ -1,11 +1,8 @@
 #include<Windows.h>
 #include<string>
 
-
-
 LPCWSTR app_path = L"NieR Replicant ver.1.22474487139.exe";
 LPCWSTR dll_path = L"LunarTearLoader.dll";
-
 
 std::string GetLastErrorAsString()
 {

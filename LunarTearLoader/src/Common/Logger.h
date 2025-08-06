@@ -16,13 +16,14 @@ namespace Logger
         Verbose,     
         Warning,     
         Error,       
-        FileInfo     
+        FileInfo,
+        Lua
     };
 
     class LogStream
     {
     public:
-        LogStream(LogCategory category, bool active);
+        LogStream(LogCategory category, bool active, std::string pluginName = "");
         ~LogStream();
 
         template <typename T>
@@ -35,15 +36,16 @@ namespace Logger
         }
 
     private:
-        friend LogStream Log(LogCategory category); 
+        friend LogStream Log(LogCategory category, const std::string& pluginName);
         std::stringstream m_buffer;
         LogCategory m_category;
         bool m_is_active;
+        std::string m_pluginName;
     };
 
     void Init();
 
     bool IsActive(LogCategory category);
 
-    LogStream Log(LogCategory category);
+    LogStream Log(LogCategory category, const std::string& pluginName = "");
 }

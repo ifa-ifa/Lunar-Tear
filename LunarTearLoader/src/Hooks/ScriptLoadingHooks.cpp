@@ -3,7 +3,9 @@
 #include "ModLoader.h"
 #include "Common/Settings.h"
 #include "Common/Logger.h"
+#include "Game/Functions.h"
 #include "Common/Dump.h"
+#include "Lua/LuaCommandQueue.h"
 #include <MinHook.h>
 #include <filesystem>
 #include<vector>
@@ -22,7 +24,6 @@ extern "C" {
 
     void RootScriptStub();
     void* RootScriptTrampoline = nullptr;
-
 }
 
 #ifdef __INTELLISENSE__
@@ -30,19 +31,11 @@ void PhaseScriptStub() {}
 void LibScriptStub() {}
 void GameScriptStub() {}
 void RootScriptStub() {}
+void PostPhaseStub() {}
 #endif 
 
-namespace {
-    uintptr_t g_processBaseAddress = (uintptr_t)GetModuleHandle(NULL);
-    void* PhaseScriptTarget = (void*)(g_processBaseAddress + 0x4153f8);
-    void* LibScriptTarget = (void*)(g_processBaseAddress + 0x415581);
-    void* GameScriptTarget = (void*)(g_processBaseAddress + 0x414795);
-    void* RootScriptTarget = (void*)(g_processBaseAddress + 0x4141fd);
 
-
-}
-
-extern "C" void HandleLubHook(char* lub_filename, void** p_lub_data, int* p_lub_size) {
+extern "C" void HandleLubHook(char* lub_filename, void** p_lub_data, int* p_lub_size, void* scriptManager) {
     Logger::Log(FileInfo) << "Hooked Script: " << lub_filename;
 
     if (Settings::Instance().DumpScripts) {
@@ -60,37 +53,43 @@ extern "C" void HandleLubHook(char* lub_filename, void** p_lub_data, int* p_lub_
     size_t loose_source_size = 0;
     void* loose_source_data = LoadLooseFile(loose_source_path_str.c_str(), loose_source_size);
 
-
-
     if (!loose_source_data) {
         return;
     }
 
     Logger::Log(Info) << "Found loose Lua source file: " << loose_source_path_str;
     
-
     *p_lub_data = loose_source_data;
     *p_lub_size = static_cast<int>(loose_source_size);
-    
 }
 
-bool InstallScriptHooks() {
-    if (MH_CreateHook(PhaseScriptTarget, &PhaseScriptStub, &PhaseScriptTrampoline) != MH_OK) {
+
+bool InstallScriptLoadHooks() {
+
+    // These targets are right before the call to ScriptManager_LoadandRunBuffer for each type of script,
+    // they allow us to load our own custom scripts
+    void* PhaseScriptLoadTarget = (void*)(g_processBaseAddress + 0x4153f8);
+    void* LibScriptLoadTarget = (void*)(g_processBaseAddress + 0x415581);
+    void* GameScriptLoadTarget = (void*)(g_processBaseAddress + 0x414795);
+    void* RootScriptLoadTarget = (void*)(g_processBaseAddress + 0x4141fd);
+
+    if (MH_CreateHook(PhaseScriptLoadTarget, &PhaseScriptStub, &PhaseScriptTrampoline) != MH_OK) {
         Logger::Log(Error) << "Could not create phase script hook";
         return false;
     }
-    if (MH_CreateHook(LibScriptTarget, &LibScriptStub, &LibScriptTrampoline) != MH_OK) {
+    if (MH_CreateHook(LibScriptLoadTarget, &LibScriptStub, &LibScriptTrampoline) != MH_OK) {
         Logger::Log(Error) << "Could not create lib script hook";
         return false;
     }
-    if (MH_CreateHook(GameScriptTarget, &GameScriptStub, &GameScriptTrampoline) != MH_OK) {
+    if (MH_CreateHook(GameScriptLoadTarget, &GameScriptStub, &GameScriptTrampoline) != MH_OK) {
         Logger::Log(Error) << "Could not create game script hook";
         return false;
     }  
-    if (MH_CreateHook(RootScriptTarget, &RootScriptStub, &RootScriptTrampoline) != MH_OK) {
+    if (MH_CreateHook(RootScriptLoadTarget, &RootScriptStub, &RootScriptTrampoline) != MH_OK) {
         Logger::Log(Error) << "Could not create root script hook";
         return false;
     }
+
 
     return true;
 }

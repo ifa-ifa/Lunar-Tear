@@ -2,10 +2,12 @@
 #include "dump.h"
 #include <fstream>
 #include <vector>
-#include "Formats/TextureFormats.h"
+#include "Game/TextureFormats.h"
 #include <filesystem>
 #include <settbll.h>
 #include "Common/Logger.h"
+
+constexpr size_t MAX_STBL_SIZE = 16 * 1000 * 1000;
 
 namespace {
     constexpr uint32_t DDS_MAGIC = 0x20534444; // 'DDS '
@@ -159,8 +161,8 @@ void dumpTexture(const tpgxResTexture* tex) {
 }
 
 
-void dumpTable(const std::string& name, const char* data, size_t size) {
-    size_t inferred_size = StblFile::InferSize(data, size);
+void dumpTable(const std::string& name, const char* data) {
+    size_t inferred_size = StblFile::InferSize(data, MAX_STBL_SIZE);
 
     if (inferred_size == 0) {
         Logger::Log(Error) << "Failed to infer size for table dump: " << name;

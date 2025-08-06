@@ -1,10 +1,12 @@
 #define NOMINMAX
 #include "Hooks.h"
-#include "Formats/TextureFormats.h"
+#include "Game/TextureFormats.h"
 #include "ModLoader.h"
 #include "Common/Settings.h"
 #include "Common/Dump.h"
 #include "Common/Logger.h"
+#include "Game/Globals.h"
+
 #include <MinHook.h>
 #include <filesystem>
 
@@ -13,13 +15,7 @@ using enum Logger::LogCategory;
 namespace {
     typedef uint64_t(__fastcall* TexHook_t)(tpgxResTexture*, void*, void*);
     TexHook_t TexHook_original = nullptr;
-    uintptr_t g_processBaseAddress = (uintptr_t)GetModuleHandle(NULL);
-    void* TexHook_target = (void*)(g_processBaseAddress + 0x7dc820);
 
-    template <typename T>
-    inline MH_STATUS MH_CreateHookEx(LPVOID pTarget, LPVOID pDetour, T** ppOriginal) {
-        return MH_CreateHook(pTarget, pDetour, reinterpret_cast<LPVOID*>(ppOriginal));
-    }
 }
 
 uint64_t TexHook_detoured(tpgxResTexture* tex, void* param_2, void* param_3) {
@@ -114,13 +110,14 @@ uint64_t TexHook_detoured(tpgxResTexture* tex, void* param_2, void* param_3) {
         if (currentWidth > 1) currentWidth /= 2;
         if (currentHeight > 1) currentHeight /= 2;
     }
-
-
     return TexHook_original(tex, param_2, param_3);
 }
 
 
 bool InstallTextureHooks() {
+
+    void* TexHook_target = (void*)(g_processBaseAddress + 0x7dc820);
+
     if (MH_CreateHookEx(TexHook_target, &TexHook_detoured, &TexHook_original) != MH_OK) {
         Logger::Log(Error) << "Could not create texture hook";
         return false;

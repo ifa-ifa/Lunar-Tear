@@ -2,7 +2,9 @@
 
 #include "ModLoader.h"
 #include "Common/Settings.h"
+#include "Game/Globals.h"
 #include "Common/Logger.h"
+
 #include "Common/Dump.h"
 #include <string>
 #include <MinHook.h>
@@ -26,13 +28,6 @@ void DroptableTableStub() {}
 void GameTableStub() {}
 #endif 
 
-namespace {
-    uintptr_t g_processBaseAddress = (uintptr_t)GetModuleHandle(NULL);
-    void* PhaseTableTarget = (void*)(g_processBaseAddress + 0x4154d8);
-    void* DroptableTableTarget = (void*)(g_processBaseAddress + 0x4148b3);
-    void* GameTableTarget = (void*)(g_processBaseAddress + 0x414813);
-
-}
 
 extern "C" void* HandleSettbllHook(char* stbl_filename, void* STBL_data) {
     Logger::Log(FileInfo) << "Hooked Table: " << stbl_filename;
@@ -51,6 +46,11 @@ extern "C" void* HandleSettbllHook(char* stbl_filename, void* STBL_data) {
 }
 
 bool InstallTableHooks() {
+
+    void* PhaseTableTarget = (void*)(g_processBaseAddress + 0x4154d8);
+    void* DroptableTableTarget = (void*)(g_processBaseAddress + 0x4148b3);
+    void* GameTableTarget = (void*)(g_processBaseAddress + 0x414813);
+
     if (MH_CreateHook(PhaseTableTarget, &PhaseTableStub, &PhaseTableTrampoline) != MH_OK) {
         Logger::Log(Error) << "Could not create phase table hook";
         return false;

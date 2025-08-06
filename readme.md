@@ -4,7 +4,7 @@ Loose File loader for Nier Replicant. Can load textures, lua scripts, game table
 
 This repository also includes some mod development tools, documentation for the games internal types and functionality, and some misc scripts.
 
-For modding instructions see `modderinstructions.md`
+For modding instructions see `docs/`
 
 ## Install
 
@@ -28,7 +28,7 @@ Place both LunarTearLoader.dll and LunarTearLauncher.exe into the game directory
 
 ## Install Mods
 
-Install mods by dropping the folder with the files in `LunarTear/mods/`. For conflicting files, the alphabeticaly last file is loaded and a warning is logged. If a mod requires a plugin, you will have to enable plugins in LunarTear/LunarTear.ini
+Install mods by dropping the folder with the files in `LunarTear/mods/`. For conflicting files, the alphabeticaly last file is loaded. If a mod requires a plugin, you will have to enable plugins in LunarTear/LunarTear.ini
 
 
 ## Build

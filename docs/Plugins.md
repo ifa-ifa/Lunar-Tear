@@ -1,0 +1,99 @@
+Any dll file found in the root directory of a mod will be injected, provided plugins are enabled in LunarTear.ini. The loader provides an api that exposes game functions, scripting integration, logging, hooking, and config functionality. Your plugin does not have to use the API, and even if it does, you do not have to use all the functionality (the hooking and config interface is very basic, for advanced use you can use your own libraries). If ypou do want to use the apis built in config, place a config file named [modname].ini in your mod's root directory (mod name is name of folder)
+
+
+# API
+
+If you want to use the api, expose a function like this:
+
+```
+const LunarTearAPI* g_api;
+LT_PluginHandle g_handle;
+
+extern "C" __declspec(dllexport) void LunarTearPluginInit(const LunarTearAPI* api, LT_PluginHandle handle) {
+
+    g_api = api;
+    g_handle = handle;
+
+    // Setup your mod here
+
+}
+```
+
+The api struct contains pointers to the data and functions.
+
+
+## Logging
+
+```
+void Log(LT_PluginHandle handle, LT_LogLevel level, const char* message);
+```
+
+Logs a null terminated string using the loaders logging system. The different levels are LT_LOG_INFO, LT_LOG_VERBOSE, LT_LOG_WARNING, LT_LOG_ERROR, LT_LOG_LUA.
+
+## Config
+
+Place a config file in the mods root directory with the same name as the folder (`modname.ini`). You can access them with:
+
+```
+int Config_GetString(LT_PluginHandle handle, const char* section, const char* key, const char* default_value, char* out_buffer, uint32_t buffer_size);
+long Config_GetInteger(LT_PluginHandle handle, const char* section, const char* key, long default_value);
+double Config_GetReal(LT_PluginHandle handle, const char* section, const char* key, double default_value);
+bool Config_GetBoolean(LT_PluginHandle handle, const char* section, const char* key, bool default_value);
+```
+
+## Hooking
+
+Wrapper around minhook.
+
+```
+LT_HookStatus Hook_Create(void* pTarget, void* pDetour, void** ppOriginal);
+LT_HookStatus Hook_Enable(void* pTarget);
+```
+
+
+## Scripting
+
+```
+void Lua_QueuePhaseScriptCall(LT_PluginHandle handle, const char* function_name);
+```
+
+A thread safe way to call script functions. No way to pass arguments like this. If you want to call a game function with arguments, create your own wrapper around it using script injection and fetch arguments using a binding.
+
+## Custom bindings
+
+
+You can register custom bindings to be called from game scripts. You can write a binding based on standard lua, but i reccomend using the games handling like this:
+
+```
+
+void c_TestFunc(ScriptState* scriptState) {
+    void* pArg1 = api->game->GetArgumentPointer(scriptState->argBuffer, 0);
+    char* str = api->game->GetArgumentString(pArg1);
+    void* pArg2 = api->game->GetArgumentPointer(scriptState->argBuffer, 1);
+    float num = api->game->GetArgumentFloat(pArg2);
+
+    api->Log(g_handle, LT_LOG_INFO, str);
+
+    float num2 = num * 2;
+
+    api->game->SetArgumentFloat(scriptState->returnBuffer, num2);
+    scriptState->returnArgCount = 1;
+
+}
+
+void Binding_TestFunc(Lua_State* lua_state) { 
+    luaBindingDispatcher(lua_state, &c_TestFunc);
+}
+
+```
+
+register it using:
+```       
+bool ret = Lua_RegisterCFunc(g_handle, "_TestFunc", &Binding_TestFunc);
+```
+
+and call it from lua like:
+```
+num = _TestFunc("Hello," 5)
+```
+

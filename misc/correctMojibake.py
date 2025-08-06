@@ -1,4 +1,4 @@
-﻿# Corrects gibberish found in decompiled lua scripts
+﻿# Corrects gibberish found in decompiled lua scripts. Shouldn't be needed if you used the batch decompile script
 
 def correct_japanese_mojibake_cp437(garbled_text):
     

@@ -11,7 +11,6 @@ namespace
 
     std::map<Logger::LogCategory, bool> s_category_enabled;
 
-
     std::ofstream s_log_file;
     std::mutex s_log_mutex;
     std::atomic<bool> s_logger_initialized = false; 
@@ -24,12 +23,12 @@ namespace
         case Logger::LogCategory::Warning:  return "[Warning] ";
         case Logger::LogCategory::Error:    return "[Error]   ";
         case Logger::LogCategory::FileInfo: return "[FileInfo]";
+        case Logger::LogCategory::Lua:      return "[Lua]";
         default:                            return "[Unknown] ";
         }
     }
 
-
-    void Write(Logger::LogCategory category, const std::string& message)
+    void Write(Logger::LogCategory category, const std::string& message, const std::string& pluginName)
     {
         std::lock_guard<std::mutex> lock(s_log_mutex);
 
@@ -38,8 +37,19 @@ namespace
         std::tm tm_buf;
         localtime_s(&tm_buf, &time_t);
 
-        std::string final_message = std::format("[{:02}:{:02}:{:02}] [Lunar Tear] {} {}",
-            tm_buf.tm_hour, tm_buf.tm_min, tm_buf.tm_sec, CategoryToString(category), message);
+        std::string final_message;
+        if (!pluginName.empty()) {
+            //  for plugins
+            final_message = std::format("[{:02}:{:02}:{:02}] [{}] {} {}",
+                tm_buf.tm_hour, tm_buf.tm_min, tm_buf.tm_sec,
+                pluginName, CategoryToString(category), message);
+        }
+        else {
+            //  for internal loader logs
+            final_message = std::format("[{:02}:{:02}:{:02}] [Lunar Tear] {} {}",
+                tm_buf.tm_hour, tm_buf.tm_min, tm_buf.tm_sec, CategoryToString(category), message);
+        }
+
 
         if (s_log_to_console) {
             std::cout << final_message << std::endl;
@@ -61,7 +71,8 @@ void Logger::Init()
         {LogCategory::Verbose, settings.LogVerbose},
         {LogCategory::Warning, settings.LogWarning},
         {LogCategory::Error, settings.LogError},
-        {LogCategory::FileInfo, settings.LogOriginalFileInfo}
+        {LogCategory::FileInfo, settings.LogOriginalFileInfo},
+        {LogCategory::Lua, settings.LogLua}
     };
 
 
@@ -77,13 +88,14 @@ void Logger::Init()
     s_logger_initialized = true;
 }
 
-Logger::LogStream::LogStream(LogCategory category, bool active)
-    : m_category(category), m_is_active(active) {}
+Logger::LogStream::LogStream(LogCategory category, bool active, std::string pluginName)
+    : m_category(category), m_is_active(active), m_pluginName(std::move(pluginName)) {
+}
 
 Logger::LogStream::~LogStream()
 {
     if (m_is_active && m_buffer.tellp() > 0) {
-        Write(m_category, m_buffer.str());
+        Write(m_category, m_buffer.str(), m_pluginName);
     }
 }
 
@@ -91,7 +103,7 @@ bool Logger::IsActive(LogCategory category) {
     return s_logger_initialized && (s_category_enabled.count(category) ? s_category_enabled.at(category) : false);
 }
 
-Logger::LogStream Logger::Log(LogCategory category)
+Logger::LogStream Logger::Log(LogCategory category, const std::string& pluginName)
 {
-    return LogStream{ category, IsActive(category)};
+    return LogStream{ category, IsActive(category), pluginName };
 }
