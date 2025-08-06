@@ -109,7 +109,7 @@ public:
         registerSetting("LogToConsole", false, &Settings::LogToConsole, "");
         registerSetting("LogToFile", true, &Settings::LogToFile, "");
 
-        registerSetting("EnablePlugins", false, &Settings::EnablePlugins, "Allows mods to execute code. Please make sure you trust all mods you install before enabling this");
+        registerSetting("EnablePlugins", false, &Settings::EnablePlugins, "Allows mods to execute code. Make sure you trust all mods you install before enabling this");
 
         registerSetting("DumpTextures", false, &Settings::DumpTextures, "");
         registerSetting("DumpScripts", false, &Settings::DumpScripts, "");
