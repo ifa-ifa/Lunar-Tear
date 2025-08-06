@@ -24,4 +24,4 @@ Change the filepath to point to your LunarTearLoader. Place that at the end of t
 
 ## Modding
 
-For modding instructions see `modderinstructions.md`
+For modding instructions see `docs/`
