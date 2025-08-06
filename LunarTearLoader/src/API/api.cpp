@@ -131,6 +131,9 @@ namespace {
 namespace API {
 
     void Init() {
+
+        s_gameApi.luaBindingDispatcher = luaBindingDispatcher;
+
         s_gameApi.GetArgumentPointer = GetArgumentPointer;
         s_gameApi.GetArgumentString = GetArgumentString;
         s_gameApi.GetArgumentInt = GetArgumentInt;
