@@ -39,7 +39,7 @@ extern "C" {
 
     typedef struct LT_GameAPI {
 
-        int (*luaBindingDispatcher)(void* scriptState, void* argBuffer);
+        int (*luaBindingDispatcher)(void* luaState, void* CFunc);
 
         void* (*GetArgumentPointer)(void* argBuffer, int index);
         const char* (*GetArgumentString)(void* arg);
