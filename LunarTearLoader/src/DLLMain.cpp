@@ -76,11 +76,11 @@ static DWORD WINAPI Initialize(LPVOID lpParameter) {
     return TRUE;
 }
 
-
 BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserved) {
     if (ul_reason_for_call == DLL_PROCESS_ATTACH) {
         DisableThreadLibraryCalls(hModule);
-        QueueUserWorkItem(Initialize, hModule, WT_EXECUTEDEFAULT);
+        HANDLE hThread = CreateThread(nullptr, 0, Initialize, hModule, 0, nullptr);
+        if (hThread) CloseHandle(hThread);
     }
     else if (ul_reason_for_call == DLL_PROCESS_DETACH) {
         StopCacheCleanupThread();
