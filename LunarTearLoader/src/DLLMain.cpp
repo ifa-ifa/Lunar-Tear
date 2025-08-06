@@ -12,69 +12,102 @@ using enum Logger::LogCategory;
 
 static DWORD WINAPI Initialize(LPVOID lpParameter) {
 
-    InitialiseGlobals();
-    InitialiseGameFunctions();
+    try {
 
-    int ret = Settings::Instance().LoadFromFile();
 
-    Logger::Init();
+        try {
+            std::filesystem::create_directories("LunarTear/mods");
+        }
+        catch (const std::filesystem::filesystem_error& e) {
+            std::string error_message = "Failed to create mod directories. Please check permissions.\n\nError: ";
+            error_message += e.what();
+            MessageBoxA(NULL, error_message.c_str(), "Lunar Tear - Filesystem Error", MB_OK | MB_ICONERROR);
+            return FALSE;
+        }
 
-    switch (ret) {
-    case 0:
-        Logger::Log(Info) << "Settings loaded successfully from INI file";
-        break;
-    case 1:
-        Logger::Log(Warning) << "INI file exists but is corrupt. Using default settings for this session. Correct the error, or delete the ini file to regenerate a new one on restart";
-        break;
-    case 2:
-        Logger::Log(Info) << "INI file not found. A new one has been created with default settings";
-        break;
+        InitialiseGlobals();
+        InitialiseGameFunctions();
+
+
+        int ret = Settings::Instance().LoadFromFile();
+
+        Logger::Init();
+
+        switch (ret) {
+        case 0:
+            Logger::Log(Info) << "Settings loaded successfully from INI file";
+            break;
+        case 1:
+            Logger::Log(Warning) << "INI file exists but is corrupt. Using default settings for this session. Correct the error, or delete the ini file to regenerate a new one on restart";
+            break;
+        case 2:
+            Logger::Log(Info) << "INI file not found. A new one has been created with default settings";
+            break;
+        }
+        if (!g_processBaseAddress) {
+            Logger::Log(Error) << "Could not get process base address. Cannot initialize Lunar Tear.";
+            return FALSE;
+        }
+
+        if (MH_Initialize() != MH_OK) {
+            Logger::Log(Error) << "Could not initialize MinHook.";
+            return FALSE;
+        }
+
+        bool hooks_ok = true;
+        hooks_ok &= InstallTextureHooks();
+        hooks_ok &= InstallScriptLoadHooks();
+        hooks_ok &= InstallScriptInjectHooks();
+        hooks_ok &= InstallTableHooks();
+        hooks_ok &= InstallDebugHooks();
+        hooks_ok &= InstallScriptUpdateHooks();
+
+
+        if (!hooks_ok) {
+            Logger::Log(Warning) << "Failed to initialise hooks. Mod loader may not work correctly";
+        }
+
+        if (MH_EnableHook(MH_ALL_HOOKS) != MH_OK) {
+            Logger::Log(Error) << "Could not enable hooks";
+            return FALSE;
+        }
+
+        Logger::Log(Verbose) << "Hooks initialized";
+
+
+        API::Init();
+
+
+        ScanModsAndResolveConflicts();
+        StartCacheCleanupThread();
+
+        if (Settings::Instance().EnablePlugins) {
+            LoadPlugins();
+        }
+
+        Logger::Log(Info) << "Lunar Tear initialization complete.";
     }
-    if (!g_processBaseAddress) {
-        Logger::Log(Error) << "Could not get process base address. Cannot initialize Lunar Tear.";
-        return FALSE;
+
+
+        catch (const std::exception& e) {
+            MessageBoxA(NULL, e.what(), "Lunar Tear", MB_OK | MB_ICONERROR);
+        }
+        catch (...) {
+            MessageBoxA(NULL, "An unknown exception occurred during initialization.", "Lunar Tear", MB_OK | MB_ICONERROR);
+        }
+
+
+
+
+
+        return TRUE;
+
+
+
     }
 
-    if (MH_Initialize() != MH_OK) {
-        Logger::Log(Error) << "Could not initialize MinHook.";
-        return FALSE;
-    }
-
-    bool hooks_ok = true;
-    hooks_ok &= InstallTextureHooks();
-    hooks_ok &= InstallScriptLoadHooks();
-    hooks_ok &= InstallScriptInjectHooks();
-    hooks_ok &= InstallTableHooks();
-    hooks_ok &= InstallDebugHooks();
-    hooks_ok &= InstallScriptUpdateHooks();
-
-    
-    if (!hooks_ok) {
-        Logger::Log(Warning) << "Failed to initialise hooks. Mod loader may not work correctly";
-    }
-
-    if (MH_EnableHook(MH_ALL_HOOKS) != MH_OK) {
-        Logger::Log(Error) << "Could not enable hooks";
-        return FALSE;
-    }
-
-    Logger::Log(Verbose) << "Hooks initialized";
 
 
-    API::Init();
-
-    
-    ScanModsAndResolveConflicts();
-    StartCacheCleanupThread();
-
-    if (Settings::Instance().EnablePlugins) {
-        LoadPlugins();
-    }
-
-    Logger::Log(Info) << "Lunar Tear initialization complete.";
-
-    return TRUE;
-}
 
 BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserved) {
     if (ul_reason_for_call == DLL_PROCESS_ATTACH) {
