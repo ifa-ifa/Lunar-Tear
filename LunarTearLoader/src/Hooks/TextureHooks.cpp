@@ -6,7 +6,7 @@
 #include "Common/Dump.h"
 #include "Common/Logger.h"
 #include "Game/Globals.h"
-
+#include <crc32c/crc32c.h>
 #include <MinHook.h>
 #include <filesystem>
 
@@ -27,11 +27,32 @@ uint64_t TexHook_detoured(tpgxResTexture* tex, void* param_2, void* param_3) {
         dumpTexture(tex);
     }
 
+    // Try loading by original filename
     std::filesystem::path tex_path(tex->name);
     tex_path.replace_extension(".dds");
 
     size_t ddsFileSize = 0;
     void* ddsFileData = LoadLooseFile(tex_path.string().c_str(), ddsFileSize);
+
+    // If not found, try loading by CRC32c hash (older mods based on SpecialK's injection use this)
+    if (!ddsFileData) {
+        mipSurface* pMipSurfaces = (mipSurface*)((uintptr_t)&tex->bxonAssetHeader->offsetToMipSurfaces + tex->bxonAssetHeader->offsetToMipSurfaces);
+        if (tex->bxonAssetHeader->numMipSurfaces > 0 && pMipSurfaces) {
+            size_t lod0_size = pMipSurfaces[0].size;
+
+            uint32_t hash = crc32c::Crc32c((char*)tex->texData, lod0_size);
+
+
+            std::stringstream ss;
+            ss << std::setfill('0') << std::setw(8) << std::hex << std::uppercase << hash << ".dds";
+            std::string hashed_filename = ss.str();
+
+            Logger::Log(Verbose) << "Could not find texture by name. Trying SpecialK hash: " << hashed_filename;
+
+            ddsFileData = LoadLooseFile(hashed_filename.c_str(), ddsFileSize);
+        }
+    }
+
 
     if (!ddsFileData) {
         return TexHook_original(tex, param_2, param_3);
