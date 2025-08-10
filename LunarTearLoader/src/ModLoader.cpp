@@ -228,13 +228,22 @@ void* LoadLooseFile(const char* filename, size_t& out_size) {
     // Slow, but it doesnt block other threads from accessing the cache
     std::vector<char> fileData;
     {
-        std::ifstream file(full_path, std::ios::binary);
+        std::ifstream file(full_path, std::ios::binary | std::ios::ate);
         if (!file.is_open()) {
             Logger::Log(Error) << "Error: Could not open resolved file: " << full_path;
             out_size = 0;
             return nullptr;
         }
-        fileData.assign(std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>());
+
+        std::streamsize size = file.tellg();
+        file.seekg(0, std::ios::beg);
+
+        fileData.resize(static_cast<size_t>(size)); 
+        if (!file.read(fileData.data(), size)) {
+            Logger::Log(Error) << "Error: Could not read entire file: " << full_path;
+            out_size = 0;
+            return nullptr;
+        }
     }
 
 
