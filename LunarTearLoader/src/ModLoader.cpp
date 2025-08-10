@@ -88,7 +88,9 @@ void ScanModsAndResolveConflicts() {
     std::vector<std::string> mod_names;
     for (const auto& mod_entry : std::filesystem::directory_iterator(mods_root)) {
         if (mod_entry.is_directory()) {
-            mod_names.push_back(mod_entry.path().filename().string());
+            std::u8string u8_mod_name = mod_entry.path().filename().u8string();
+            std::string mod_name(reinterpret_cast<const char*>(u8_mod_name.c_str()), u8_mod_name.length());
+            mod_names.push_back(mod_name);
         }
     }
     // Sort mods alphabetically to ensure a consistent load order for injections
@@ -290,12 +292,13 @@ void LoadPlugins() {
 
         for (const auto& file_entry : std::filesystem::directory_iterator(mod_entry.path())) {
             if (file_entry.is_regular_file() && file_entry.path().extension() == ".dll") {
-                std::string plugin_path_str = file_entry.path().string();
-                Logger::Log(Info) << "Attempting to load plugin: " << plugin_path_str;
 
-                HMODULE plugin_module = LoadLibraryA(plugin_path_str.c_str());
+                std::wstring plugin_path_wstr = file_entry.path().wstring(); 
+                Logger::Log(Info) << "Attempting to load plugin: " << file_entry.path().u8string();
+
+                HMODULE plugin_module = LoadLibraryW(plugin_path_wstr.c_str());
                 if (plugin_module) {
-                    Logger::Log(Info) << "Successfully loaded plugin: " << plugin_path_str;
+                    Logger::Log(Info) << "Successfully loaded plugin: " << plugin_path_wstr;
                     API::InitializePlugin(mod_name, plugin_module);
                 }
                 else {
@@ -306,7 +309,7 @@ void LoadPlugins() {
                     std::string message(messageBuffer, size);
                     LocalFree(messageBuffer);
 
-                    Logger::Log(Error) << "Failed to load plugin '" << plugin_path_str << "'. Error " << error << ": " << message;
+                    Logger::Log(Error) << "Failed to load plugin '" << plugin_path_wstr << "'. Error " << error << ": " << message;
                 }
             }
         }
