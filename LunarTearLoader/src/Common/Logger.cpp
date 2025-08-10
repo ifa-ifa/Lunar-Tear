@@ -16,7 +16,7 @@ namespace
     std::atomic<bool> s_logger_initialized = false; 
 
 
-    std::string CategoryToString(Logger::LogCategory category) {
+    const char* CategoryToString(Logger::LogCategory category) {
         switch (category) {
         case Logger::LogCategory::Info:     return "[Info]    ";
         case Logger::LogCategory::Verbose:  return "[Verbose] ";
