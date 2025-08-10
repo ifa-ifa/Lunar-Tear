@@ -10,18 +10,6 @@
 constexpr size_t MAX_STBL_SIZE = 16 * 1000 * 1000;
 
 namespace {
-    constexpr uint32_t DDS_MAGIC = 0x20534444; // 'DDS '
-    constexpr uint32_t DDPF_FOURCC = 0x4;
-    constexpr uint32_t DDSD_CAPS = 0x1;
-    constexpr uint32_t DDSD_HEIGHT = 0x2;
-    constexpr uint32_t DDSD_WIDTH = 0x4;
-    constexpr uint32_t DDSD_PITCH = 0x8;
-    constexpr uint32_t DDSD_PIXELFORMAT = 0x1000;
-    constexpr uint32_t DDSD_MIPMAPCOUNT = 0x20000;
-    constexpr uint32_t DDSD_LINEARSIZE = 0x80000;
-    constexpr uint32_t DDSCAPS_COMPLEX = 0x8;
-    constexpr uint32_t DDSCAPS_TEXTURE = 0x1000;
-    constexpr uint32_t DDSCAPS_MIPMAP = 0x400000;
 
     uint32_t GetLegacyFourCC(XonSurfaceDXGIFormat format) {
         switch (format) {

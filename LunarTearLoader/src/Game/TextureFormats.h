@@ -95,7 +95,20 @@ inline const char* XonFormatToString(XonSurfaceDXGIFormat format) {
 	}
 }
 
-
+constexpr uint32_t DDPF_ALPHAPIXELS = 0x1;
+constexpr uint32_t DDPF_FOURCC = 0x4;
+constexpr uint32_t DDPF_RGB = 0x40;
+constexpr uint32_t DDS_MAGIC = 0x20534444; // 'DDS '
+constexpr uint32_t DDSD_CAPS = 0x1;
+constexpr uint32_t DDSD_HEIGHT = 0x2;
+constexpr uint32_t DDSD_WIDTH = 0x4;
+constexpr uint32_t DDSD_PITCH = 0x8;
+constexpr uint32_t DDSD_PIXELFORMAT = 0x1000;
+constexpr uint32_t DDSD_MIPMAPCOUNT = 0x20000;
+constexpr uint32_t DDSD_LINEARSIZE = 0x80000;
+constexpr uint32_t DDSCAPS_COMPLEX = 0x8;
+constexpr uint32_t DDSCAPS_TEXTURE = 0x1000;
+constexpr uint32_t DDSCAPS_MIPMAP = 0x400000;
 
 #pragma pack(push, 1)
 struct DDS_HEADER {
@@ -199,6 +212,7 @@ inline XonSurfaceDXGIFormat FourCCToXonFormat(uint32_t fourCC) {
 	case '1ITA': return BC4_UNORM;       // ATI1
 	case '4CB\0': return BC4_UNORM;      // BC4
 	case '2ITA': return BC5_UNORM;       // ATI2
+	case 'U5CB': return BC5_UNORM;       // BC5U
 	case '5CB\0': return BC5_UNORM;      // BC5
 	case '7CB\0': return BC7_UNORM;      // BC7
 	default:     return UNKNOWN;
