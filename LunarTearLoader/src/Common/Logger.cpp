@@ -23,7 +23,7 @@ namespace
         case Logger::LogCategory::Warning:  return "[Warning] ";
         case Logger::LogCategory::Error:    return "[Error]   ";
         case Logger::LogCategory::FileInfo: return "[FileInfo]";
-        case Logger::LogCategory::Lua:      return "[Lua]";
+        case Logger::LogCategory::Lua:      return "[Lua]     ";
         default:                            return "[Unknown] ";
         }
     }
@@ -78,11 +78,16 @@ void Logger::Init()
 
     if (settings.LogToConsole) {
         AllocConsole();
+        SetConsoleOutputCP(CP_UTF8);
         FILE* console;
         freopen_s(&console, "CONOUT$", "w", stdout);
     }
     if (settings.LogToFile) {
         s_log_file.open("LunarTear/lunartear.log", std::ios::out | std::ios::trunc);
+        // Write a UTF-8 BOM to ensure text editors open the file with the correct encoding
+        if (s_log_file.is_open()) {
+            s_log_file.write("\xEF\xBB\xBF", 3); 
+        }
     }
 
     s_logger_initialized = true;
