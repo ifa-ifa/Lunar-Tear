@@ -7,7 +7,6 @@ inline MH_STATUS MH_CreateHookEx(LPVOID pTarget, LPVOID pDetour, T** ppOriginal)
 }
 
 bool InstallTextureHooks();
-bool InstallScriptLoadHooks();
 bool InstallScriptInjectHooks();
 bool InstallScriptUpdateHooks();
 bool InstallTableHooks();

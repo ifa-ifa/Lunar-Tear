@@ -56,7 +56,6 @@ static DWORD WINAPI Initialize(LPVOID lpParameter) {
 
         bool hooks_ok = true;
         hooks_ok &= InstallTextureHooks();
-        hooks_ok &= InstallScriptLoadHooks();
         hooks_ok &= InstallScriptInjectHooks();
         hooks_ok &= InstallTableHooks();
         hooks_ok &= InstallDebugHooks();

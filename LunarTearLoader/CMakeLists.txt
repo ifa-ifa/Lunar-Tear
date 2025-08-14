@@ -24,9 +24,8 @@ add_library(LunarTearLoader SHARED
     "src/Common/Settings.h"
     "src/Game/TextureFormats.h"
     "src/Hooks/TableStubs.asm"
-    "src/Hooks/ScriptLoadingStubs.asm"
     "src/Hooks/ScriptInjectionStubs.asm"
-    "src/Hooks/ScriptLoadingHooks.cpp"
+ 
     "src/Hooks/TableHooks.cpp"
     "src/Hooks/TextureHooks.cpp"
     "src/Hooks/Hooks.h"
