@@ -6,9 +6,9 @@ local baseOffset = 0x27e0590          -- offset to locale table
 local entryCount = 1000000              -- Number of entries to scan
 local targetString = "..."     -- String to search for
 
-local ENTRY_SIZE = 0x10               -- 16 bytes per entry
-local STR_OFFSET = 0x8                -- offset to char* str
-local ID_OFFSET = 0x0                 -- offset to int id
+local ENTRY_SIZE = 0x10            
+local STR_OFFSET = 0x8          
+local ID_OFFSET = 0x0              
 
 local moduleBase = getAddressSafe(moduleName)
 if not moduleBase then
