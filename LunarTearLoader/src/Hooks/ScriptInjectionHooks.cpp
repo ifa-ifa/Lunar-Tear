@@ -8,6 +8,7 @@
 #include <mutex> 
 #include "Common/Dump.h"
 #include "Game/Globals.h"
+#include "Lua/CoreBindings.h" 
 #include "Lua/LuaCommandQueue.h"
 #include <MinHook.h>
 #include <filesystem>
@@ -32,25 +33,14 @@ extern "C" {
 
 }
 
-void c_LunarTearDebug(ScriptState* ScriptState) { // Not to be confused with lua_state
-    void* arg = GetArgumentPointer(ScriptState->argBuffer, 0);
-    char* str = (char*)GetArgumentString(arg);
-    Logger::Log(Info) << str;
-}
-
-void Binding_LunarTearDebug(void* lua_state) {
-    luaBindingDispatcher(lua_state, &c_LunarTearDebug);
-}
-
-static LuaCBinding myBindings[] = {
-  { "_LTDebug",  Binding_LunarTearDebug },
-  { NULL,       NULL }
-};
 
 
 void ExecuteScriptsForPoint(const std::string& point) {
     auto scripts = GetInjectionScripts(point);
     std::lock_guard<std::mutex> lock(API::s_lua_binding_mutex);
+
+    // The game re-registers bindings on every single phase load. We will do as the game does.
+
     const auto& plugin_bindings_pairs = API::GetPluginLuaBindings();
     if (!plugin_bindings_pairs.empty()) {
         std::vector<LuaCBinding> bindings_with_terminator;
@@ -65,8 +55,7 @@ void ExecuteScriptsForPoint(const std::string& point) {
         ScriptManager_registerBindings(&(phaseScriptManager->scriptManager), bindings_with_terminator.data());
     }
 
-    // The game re-registers bindings on every single phase load. We will do as the game does.
-    int64_t ret = ScriptManager_registerBindings(&(phaseScriptManager->scriptManager), myBindings);
+    int64_t ret = ScriptManager_registerBindings(&(phaseScriptManager->scriptManager), GetCoreBindings());
     Logger::Log(Info) << "regisetered bindings, code:" << ret;
 
     if (scripts.empty()) {

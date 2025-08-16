@@ -39,6 +39,8 @@ extern "C" {
 
     typedef struct LT_GameAPI {
 
+        uintptr_t processBaseAddress;
+
         int (*luaBindingDispatcher)(void* luaState, void* CFunc);
 
         void* (*GetArgumentPointer)(void* argBuffer, int index);
@@ -48,7 +50,7 @@ extern "C" {
 
         void* (*SetArgumentFloat)(void* returnBuffer, float value);
         void* (*SetArgumentInt)(void* returnBuffer, int value);
-        void* (*SetArgumentString)(void* returnBuffer, char* value);
+        void* (*SetArgumentString)(void* returnBuffer, const char* value);
 
         bool (*AnyEndingSeen)(EndingsData* endingsData);
         bool (*EndingESeen)(EndingsData* endingsData);
@@ -69,6 +71,13 @@ extern "C" {
         void (*SnowGameFlagOff)(void* unused, unsigned int flagId);
         uint64_t(*IsSnowGameFlag)(void* unused, unsigned int flagId);
 
+        PhaseScriptManager* phaseScriptManager;
+        RootScriptManager* rootScriptManager;
+        GameScriptManager* gameScriptManager;
+        PlayerSaveData* playerSaveData;
+        EndingsData* endingsData;
+        void* localeData;
+
 
     } LT_GameAPI;
 
@@ -87,20 +96,12 @@ extern "C" {
         LT_HookStatus(*Hook_Enable)(LT_PluginHandle handle, void* pTarget);
         bool (*Lua_RegisterCFunc)(LT_PluginHandle handle, const char* function_name, LT_LuaCFunc pFunc);
         void (*Lua_QueuePhaseScriptCall)(LT_PluginHandle handle, const char* function_name);
-
-        uintptr_t processBaseAddress;
-        PhaseScriptManager* phaseScriptManager;
-        RootScriptManager* rootScriptManager;
-        GameScriptManager* gameScriptManager;
-        PlayerSaveData* playerSaveData;
-        EndingsData* endingsData;
-        void* localeData;
-
+        bool (*IsModActive)(LT_PluginHandle handle, const char* mod_name);
+        bool (*IsPluginActive)(LT_PluginHandle handle, const char* plugin_name);
 
     } LunarTearAPI;
 
     typedef void (*LunarTearPluginInitFunc)(const LunarTearAPI* api, LT_PluginHandle handle);
-
 
 
 #ifdef __cplusplus

@@ -126,9 +126,32 @@ namespace {
     LT_HookStatus API_Hook_Enable(LT_PluginHandle handle, void* pTarget) {
         return ToLTHookStatus(MH_EnableHook(pTarget));
     }
+
+
+    bool API_IsModActive(LT_PluginHandle handle, const char* mod_name) {
+        if (!mod_name) return false;
+        std::filesystem::path mod_path = "LunarTear/mods/";
+        mod_path /= mod_name;
+        return std::filesystem::exists(mod_path) && std::filesystem::is_directory(mod_path);
+    }
+
+    bool API_IsPluginActive(LT_PluginHandle handle, const char* plugin_name) {
+        if (!plugin_name) return false;
+        return API::IsPluginLoaded(plugin_name);
+    }
 }
 
 namespace API {
+
+    bool IsPluginLoaded(const std::string& pluginName) {
+        std::lock_guard<std::mutex> lock(s_context_mutex);
+        for (const auto& pair : s_plugin_contexts) {
+            if (pair.second->name == pluginName) {
+                return true;
+            }
+        }
+        return false;
+    }
 
     void Init() {
 
@@ -172,14 +195,16 @@ namespace API {
         s_api.Hook_Enable = API_Hook_Enable;
         s_api.Lua_RegisterCFunc = API_Lua_RegisterCFunc;
         s_api.Lua_QueuePhaseScriptCall = API_Lua_QueuePhaseScriptCall;
+        s_api.IsModActive = API_IsModActive;
+        s_api.IsPluginActive = API_IsPluginActive;
 
-        s_api.processBaseAddress = g_processBaseAddress;
-        s_api.phaseScriptManager = (PhaseScriptManager*)phaseScriptManager;
-        s_api.rootScriptManager = (RootScriptManager*)rootScriptManager;
-        s_api.gameScriptManager = (GameScriptManager*)gameScriptManager;
-        s_api.playerSaveData = (PlayerSaveData*)playerSaveData;
-        s_api.endingsData = (EndingsData*)endingsData;
-        s_api.localeData = localeData;
+        s_gameApi.processBaseAddress = g_processBaseAddress;
+        s_gameApi.phaseScriptManager = (PhaseScriptManager*)phaseScriptManager;
+        s_gameApi.rootScriptManager = (RootScriptManager*)rootScriptManager;
+        s_gameApi.gameScriptManager = (GameScriptManager*)gameScriptManager;
+        s_gameApi.playerSaveData = (PlayerSaveData*)playerSaveData;
+        s_gameApi.endingsData = (EndingsData*)endingsData;
+        s_gameApi.localeData = localeData;
 
         Logger::Log(Info) << "Lunar Tear API Initialized (Version " << s_api.api_version << ")";
     }

@@ -26,7 +26,7 @@ extern int   (*GetArgumentInt)(void*);
 
 extern void* (*SetArgumentFloat)(void*, float);
 extern void* (*SetArgumentInt)(void*, int);
-extern void* (*SetArgumentString)(void*, char*);
+extern void* (*SetArgumentString)(void*, const char*);
 
 
 extern bool (*AnyEndingSeen)(EndingsData* endingsData);

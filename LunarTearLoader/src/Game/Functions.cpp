@@ -21,7 +21,7 @@ int   (*GetArgumentInt)(void*);
 
 void* (*SetArgumentFloat)(void*, float);
 void* (*SetArgumentInt)(void*, int);
-void* (*SetArgumentString)(void*, char*);
+void* (*SetArgumentString)(void*, const char*);
 
 
 bool (*AnyEndingSeen)(EndingsData* endingsData);
@@ -61,7 +61,7 @@ void InitialiseGameFunctions() {
 	GetArgumentString = (const char* (*)(void*))(g_processBaseAddress + 0x3efab0);
 	SetArgumentFloat = (void* (*)(void*, float))(g_processBaseAddress + 0x3ef8d0);
 	SetArgumentInt = (void* (*)(void*, int))(g_processBaseAddress + 0x3ef8c0);
-	SetArgumentString = (void* (*)(void*, char*))(g_processBaseAddress + 0x3ef8f0);
+	SetArgumentString = (void* (*)(void*, const char*))(g_processBaseAddress + 0x3ef8f0);
 
 
 	AnyEndingSeen = (bool (*)(EndingsData*))(g_processBaseAddress + 0x3b3bc0);

@@ -42,6 +42,9 @@ add_library(LunarTearLoader SHARED
     "src/API/api.cpp"
     "src/API/api.h"
     "src/API/LunarTear.h"
+    "src/Lua/CoreBindings.h"
+    "src/Lua/CoreBindings.cpp"
+
 )
 
 add_executable(LunarTearLauncher "src/Launcher.cpp")

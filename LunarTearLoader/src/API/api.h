@@ -11,6 +11,8 @@ namespace API {
     void Init();
     const LunarTearAPI* GetAPI();
     void InitializePlugin(const std::string& pluginName, HMODULE pluginModule);
+    bool IsPluginLoaded(const std::string& pluginName);
+
 
     extern std::mutex s_lua_binding_mutex;
 
