@@ -1,4 +1,4 @@
-Any dll file found in the root directory of a mod will be injected, provided plugins are enabled in LunarTear.ini. The loader provides an api that exposes game functions, scripting integration, logging, hooking, and config functionality. Your plugin does not have to use the API, and even if it does, you do not have to use all the functionality (the hooking and config interface is very basic, for advanced use you can use your own libraries). If ypou do want to use the apis built in config, place a config file named [modname].ini in your mod's root directory (mod name is name of folder)
+Any dll file found in the root directory of a mod will be injected, provided plugins are enabled in LunarTear.ini. The loader provides an api that exposes game functions, scripting integration, logging, hooking, and config functionality. Your plugin does not have to use the API, and even if it does, you do not have to use all the functionality (the hooking and config interface is very basic, for advanced use you can use your own libraries). If you do want to use the apis built in config, place a config file named config.ini in your mod's root directory (mod name is name of folder)
 
 
 # API
@@ -32,7 +32,7 @@ Logs a null terminated string using the loaders logging system. The different le
 
 ## Config
 
-Place a config file in the mods root directory with the same name as the folder (`modname.ini`). You can access them with:
+If you want you can place a `config.ini` file in the mods root directory. You can access them with:
 
 ```
 int Config_GetString(LT_PluginHandle handle, const char* section, const char* key, const char* default_value, char* out_buffer, uint32_t buffer_size);
@@ -40,6 +40,8 @@ long Config_GetInteger(LT_PluginHandle handle, const char* section, const char* 
 double Config_GetReal(LT_PluginHandle handle, const char* section, const char* key, double default_value);
 bool Config_GetBoolean(LT_PluginHandle handle, const char* section, const char* key, bool default_value);
 ```
+
+Config_GetString returns the number of characters written to out_buffer on success, or -1 on error.
 
 ## Hooking
 

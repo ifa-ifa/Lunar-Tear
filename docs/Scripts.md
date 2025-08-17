@@ -12,7 +12,9 @@ pickupitem = function()
 	pickupitem_original()
 end
 ```
-`_DebugPrint` is the games built in logging, you can view this by enabling lua logs in the LunarTear config. LunarTear provides a custom `_LTDebug` binding that will log without having to enable lua logs.
+`_DebugPrint` is the games built in logging, you can view this by enabling lua logs in the LunarTear config. 
+
+You can read `Game Lua API.md` to see documentation on (some) builtin game functions. `LT Lua API.md` documents core bindings exposed by Lunar Tear
 
 By injecting a script like that you can run custom logic whenever you pick up an item in game. A useful hook target is `load` or `start`. 
 
@@ -21,8 +23,3 @@ If you want a list of all bindings available, goto address `141306710` in Ghidra
 ## Plugin integration
 
 Using a C/C++ plguin you can register custom bindings and call script functions from any thread. See the plugin section in the docs for more info.
-
-
-## Script loading 
-
-This is more of a legacy thing, I don't reccomend it becuase its very hard, incompatible with other mods and takes a long time to correct the broken decompiler output. But if you want to load an entirly custom script just name it what you want and put it in the root directory of your mod. I really don't reccomend this, injection is a far superior method.
