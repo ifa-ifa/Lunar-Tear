@@ -2,7 +2,8 @@
   "dependencies": [
     "minhook",
     "inih",
-    "crc32c"
+    "crc32c",
+    "nlohmann-json"
   ],
   "builtin-baseline": "984f9232b2fe0eb94f5e9f161d6c632c581fff0c"
 }

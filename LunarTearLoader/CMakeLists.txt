@@ -7,6 +7,8 @@ project ("LunarTearLoader" LANGUAGES C CXX ASM_NASM)
 find_package(minhook REQUIRED CONFIG)
 find_package(unofficial-inih REQUIRED CONFIG)
 find_package(crc32c REQUIRED CONFIG)
+find_package(nlohmann_json REQUIRED CONFIG)
+
 
 set_source_files_properties(
     "${CMAKE_CURRENT_SOURCE_DIR}/src/API/api.cpp"
@@ -51,4 +53,5 @@ add_executable(LunarTearLauncher "src/Launcher.cpp")
 
 target_include_directories(LunarTearLoader PRIVATE ${PROJECT_SOURCE_DIR}/src)
 
-target_link_libraries(LunarTearLoader PRIVATE minhook::minhook unofficial::inih::inireader libsettbll Crc32c::crc32c)
+target_link_libraries(LunarTearLoader PRIVATE minhook::minhook unofficial::inih::inireader libsettbll 
+                                              Crc32c::crc32c nlohmann_json::nlohmann_json)

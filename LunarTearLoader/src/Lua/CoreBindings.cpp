@@ -2,18 +2,19 @@
 #include "Common/Logger.h"
 #include "Lua/CoreBindings.h"
 #include "API/Api.h"
+#include "ModLoader.h"
 #include <INIReader.h>
 
 using enum Logger::LogCategory;
 
-void _LTLog(ScriptState* scriptState) { 
+void _LTLog(ScriptState* scriptState) {
     const char* modName = GetArgumentString(GetArgumentPointer(scriptState->argBuffer, 0));
     int logLevel = GetArgumentInt(GetArgumentPointer(scriptState->argBuffer, 1));
     const char* logString = GetArgumentString(GetArgumentPointer(scriptState->argBuffer, 2));
 
 
 
-    Logger::Log((Logger::LogCategory)logLevel, modName) << logString;
+    Logger::Log(API::ApiLogLevelToInternal((LT_LogLevel)logLevel), modName) << logString;
 }
 
 void Binding_LTLog(void* L) {
@@ -21,13 +22,11 @@ void Binding_LTLog(void* L) {
 }
 
 void _LTIsModActive(ScriptState* scriptState) {
-    const char* modName = GetArgumentString(GetArgumentPointer(scriptState->argBuffer, 0));
+    const char* mod_id = GetArgumentString(GetArgumentPointer(scriptState->argBuffer, 0));
 
     bool isActive = false;
-    if (modName) {
-        std::filesystem::path mod_path = "LunarTear/mods/";
-        mod_path /= modName;
-        isActive = std::filesystem::exists(mod_path) && std::filesystem::is_directory(mod_path);
+    if (mod_id) {
+        isActive = GetModPath(mod_id).has_value();
     }
 
     SetArgumentInt(scriptState->returnBuffer, isActive ? 1 : 0);
@@ -58,7 +57,7 @@ void Binding_LTIsPluginActive(void* L) {
 
 
 void _LTConfigGetInt(ScriptState* scriptState) {
-    const char* modName = GetArgumentString(GetArgumentPointer(scriptState->argBuffer, 0));
+    const char* mod_id = GetArgumentString(GetArgumentPointer(scriptState->argBuffer, 0));
     const char* sectionName = GetArgumentString(GetArgumentPointer(scriptState->argBuffer, 1));
     const char* keyName = GetArgumentString(GetArgumentPointer(scriptState->argBuffer, 2));
     int   defaultValue = GetArgumentInt(GetArgumentPointer(scriptState->argBuffer, 3));
@@ -68,10 +67,10 @@ void _LTConfigGetInt(ScriptState* scriptState) {
         scriptState->returnArgCount = 1;
         };
 
-    if (!modName || !sectionName || !keyName) {
+    if (!mod_id || !sectionName || !keyName) {
         Logger::Log(Error)
             << "Invalid config lookup: "
-            << (modName ? modName : "<null>") << ", "
+            << (mod_id ? mod_id : "<null>") << ", "
             << (sectionName ? sectionName : "<null>") << ", "
             << (keyName ? keyName : "<null>")
             << " - Returning default value: " << defaultValue;
@@ -79,12 +78,25 @@ void _LTConfigGetInt(ScriptState* scriptState) {
         return;
     }
 
-    std::string filePath = std::string("LunarTear/mods/") + modName + "/" + modName + ".ini";
-    INIReader reader(filePath);
+    auto mod_path_opt = GetModPath(mod_id);
+    if (!mod_path_opt) {
+        Logger::Log(Error) << "Failed to find mod with ID '" << mod_id << "' for config lookup: "
+            << (mod_id ? mod_id : "<null>") << ", "
+            << (sectionName ? sectionName : "<null>") << ", "
+            << (keyName ? keyName : "<null>")
+            << " - Returning default value: " << defaultValue;
+
+        fail(defaultValue);
+        return;
+    }
+
+    std::filesystem::path config_path = *mod_path_opt;
+    config_path /= "config.ini";
+    INIReader reader(config_path.string());
 
     if (reader.ParseError() != 0) {
         Logger::Log(Error)
-            << "Failed to load config file: " << filePath
+            << "Failed to load config file: " << config_path.string()
             << " - Returning default value: " << defaultValue;
         fail(defaultValue);
         return;
@@ -104,7 +116,7 @@ void Binding_LTConfigGetInt(void* L) {
 
 
 void _LTConfigGetReal(ScriptState* scriptState) {
-    const char* modName = GetArgumentString(GetArgumentPointer(scriptState->argBuffer, 0));
+    const char* mod_id = GetArgumentString(GetArgumentPointer(scriptState->argBuffer, 0));
     const char* sectionName = GetArgumentString(GetArgumentPointer(scriptState->argBuffer, 1));
     const char* keyName = GetArgumentString(GetArgumentPointer(scriptState->argBuffer, 2));
     float defaultValue = GetArgumentFloat(GetArgumentPointer(scriptState->argBuffer, 3));
@@ -114,10 +126,10 @@ void _LTConfigGetReal(ScriptState* scriptState) {
         scriptState->returnArgCount = 1;
         };
 
-    if (!modName || !sectionName || !keyName) {
+    if (!mod_id || !sectionName || !keyName) {
         Logger::Log(Error)
             << "Invalid config lookup: "
-            << (modName ? modName : "<null>") << ", "
+            << (mod_id ? mod_id : "<null>") << ", "
             << (sectionName ? sectionName : "<null>") << ", "
             << (keyName ? keyName : "<null>")
             << " - Returning default value: " << defaultValue;
@@ -125,12 +137,25 @@ void _LTConfigGetReal(ScriptState* scriptState) {
         return;
     }
 
-    std::string filePath = std::string("LunarTear/mods/") + modName + "/" + modName + ".ini";
-    INIReader reader(filePath);
+    auto mod_path_opt = GetModPath(mod_id);
+    if (!mod_path_opt) {
+        Logger::Log(Error) << "Failed to find mod with ID '" << mod_id << "' for config lookup: "
+            << (mod_id ? mod_id : "<null>") << ", "
+            << (sectionName ? sectionName : "<null>") << ", "
+            << (keyName ? keyName : "<null>")
+            << " - Returning default value: " << defaultValue;
+
+        fail(defaultValue);
+        return;
+    }
+
+    std::filesystem::path config_path = *mod_path_opt;
+    config_path /= "config.ini";
+    INIReader reader(config_path.string());
 
     if (reader.ParseError() != 0) {
         Logger::Log(Error)
-            << "Failed to load config file: " << filePath
+            << "Failed to load config file: " << config_path.string()
             << " - Returning default value: " << defaultValue;
         fail(defaultValue);
         return;
@@ -150,7 +175,7 @@ void Binding_LTConfigGetReal(void* L) {
 
 
 void _LTConfigGetBool(ScriptState* scriptState) {
-    const char* modName = GetArgumentString(GetArgumentPointer(scriptState->argBuffer, 0));
+    const char* mod_id = GetArgumentString(GetArgumentPointer(scriptState->argBuffer, 0));
     const char* sectionName = GetArgumentString(GetArgumentPointer(scriptState->argBuffer, 1));
     const char* keyName = GetArgumentString(GetArgumentPointer(scriptState->argBuffer, 2));
     bool defaultValue = GetArgumentInt(GetArgumentPointer(scriptState->argBuffer, 3)) != 0;
@@ -160,10 +185,10 @@ void _LTConfigGetBool(ScriptState* scriptState) {
         scriptState->returnArgCount = 1;
         };
 
-    if (!modName || !sectionName || !keyName) {
+    if (!mod_id || !sectionName || !keyName) {
         Logger::Log(Error)
             << "Invalid config lookup: "
-            << (modName ? modName : "<null>") << ", "
+            << (mod_id ? mod_id : "<null>") << ", "
             << (sectionName ? sectionName : "<null>") << ", "
             << (keyName ? keyName : "<null>")
             << " - Returning default value: " << defaultValue;
@@ -171,12 +196,25 @@ void _LTConfigGetBool(ScriptState* scriptState) {
         return;
     }
 
-    std::string filePath = std::string("LunarTear/mods/") + modName + "/" + modName + ".ini";
-    INIReader reader(filePath);
+    auto mod_path_opt = GetModPath(mod_id);
+    if (!mod_path_opt) {
+        Logger::Log(Error) << "Failed to find mod with ID '" << mod_id << "' for config lookup: "
+            << (mod_id ? mod_id : "<null>") << ", "
+            << (sectionName ? sectionName : "<null>") << ", "
+            << (keyName ? keyName : "<null>")
+            << " - Returning default value: " << defaultValue;
+
+        fail(defaultValue);
+        return;
+    }
+
+    std::filesystem::path config_path = *mod_path_opt;
+    config_path /= "config.ini";
+    INIReader reader(config_path.string());
 
     if (reader.ParseError() != 0) {
         Logger::Log(Error)
-            << "Failed to load config file: " << filePath
+            << "Failed to load config file: " << config_path.string()
             << " - Returning default value: " << defaultValue;
         fail(defaultValue);
         return;
@@ -197,7 +235,7 @@ void Binding_LTConfigGetBool(void* L) {
 }
 
 void _LTConfigGetString(ScriptState* scriptState) {
-    const char* modName = GetArgumentString(GetArgumentPointer(scriptState->argBuffer, 0));
+    const char* mod_id = GetArgumentString(GetArgumentPointer(scriptState->argBuffer, 0));
     const char* sectionName = GetArgumentString(GetArgumentPointer(scriptState->argBuffer, 1));
     const char* keyName = GetArgumentString(GetArgumentPointer(scriptState->argBuffer, 2));
     const char* defaultValue = GetArgumentString(GetArgumentPointer(scriptState->argBuffer, 3));
@@ -207,10 +245,10 @@ void _LTConfigGetString(ScriptState* scriptState) {
         scriptState->returnArgCount = 1;
         };
 
-    if (!modName || !sectionName || !keyName) {
+    if (!mod_id || !sectionName || !keyName) {
         Logger::Log(Error)
             << "Invalid config lookup: "
-            << (modName ? modName : "<null>") << ", "
+            << (mod_id ? mod_id : "<null>") << ", "
             << (sectionName ? sectionName : "<null>") << ", "
             << (keyName ? keyName : "<null>")
             << " - Returning default value: " << (defaultValue ? defaultValue : "<null>");
@@ -218,12 +256,25 @@ void _LTConfigGetString(ScriptState* scriptState) {
         return;
     }
 
-    std::string filePath = std::string("LunarTear/mods/") + modName + "/" + modName + ".ini";
-    INIReader reader(filePath);
+    auto mod_path_opt = GetModPath(mod_id);
+    if (!mod_path_opt) {
+        Logger::Log(Error) << "Failed to find mod with ID '" << mod_id << "' for config lookup: "
+            << (mod_id ? mod_id : "<null>") << ", "
+            << (sectionName ? sectionName : "<null>") << ", "
+            << (keyName ? keyName : "<null>")
+            << " - Returning default value: " << defaultValue;
+
+        fail(defaultValue);
+        return;
+    }
+
+    std::filesystem::path config_path = *mod_path_opt;
+    config_path /= "config.ini";
+    INIReader reader(config_path.string());
 
     if (reader.ParseError() != 0) {
         Logger::Log(Error)
-            << "Failed to load config file: " << filePath
+            << "Failed to load config file: " << config_path.string()
             << " - Returning default value: " << (defaultValue ? defaultValue : "<null>");
         fail(defaultValue);
         return;
@@ -239,6 +290,25 @@ void Binding_LTConfigGetString(void* L) {
     luaBindingDispatcher(L, &_LTConfigGetString);
 }
 
+void _LTGetModDirectory(ScriptState* scriptState) {
+    const char* mod_id = GetArgumentString(GetArgumentPointer(scriptState->argBuffer, 0));
+
+    std::string path_str = "";
+    if (mod_id) {
+        auto mod_path_opt = GetModPath(mod_id);
+        if (mod_path_opt) {
+            path_str = *mod_path_opt;
+        }
+    }
+
+    SetArgumentString(scriptState->returnBuffer, path_str.c_str());
+    scriptState->returnArgCount = 1;
+}
+
+void Binding_LTGetModDirectory(void* L) {
+    luaBindingDispatcher(L, &_LTGetModDirectory);
+}
+
 
 
 LuaCBinding coreBindings[] = {
@@ -249,7 +319,8 @@ LuaCBinding coreBindings[] = {
     { "_LTConfigGetInt",    Binding_LTConfigGetInt },
     { "_LTIsModActive",     Binding_LTIsModActive },
     { "_LTIsPluginActive",  Binding_LTIsPluginActive },
-    
+    { "_LTGetModDirectory", Binding_LTGetModDirectory },
+
     { NULL, NULL }
 };
 

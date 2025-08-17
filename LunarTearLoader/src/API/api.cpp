@@ -3,6 +3,7 @@
 #include "Lua/LuaCommandQueue.h"
 #include "Game/Globals.h"
 #include "Game/Functions.h"
+#include "ModLoader.h"
 #include <MinHook.h>
 #include <map>
 #include <mutex>
@@ -31,18 +32,13 @@ namespace {
     static std::vector<std::pair<std::string, LT_LuaCFunc>> s_plugin_lua_bindings;
 
 
+
+
     void API_Log(LT_PluginHandle handle, LT_LogLevel level, const char* message) {
         if (!handle) return;
         PluginContext* ctx = static_cast<PluginContext*>(handle);
 
-        Logger::LogCategory category = Info;
-        switch (level) {
-        case LT_LOG_INFO:    category = Info;    break;
-        case LT_LOG_VERBOSE: category = Verbose; break;
-        case LT_LOG_WARNING: category = Warning; break;
-        case LT_LOG_ERROR:   category = Error;   break;
-        case LT_LOG_LUA:     category = Lua;     break;
-        }
+        Logger::LogCategory category = API::ApiLogLevelToInternal(level);
         Logger::Log(category, ctx->name) << message;
     }
 
@@ -128,16 +124,26 @@ namespace {
     }
 
 
-    bool API_IsModActive(LT_PluginHandle handle, const char* mod_name) {
-        if (!mod_name) return false;
-        std::filesystem::path mod_path = "LunarTear/mods/";
-        mod_path /= mod_name;
-        return std::filesystem::exists(mod_path) && std::filesystem::is_directory(mod_path);
+    bool API_IsModActive(LT_PluginHandle handle, const char* mod_id) {
+        if (!mod_id) return false;
+        return GetModPath(mod_id).has_value();
     }
 
     bool API_IsPluginActive(LT_PluginHandle handle, const char* plugin_name) {
         if (!plugin_name) return false;
         return API::IsPluginLoaded(plugin_name);
+    }
+
+    int API_GetModDirectory(LT_PluginHandle handle, const char* mod_id, char* out_buffer, uint32_t buffer_size) {
+        if (!mod_id || !out_buffer || buffer_size == 0) return -1;
+
+        auto mod_path_opt = GetModPath(mod_id);
+        if (!mod_path_opt) {
+            return -1;
+        }
+
+        strncpy_s(out_buffer, buffer_size, mod_path_opt->c_str(), _TRUNCATE);
+        return strnlen_s(out_buffer, buffer_size);
     }
 }
 
@@ -153,6 +159,17 @@ namespace API {
         return false;
     }
 
+    Logger::LogCategory ApiLogLevelToInternal(LT_LogLevel level) {
+        switch (level) {
+        case LT_LOG_INFO:    return Info;
+        case LT_LOG_VERBOSE: return Verbose;
+        case LT_LOG_WARNING: return Warning;
+        case LT_LOG_ERROR:   return Error;
+        case LT_LOG_LUA:     return Lua;
+        default:             return Logger::LogCategory::Info;
+        }
+    }
+
     void Init() {
 
         s_gameApi.luaBindingDispatcher = luaBindingDispatcher;
@@ -163,7 +180,7 @@ namespace API {
         s_gameApi.GetArgumentFloat = GetArgumentFloat;
         s_gameApi.SetArgumentFloat = SetArgumentFloat;
         s_gameApi.SetArgumentInt = SetArgumentInt;
-        s_gameApi.SetArgumentString = SetArgumentString; 
+        s_gameApi.SetArgumentString = SetArgumentString;
 
         s_gameApi.AnyEndingSeen = (bool (*)(EndingsData*))AnyEndingSeen;
         s_gameApi.EndingESeen = (bool (*)(EndingsData*))EndingESeen;
@@ -197,6 +214,7 @@ namespace API {
         s_api.Lua_QueuePhaseScriptCall = API_Lua_QueuePhaseScriptCall;
         s_api.IsModActive = API_IsModActive;
         s_api.IsPluginActive = API_IsPluginActive;
+        s_api.GetModDirectory = API_GetModDirectory;
 
         s_gameApi.processBaseAddress = g_processBaseAddress;
         s_gameApi.phaseScriptManager = (PhaseScriptManager*)phaseScriptManager;
@@ -213,21 +231,27 @@ namespace API {
         return &s_api;
     }
 
-    void InitializePlugin(const std::string& pluginName, HMODULE pluginModule) {
+    void InitializePlugin(const std::string& mod_id, HMODULE pluginModule) {
         PluginContext* context_ptr = nullptr;
         {
             auto context = std::make_unique<PluginContext>();
-            context->name = pluginName;
+            context->name = mod_id;
             context->moduleHandle = pluginModule;
 
-            std::filesystem::path config_path = "LunarTear/mods/";
-            config_path /= pluginName;
-            config_path /= pluginName + ".ini";
+            auto mod_path_opt = GetModPath(mod_id);
+            if (mod_path_opt) {
+                std::filesystem::path config_path = *mod_path_opt;
+                config_path /= "config.ini";
 
-            context->configReader = std::make_unique<INIReader>(config_path.string());
-            if (context->configReader->ParseError() != 0) {
-                Logger::Log(Warning) << "Could not parse config for plugin '" << pluginName << "': " << config_path.string();
+                context->configReader = std::make_unique<INIReader>(config_path.string());
+                if (context->configReader->ParseError() != 0) {
+                    Logger::Log(Warning) << "Could not parse config for plugin '" << mod_id << "': " << config_path.string();
+                }
             }
+            else {
+                Logger::Log(Warning) << "Could not find path for mod '" << mod_id << "' to load its config.";
+            }
+
 
             context_ptr = context.get(); // Get raw pointer before moving ownership
 

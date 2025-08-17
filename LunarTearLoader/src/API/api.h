@@ -5,6 +5,7 @@
 #include <mutex>
 #include <utility> 
 #include "Game/Types.h"
+#include "Common/Logger.h"
 #include "API/LunarTear.h"
 
 namespace API {
@@ -13,6 +14,7 @@ namespace API {
     void InitializePlugin(const std::string& pluginName, HMODULE pluginModule);
     bool IsPluginLoaded(const std::string& pluginName);
 
+    Logger::LogCategory ApiLogLevelToInternal(LT_LogLevel level);
 
     extern std::mutex s_lua_binding_mutex;
 

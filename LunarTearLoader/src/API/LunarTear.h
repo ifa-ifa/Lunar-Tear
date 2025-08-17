@@ -35,7 +35,7 @@ extern "C" {
     } LT_HookStatus;
 
 
-    typedef void (*LT_LuaCFunc)(ScriptState* scriptState);
+    typedef void (*LT_LuaCFunc)(void* LuaState);
 
     typedef struct LT_GameAPI {
 
@@ -98,6 +98,7 @@ extern "C" {
         void (*Lua_QueuePhaseScriptCall)(LT_PluginHandle handle, const char* function_name);
         bool (*IsModActive)(LT_PluginHandle handle, const char* mod_name);
         bool (*IsPluginActive)(LT_PluginHandle handle, const char* plugin_name);
+        int (*GetModDirectory)(LT_PluginHandle handle, const char* mod_name, char* out_buffer, uint32_t buffer_size);
 
     } LunarTearAPI;
 
