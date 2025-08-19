@@ -15,7 +15,7 @@ namespace {
         uint32_t offsetToAssetTypeData;
     };
 #pragma pack(pop)
-} // namespace
+} 
 
 namespace replicant::bxon {
 
@@ -24,22 +24,16 @@ namespace replicant::bxon {
     bool File::loadFromFile(const std::string& filepath) {
         std::ifstream file(filepath, std::ios::binary);
         if (!file) {
-            // std::cerr << "Debug: Failed to open file: " << filepath << std::endl;
             return false;
         }
-
         file.seekg(0, std::ios::end);
         std::streamsize size = file.tellg();
         file.seekg(0, std::ios::beg);
-
         if (size <= 0) {
-            // std::cerr << "Debug: File is empty or cannot determine size: " << filepath << std::endl;
             return false;
         }
-
         std::vector<char> buffer(size);
         if (!file.read(buffer.data(), size)) {
-            // std::cerr << "Debug: Failed to read file data: " << filepath << std::endl;
             return false;
         }
         return loadFromMemory(buffer.data(), buffer.size());
@@ -47,7 +41,6 @@ namespace replicant::bxon {
 
     bool File::parseAsset(const char* buffer, size_t size, uintptr_t asset_data_offset) {
         if (asset_data_offset >= size) {
-            // std::cerr << "Debug: Asset data offset is out of bounds.\n";
             return false;
         }
         const char* asset_base = buffer + asset_data_offset;
@@ -57,8 +50,6 @@ namespace replicant::bxon {
             parseArchiveFileParam(param, buffer, size, asset_base);
             return true;
         }
-
-        // std::cout << "Debug: Unsupported asset type '" << m_assetTypeName << "'.\n";
         return false;
     }
 
@@ -66,13 +57,11 @@ namespace replicant::bxon {
         m_asset.emplace<std::monostate>();
 
         if (!buffer || size < sizeof(RawBxonHeader)) {
-            // std::cerr << "Debug: Buffer is null or too small for a BXON header.\n";
             return false;
         }
         const auto* header = reinterpret_cast<const RawBxonHeader*>(buffer);
 
         if (strncmp(header->magic, "BXON", 4) != 0) {
-            // std::cerr << "Debug: Invalid BXON magic bytes.\n";
             return false;
         }
 
@@ -81,7 +70,6 @@ namespace replicant::bxon {
 
         m_assetTypeName = detail::ReadStringFromOffset(buffer, size, &header->offsetToAssetTypeName, header->offsetToAssetTypeName);
         if (m_assetTypeName.empty()) {
-            // std::cerr << "Debug: Could not read asset type name.\n";
             return false;
         }
 
@@ -90,4 +78,4 @@ namespace replicant::bxon {
 
         return parseAsset(buffer, size, asset_data_absolute_pos);
     }
-} // namespace replicant::bxon
+} 

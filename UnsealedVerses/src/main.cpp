@@ -1,5 +1,3 @@
-// UnsealedVerses\src\main.cpp
-
 #include <iostream>
 #include <vector>
 #include <string>
@@ -12,8 +10,6 @@
 #include "replicant/bxon/archive_param_builder.h"
 #include "replicant/bxon.h"
 
-// --- Helper Functions for Clarity ---
-
 void printUsage() {
     std::cout << "Unsealed Verses - Nier Replicant Archive Tool\n\n";
     std::cout << "Usage: UnsealedVerses <output.arc> [options] <key=filepath>...\n\n";
@@ -22,8 +18,7 @@ void printUsage() {
     std::cout << "  --patch <original>      Patch an existing index file.\n";
     std::cout << "  --out <patched_path>    Optional with --patch. Specifies the output path.\n";
     std::cout << "  --load-type <0|1|2>     Set the load type for the new archive.\n";
-    std::cout << "                          0: Preload (default), 1: Stream, 2: Stream Special.\n";
-    std::cout << "  --test-offset           DEBUG: Override the first file entry with hardcoded test values.\n\n";
+    std::cout << "                          0: Preload (default), 1: Stream, 2: Stream Special.\n\n";
     std::cout << "Modes:\n";
     std::cout << "  1. Create from scratch (with --index):\n";
     std::cout << "     UnsealedVerses my_mod.arc --index my_mod.bin file1=...\n";
@@ -61,22 +56,16 @@ std::expected<std::vector<char>, std::string> loadAndDecompressIndex(const std::
 
 void printMetadataTable(const std::vector<replicant::archive::ArcWriter::Entry>& entries) {
     std::cout << "\n--- Archive Entry Metadata ---\n";
-    std::cout << std::left << std::setw(40) << "Key" << std::setw(18) << "Offset" << std::setw(18) << "Index Offset" << std::setw(18) << "Compressed Size" << std::setw(18) << "Decompressed Size" << "\n";
-    std::cout << std::string(112, '-') << "\n";
+    std::cout << std::left << std::setw(40) << "Key" << std::setw(22) << "Uncompressed Offset" << std::setw(18) << "Index Offset" << std::setw(22) << "Total Compressed Size" << std::setw(18) << "Decompressed Size" << "\n";
+    std::cout << std::string(120, '-') << "\n";
     for (const auto& entry : entries) {
-        uint32_t index_offset = entry.offset / 16;
-        std::cout << std::left << std::setw(40) << entry.key << std::setw(18) << entry.offset << std::setw(18) << index_offset << std::setw(18) << entry.compressed_size << std::setw(18) << entry.uncompressed_size << "\n";
+        uint32_t index_offset = entry.offset >> 4;
+        std::cout << std::left << std::setw(40) << entry.key << std::setw(22) << entry.offset << std::setw(18) << index_offset << std::setw(22) << entry.compressed_size << std::setw(18) << entry.uncompressed_size << "\n";
     }
     std::cout << "\n";
 }
 
 bool writeCompressedIndex(const std::string& path, std::vector<char>& bxon_data) {
-    size_t original_size = bxon_data.size();
-    size_t padded_size = align16(original_size);
-    if (padded_size > original_size) {
-        bxon_data.resize(padded_size, 0);
-        std::cout << "Padded uncompressed index from " << original_size << " to " << padded_size << " bytes for alignment.\n";
-    }
     auto compressed_result = replicant::archive::compress_zstd(bxon_data.data(), bxon_data.size());
     if (!compressed_result) {
         std::cerr << "Error compressing index: " << compressed_result.error().message << "\n";
@@ -93,8 +82,6 @@ bool writeCompressedIndex(const std::string& path, std::vector<char>& bxon_data)
     return true;
 }
 
-// --- Main Logic Functions ---
-
 int handleNewIndexMode(const std::string& new_index_path, const std::string& arc_filename, const std::vector<replicant::archive::ArcWriter::Entry>& entries, replicant::bxon::ArchiveLoadType load_type) {
     std::cout << "\n--- Generating new index file... ---\n";
     auto index_data_result = replicant::bxon::buildArchiveParam(entries, 0, arc_filename, load_type);
@@ -107,7 +94,7 @@ int handleNewIndexMode(const std::string& new_index_path, const std::string& arc
     return 0;
 }
 
-int handlePatchMode(const std::string& patch_base_path, const std::string& patch_out_path, const std::string& arc_filename, const std::vector<replicant::archive::ArcWriter::Entry>& entries, replicant::bxon::ArchiveLoadType load_type, bool use_test_offset) {
+int handlePatchMode(const std::string& patch_base_path, const std::string& patch_out_path, const std::string& arc_filename, const std::vector<replicant::archive::ArcWriter::Entry>& entries, replicant::bxon::ArchiveLoadType load_type) {
     std::cout << "\n--- Patching original index: " << patch_base_path << " ---\n";
     auto decompressed_result = loadAndDecompressIndex(patch_base_path);
     if (!decompressed_result) {
@@ -130,59 +117,26 @@ int handlePatchMode(const std::string& patch_base_path, const std::string& patch
     uint8_t new_archive_index = param->addArchive(arc_filename, load_type);
     std::cout << "Using archive '" << arc_filename << "' at index " << (int)new_archive_index << " with LoadType " << (int)load_type << ".\n";
 
-    // --- TEST OFFSET LOGIC ---
-    // We need to know which key to apply the override to. We'll assume it's the first one.
-    const std::string& key_to_override = entries.empty() ? "" : entries[0].key;
-    if (use_test_offset) {
-        std::cout << "!!! TEST OFFSET ACTIVATED for key: " << key_to_override << " !!!\n";
-    }
-
     for (const auto& mod_entry : entries) {
         auto* game_entry = param->findFileEntryMutable(mod_entry.key);
-
-        if (use_test_offset && mod_entry.key == key_to_override) {
-            // Apply hardcoded values
-            if (game_entry) {
-                std::cout << "Patching entry with test values...\n";
-                game_entry->archiveIndex = new_archive_index;
-                game_entry->arcOffset = 521725989;
-                game_entry->compressedSize = 406396;
-                game_entry->decompressedSize = 107728;
-                game_entry->bufferSize = 2097152;
-            }
-            else {
-                std::cout << "Adding new entry with test values...\n";
-                replicant::bxon::FileEntry fe;
-                fe.filePath = mod_entry.key;
-                fe.archiveIndex = new_archive_index;
-                fe.arcOffset = 521725989 ;
-                fe.compressedSize = 406396;
-                fe.decompressedSize = 107728;
-                fe.bufferSize = 2097152;
-                param->getFileEntries().push_back(fe);
-            }
+        if (game_entry) {
+            std::cout << "Patching entry: " << mod_entry.key << "\n";
+            game_entry->archiveIndex = new_archive_index;
+            game_entry->arcOffset = mod_entry.offset >> 4; // Use bitshift
+            game_entry->compressedSize = mod_entry.compressed_size;
+            game_entry->decompressedSize = mod_entry.uncompressed_size;
+            game_entry->bufferSize = align16(mod_entry.uncompressed_size);
         }
         else {
-            // Normal logic
-            if (game_entry) {
-                std::cout << "Patching entry: " << mod_entry.key << "\n";
-                game_entry->archiveIndex = new_archive_index;
-                game_entry->arcOffset = mod_entry.offset / 16;
-                game_entry->compressedSize = mod_entry.compressed_size;
-                game_entry->decompressedSize = mod_entry.uncompressed_size;
-                game_entry->bufferSize = align16(mod_entry.uncompressed_size);
-            }
-            else {
-                std::cout << "Adding new entry: " << mod_entry.key << "\n";
-                replicant::bxon::FileEntry fe;
-                fe.filePath = mod_entry.key;
-                fe.archiveIndex = new_archive_index;
-                fe.arcOffset = mod_entry.offset / 16;
-                fe.compressedSize = mod_entry.compressed_size;
-                fe.decompressedSize = mod_entry.uncompressed_size;
-                fe.bufferSize = align16(mod_entry.uncompressed_size);
-                param->getFileEntries().push_back(fe);
-            }
+            std::cout << "Adding new entry: " << mod_entry.key << "\n";
+            replicant::bxon::FileEntry fe;
+            fe.filePath = mod_entry.key;
+            fe.archiveIndex = new_archive_index;
+            fe.arcOffset = mod_entry.offset >> 4; // Use bitshift
+            fe.compressedSize = mod_entry.compressed_size;
+            fe.decompressedSize = mod_entry.uncompressed_size;
+            fe.bufferSize = align16(mod_entry.uncompressed_size);
+            param->getFileEntries().push_back(fe);
         }
     }
     auto patched_data_result = replicant::bxon::buildArchiveParam(*param, bxon_file.getVersion(), bxon_file.getProjectID());
@@ -195,13 +149,11 @@ int handlePatchMode(const std::string& patch_base_path, const std::string& patch
     return 0;
 }
 
-// --- Main Function ---
 int main(int argc, char* argv[]) {
     if (argc < 3) { printUsage(); return 1; }
 
     std::string output_arc_path;
     std::optional<std::string> new_index_path, patch_base_path, patch_out_path;
-    bool use_test_offset = false; // New variable
     std::vector<std::string> file_args;
     replicant::bxon::ArchiveLoadType load_type = replicant::bxon::ArchiveLoadType::PRELOAD_DECOMPRESS;
 
@@ -222,7 +174,7 @@ int main(int argc, char* argv[]) {
         else if (arg == "--load-type") {
             if (i + 1 < argc) {
                 try {
-                    int type_val = std::stoi(argv[++i]); // Correctly consume the next argument
+                    int type_val = std::stoi(argv[++i]);
                     if (type_val >= 0 && type_val <= 2) {
                         load_type = static_cast<replicant::bxon::ArchiveLoadType>(type_val);
                     }
@@ -231,9 +183,6 @@ int main(int argc, char* argv[]) {
                 catch (const std::exception&) { std::cerr << "Error: Invalid number format for --load-type.\n"; return 1; }
             }
             else { std::cerr << "Error: --load-type requires a value (0, 1, or 2).\n"; return 1; }
-        }
-        else if (arg == "--test-offset") { // New flag, no value needed
-            use_test_offset = true;
         }
         else if (output_arc_path.empty()) {
             output_arc_path = arg;
@@ -273,7 +222,7 @@ int main(int argc, char* argv[]) {
     const auto& entries = writer.getEntries();
     std::string arc_filename = std::filesystem::path(output_arc_path).filename().string();
     int result = 0;
-    if (patch_base_path) { result = handlePatchMode(*patch_base_path, *patch_out_path, arc_filename, entries, load_type, use_test_offset); }
+    if (patch_base_path) { result = handlePatchMode(*patch_base_path, *patch_out_path, arc_filename, entries, load_type); }
     else if (new_index_path) { result = handleNewIndexMode(*new_index_path, arc_filename, entries, load_type); }
     if (result == 0) { printMetadataTable(entries); }
     return result;

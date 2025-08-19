@@ -15,20 +15,19 @@ namespace replicant::bxon {
     struct ArchiveEntry {
         std::string filename;
         ArchiveLoadType loadType;
-        uint32_t unknown_1 = 4; // all game archives use 4
+        uint32_t offsetScale = 4;
     };
 
     struct FileEntry {
         uint32_t pathHash = 0;
         std::string filePath;
-        uint32_t arcOffset = 0; // Divided by 16
+        uint32_t arcOffset = 0; // Uncompressed offset, bit-shifted by ArchiveEntry::offsetScale
         uint32_t compressedSize = 0;
         uint32_t decompressedSize = 0;
         uint32_t bufferSize = 0;
         uint8_t archiveIndex = 0;
         uint8_t flags = 0;
     };
-
 
     class ArchiveFileParam {
     public:
@@ -47,4 +46,4 @@ namespace replicant::bxon {
         std::vector<FileEntry> m_file_entries;
     };
 
-} // namespace replicant::bxon
+} 

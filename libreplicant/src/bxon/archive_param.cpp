@@ -8,7 +8,7 @@ namespace {
 #pragma pack(push, 1)
     struct RawArchiveEntry {
         uint32_t offsetToFilename;
-        uint32_t unknown_1;
+        uint32_t offsetScale;
         replicant::bxon::ArchiveLoadType loadType;
         uint8_t  padding[3];
     };
@@ -30,7 +30,7 @@ namespace {
         uint32_t offsetToFileTable;
     };
 #pragma pack(pop)
-} // namespace
+} 
 
 namespace replicant::bxon::detail {
     std::string ReadStringFromOffset(const char* buffer_base, size_t buffer_size, const void* field_ptr, uint32_t relative_offset) {
@@ -44,9 +44,34 @@ namespace replicant::bxon::detail {
         size_t actual_len = strnlen(buffer_base + absolute_offset, max_len);
         return std::string(buffer_base + absolute_offset, actual_len);
     }
-} // namespace replicant::bxon::detail
+} 
 
 namespace replicant::bxon {
+
+    void parseArchiveFileParam(ArchiveFileParam& asset, const char* buffer, size_t size, const char* asset_base); 
+
+    FileEntry* ArchiveFileParam::findFileEntryMutable(const std::string& key) {
+        for (auto& entry : m_file_entries) {
+            if (entry.filePath == key) {
+                return &entry;
+            }
+        }
+        return nullptr;
+    }
+
+    uint8_t ArchiveFileParam::addArchive(std::string filename, ArchiveLoadType loadType) {
+        for (size_t i = 0; i < m_archive_entries.size(); ++i) {
+            if (m_archive_entries[i].filename == filename) {
+                m_archive_entries[i].loadType = loadType; 
+                return static_cast<uint8_t>(i);
+            }
+        }
+        ArchiveEntry new_archive;
+        new_archive.filename = std::move(filename);
+        new_archive.loadType = loadType;
+        m_archive_entries.push_back(new_archive);
+        return static_cast<uint8_t>(m_archive_entries.size() - 1);
+    }
 
     void parseArchiveFileParam(ArchiveFileParam& asset, const char* buffer, size_t size, const char* asset_base) {
         const auto* raw_param_header = reinterpret_cast<const RawArchiveFileParam*>(asset_base);
@@ -58,7 +83,6 @@ namespace replicant::bxon {
         const uint32_t file_table_abs_pos = file_table_field_abs_pos + raw_param_header->offsetToFileTable;
 
         if (archive_array_abs_pos >= size || file_table_abs_pos >= size) {
-            std::cerr << "Debug: Archive or File table offset is out of bounds.\n";
             return;
         }
 
@@ -68,7 +92,7 @@ namespace replicant::bxon {
             ArchiveEntry entry;
             entry.filename = detail::ReadStringFromOffset(buffer, size, &raw_entry.offsetToFilename, raw_entry.offsetToFilename);
             entry.loadType = raw_entry.loadType;
-            entry.unknown_1 = raw_entry.unknown_1;
+            entry.offsetScale = raw_entry.offsetScale;
             asset.getArchiveEntries().push_back(std::move(entry));
         }
 
@@ -87,26 +111,4 @@ namespace replicant::bxon {
             asset.getFileEntries().push_back(std::move(entry));
         }
     }
-
-    FileEntry* ArchiveFileParam::findFileEntryMutable(const std::string& key) {
-        for (auto& entry : m_file_entries) {
-            if (entry.filePath == key) {
-                return &entry;
-            }
-        }
-        return nullptr;
-    }
-
-    uint8_t ArchiveFileParam::addArchive(std::string filename, ArchiveLoadType loadType) {
-        for (const auto& entry : m_archive_entries) {
-            if (entry.filename == filename) {
-                return static_cast<uint8_t>(&entry - &m_archive_entries[0]);
-            }
-        }
-        ArchiveEntry new_archive;
-        new_archive.filename = std::move(filename);
-        new_archive.loadType = loadType;
-        m_archive_entries.push_back(new_archive);
-        return static_cast<uint8_t>(m_archive_entries.size() - 1);
-    }
-} // namespace replicant::bxon
+} 

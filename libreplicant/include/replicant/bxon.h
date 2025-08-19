@@ -35,4 +35,4 @@ namespace replicant::bxon {
         AssetData m_asset;
     };
 
-} // namespace replicant::bxon
+} 

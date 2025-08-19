@@ -6,7 +6,7 @@
 #include <iostream>
 #include <cstring>
 
-// These C-style structs match the binary file format exactly
+// These structs match the binary file format exactly
 
 namespace {
 

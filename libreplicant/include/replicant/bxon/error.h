@@ -6,7 +6,6 @@ namespace replicant::bxon {
 
     enum class BxonErrorCode {
         Success,
-        // Add more specific codes here as needed
         BuildError
     };
 
@@ -15,4 +14,4 @@ namespace replicant::bxon {
         std::string message;
     };
 
-} // namespace replicant::bxon
+} 

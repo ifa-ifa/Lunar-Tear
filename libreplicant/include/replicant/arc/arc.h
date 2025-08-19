@@ -20,27 +20,23 @@ namespace replicant::archive {
     std::expected<std::vector<char>, ArcError> compress_zstd(
         const void* uncompressed_data,
         size_t uncompressed_size,
-        int compression_level = 3
+        int compression_level = 1 
     );
 
-
-    // --- Archive Writer ---
 
     class ArcWriter {
     public:
         struct Entry {
             std::string key;
             size_t uncompressed_size;
-            size_t compressed_size;
-            uint64_t offset;
+            size_t compressed_size; // Note: This will be the size of the entire compressed archive
+            uint64_t offset; // Offset in the uncompressed data blob
         };
 
-        // Note: Returns std::expected<void, ...> for operations that
-        // don't have a return value on success.
         std::expected<void, ArcError> addFile(std::string key, std::vector<char> data);
         std::expected<void, ArcError> addFileFromDisk(std::string key, const std::string& filepath);
 
-        std::expected<std::vector<char>, ArcError> build(int compression_level = 3);
+        std::expected<std::vector<char>, ArcError> build(int compression_level = 1);
 
         const std::vector<Entry>& getEntries() const;
 
@@ -54,4 +50,4 @@ namespace replicant::archive {
         std::vector<Entry> m_built_entries;
     };
 
-} // namespace replicant::archive
+}
