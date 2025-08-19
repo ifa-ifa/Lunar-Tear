@@ -4,7 +4,7 @@
 #include <vector>
 #include "Game/TextureFormats.h"
 #include <filesystem>
-#include <settbll.h>
+#include <replicant/stbl.h>
 #include "Common/Logger.h"
 
 constexpr size_t MAX_STBL_SIZE = 16 * 1000 * 1000;

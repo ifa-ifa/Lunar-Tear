@@ -1,7 +1,6 @@
 ﻿set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-
 project ("LunarTearLoader" LANGUAGES C CXX ASM_NASM)
 
 find_package(minhook REQUIRED CONFIG)
@@ -51,7 +50,7 @@ add_library(LunarTearLoader SHARED
 
 add_executable(LunarTearLauncher "src/Launcher.cpp")
 
-target_include_directories(LunarTearLoader PRIVATE ${PROJECT_SOURCE_DIR}/src)
+target_include_directories(LunarTearLoader PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
-target_link_libraries(LunarTearLoader PRIVATE minhook::minhook unofficial::inih::inireader libsettbll 
+target_link_libraries(LunarTearLoader PRIVATE minhook::minhook unofficial::inih::inireader libreplicant 
                                               Crc32c::crc32c nlohmann_json::nlohmann_json)
