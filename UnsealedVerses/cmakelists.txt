@@ -1,0 +1,10 @@
+project(UnsealedVerses)
+
+add_executable(UnsealedVerses src/main.cpp)
+
+# Linking to libreplicant automatically gives us access to its public headers
+# and also links its dependencies (like zstd) into our final executable.
+target_link_libraries(UnsealedVerses
+    PRIVATE
+        libreplicant
+)
