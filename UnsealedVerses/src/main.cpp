@@ -54,18 +54,25 @@ std::expected<std::vector<char>, std::string> loadAndDecompressIndex(const std::
     return *decompress_result;
 }
 
-void printMetadataTable(const std::vector<replicant::archive::ArcWriter::Entry>& entries) {
+void printMetadataTable(const std::vector<replicant::archive::ArcWriter::Entry>& entries, replicant::archive::ArcBuildMode mode) {
     std::cout << "\n--- Archive Entry Metadata ---\n";
-    std::cout << std::left << std::setw(40) << "Key" << std::setw(22) << "Uncompressed Offset" << std::setw(18) << "Index Offset" << std::setw(22) << "Total Compressed Size" << std::setw(18) << "Decompressed Size" << "\n";
-    std::cout << std::string(120, '-') << "\n";
+    const char* offset_header = (mode == replicant::archive::ArcBuildMode::SingleStream) ? "Uncompressed Offset" : "Physical Offset";
+    std::cout << std::left << std::setw(40) << "Key" << std::setw(22) << offset_header << std::setw(18) << "Index Offset" << std::setw(18) << "Compressed Size" << std::setw(18) << "Decompressed Size" << "\n";
+    std::cout << std::string(116, '-') << "\n";
     for (const auto& entry : entries) {
-        uint32_t index_offset = entry.offset >> 4;
-        std::cout << std::left << std::setw(40) << entry.key << std::setw(22) << entry.offset << std::setw(18) << index_offset << std::setw(22) << entry.compressed_size << std::setw(18) << entry.uncompressed_size << "\n";
+        uint32_t index_offset = entry.offset / 16;
+        std::cout << std::left << std::setw(40) << entry.key << std::setw(22) << entry.offset << std::setw(18) << index_offset << std::setw(18) << entry.compressed_size << std::setw(18) << entry.uncompressed_size << "\n";
     }
     std::cout << "\n";
 }
 
 bool writeCompressedIndex(const std::string& path, std::vector<char>& bxon_data) {
+    size_t original_size = bxon_data.size();
+    size_t padded_size = align16(original_size);
+    if (padded_size > original_size) {
+        bxon_data.resize(padded_size, 0);
+        std::cout << "Padded uncompressed index from " << original_size << " to " << padded_size << " bytes for alignment.\n";
+    }
     auto compressed_result = replicant::archive::compress_zstd(bxon_data.data(), bxon_data.size());
     if (!compressed_result) {
         std::cerr << "Error compressing index: " << compressed_result.error().message << "\n";
@@ -81,6 +88,7 @@ bool writeCompressedIndex(const std::string& path, std::vector<char>& bxon_data)
     std::cout << "Successfully wrote index to " << path << " (" << final_compressed_data.size() << " bytes total).\n";
     return true;
 }
+
 
 int handleNewIndexMode(const std::string& new_index_path, const std::string& arc_filename, const std::vector<replicant::archive::ArcWriter::Entry>& entries, replicant::bxon::ArchiveLoadType load_type) {
     std::cout << "\n--- Generating new index file... ---\n";
@@ -122,17 +130,17 @@ int handlePatchMode(const std::string& patch_base_path, const std::string& patch
         if (game_entry) {
             std::cout << "Patching entry: " << mod_entry.key << "\n";
             game_entry->archiveIndex = new_archive_index;
-            game_entry->arcOffset = mod_entry.offset >> 4; // Use bitshift
+            game_entry->arcOffset = mod_entry.offset / 16;
             game_entry->compressedSize = mod_entry.compressed_size;
             game_entry->decompressedSize = mod_entry.uncompressed_size;
-            game_entry->bufferSize = align16(mod_entry.uncompressed_size);
+            game_entry->bufferSize = align16(mod_entry.uncompressed_size*20);
         }
         else {
             std::cout << "Adding new entry: " << mod_entry.key << "\n";
             replicant::bxon::FileEntry fe;
             fe.filePath = mod_entry.key;
             fe.archiveIndex = new_archive_index;
-            fe.arcOffset = mod_entry.offset >> 4; // Use bitshift
+            fe.arcOffset = mod_entry.offset / 16;
             fe.compressedSize = mod_entry.compressed_size;
             fe.decompressedSize = mod_entry.uncompressed_size;
             fe.bufferSize = align16(mod_entry.uncompressed_size);
@@ -210,8 +218,13 @@ int main(int argc, char* argv[]) {
         if (!result) { std::cerr << "Error: Failed to add file '" << filepath << "'.\n  Reason [" << (int)result.error().code << "]: " << result.error().message << "\n"; return 1; }
     }
 
-    auto build_result = writer.build();
+    replicant::archive::ArcBuildMode build_mode = (load_type == replicant::bxon::ArchiveLoadType::PRELOAD_DECOMPRESS)
+        ? replicant::archive::ArcBuildMode::SingleStream
+        : replicant::archive::ArcBuildMode::ConcatenatedFrames;
+
+    auto build_result = writer.build(build_mode);
     if (!build_result) { std::cerr << "Error: Failed to build archive.\n  Reason [" << (int)build_result.error().code << "]: " << build_result.error().message << "\n"; return 1; }
+
     const auto& arc_data = *build_result;
     std::cout << "Build successful. Total archive size: " << arc_data.size() << " bytes.\n";
     std::ofstream arc_out_file(output_arc_path, std::ios::binary);
@@ -224,6 +237,6 @@ int main(int argc, char* argv[]) {
     int result = 0;
     if (patch_base_path) { result = handlePatchMode(*patch_base_path, *patch_out_path, arc_filename, entries, load_type); }
     else if (new_index_path) { result = handleNewIndexMode(*new_index_path, arc_filename, entries, load_type); }
-    if (result == 0) { printMetadataTable(entries); }
+    if (result == 0) { printMetadataTable(entries, build_mode); }
     return result;
 }

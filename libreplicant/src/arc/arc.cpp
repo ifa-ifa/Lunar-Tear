@@ -4,7 +4,6 @@
 #include <algorithm>
 #include <system_error>
 #include <cerrno>
-#include <numeric>
 
 namespace replicant::archive {
 
@@ -38,8 +37,9 @@ namespace replicant::archive {
     }
 
     std::expected<void, ArcError> ArcWriter::addFile(std::string key, std::vector<char> data) {
-        if (key.empty()) { return std::unexpected(ArcError{ ArcErrorCode::EmptyInput, "File key cannot be empty." }); }
-        if (data.empty()) { return std::unexpected(ArcError{ ArcErrorCode::EmptyInput, "File data cannot be empty." }); }
+        if (key.empty() || data.empty()) {
+            return std::unexpected(ArcError{ ArcErrorCode::EmptyInput, "File key or data cannot be empty." });
+        }
         for (const auto& entry : m_pending_entries) {
             if (entry.key == key) {
                 return std::unexpected(ArcError{ ArcErrorCode::DuplicateKey, "Duplicate key added to writer: " + key });
@@ -63,43 +63,62 @@ namespace replicant::archive {
         return addFile(std::move(key), std::move(data));
     }
 
-    std::expected<std::vector<char>, ArcError> ArcWriter::build(int compression_level) {
+    std::expected<std::vector<char>, ArcError> ArcWriter::build(ArcBuildMode mode, int compression_level) {
         m_built_entries.clear();
-        if (m_pending_entries.empty()) {
-            return std::vector<char>(); 
-        }
 
-        // 1) Concatenate all uncompressed files into one large blob.
-        std::vector<char> uncompressed_blob;
-        size_t total_uncompressed_size = 0;
-        for (const auto& entry : m_pending_entries) {
-            total_uncompressed_size += entry.uncompressed_data.size();
-        }
-        uncompressed_blob.reserve(total_uncompressed_size);
+        if (mode == ArcBuildMode::SingleStream) {
+            // Mode for LOAD_PRELOAD_DECOMPRESS
+            std::vector<char> uncompressed_blob;
+            uint64_t current_uncompressed_offset = 0;
 
-        uint64_t current_uncompressed_offset = 0;
-        for (const auto& pending_entry : m_pending_entries) {
-            Entry built_entry;
-            built_entry.key = pending_entry.key;
-            built_entry.uncompressed_size = pending_entry.uncompressed_data.size();
-            built_entry.offset = current_uncompressed_offset;
-            // compressed_size will be filled in later for all entries at once
-            m_built_entries.push_back(built_entry);
+            for (const auto& pending_entry : m_pending_entries) {
+                Entry built_entry;
+                built_entry.key = pending_entry.key;
+                built_entry.uncompressed_size = pending_entry.uncompressed_data.size();
+                built_entry.offset = current_uncompressed_offset;
+                // In this mode, individual compressed size is not meaningful, but we can store it for metadata.
+                // A real implementation might compress temporarily to get the size, but for now we set to 0.
+                built_entry.compressed_size = 0;
+                m_built_entries.push_back(built_entry);
 
-            uncompressed_blob.insert(uncompressed_blob.end(), pending_entry.uncompressed_data.begin(), pending_entry.uncompressed_data.end());
-            current_uncompressed_offset += pending_entry.uncompressed_data.size();
-        }
+                uncompressed_blob.insert(uncompressed_blob.end(), pending_entry.uncompressed_data.begin(), pending_entry.uncompressed_data.end());
+                current_uncompressed_offset += pending_entry.uncompressed_data.size();
+            }
 
-        auto compressed_result = compress_zstd(uncompressed_blob.data(), uncompressed_blob.size(), compression_level);
-        if (!compressed_result) {
-            return std::unexpected(compressed_result.error());
-        }
+            return compress_zstd(uncompressed_blob.data(), uncompressed_blob.size(), compression_level);
 
-        const size_t final_compressed_size = compressed_result->size();
-        for (auto& entry : m_built_entries) {
-            entry.compressed_size = final_compressed_size;
         }
-        return compressed_result;
+        else { // mode == ArcBuildMode::ConcatenatedFrames
+            // Mode for LOAD_STREAM
+            std::vector<char> arc_data;
+            uint64_t current_compressed_offset = 0;
+            constexpr size_t ALIGNMENT = 16;
+
+            for (const auto& pending_entry : m_pending_entries) {
+                auto compressed_result = compress_zstd(pending_entry.uncompressed_data.data(), pending_entry.uncompressed_data.size(), compression_level);
+                if (!compressed_result) {
+                    return std::unexpected(compressed_result.error());
+                }
+                std::vector<char>& compressed_data = *compressed_result;
+
+                size_t padding_needed = (ALIGNMENT - (current_compressed_offset % ALIGNMENT)) % ALIGNMENT;
+                if (padding_needed > 0) {
+                    arc_data.insert(arc_data.end(), padding_needed, 0x00);
+                    current_compressed_offset += padding_needed;
+                }
+
+                Entry built_entry;
+                built_entry.key = pending_entry.key;
+                built_entry.uncompressed_size = pending_entry.uncompressed_data.size();
+                built_entry.compressed_size = compressed_data.size();
+                built_entry.offset = current_compressed_offset; // Physical offset
+                m_built_entries.push_back(built_entry);
+
+                arc_data.insert(arc_data.end(), compressed_data.begin(), compressed_data.end());
+                current_compressed_offset += compressed_data.size();
+            }
+            return arc_data;
+        }
     }
 
     const std::vector<ArcWriter::Entry>& ArcWriter::getEntries() const {
