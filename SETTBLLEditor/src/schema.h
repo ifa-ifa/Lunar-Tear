@@ -3,7 +3,7 @@
 #include <QString>
 #include <QVector>
 #include <optional>
-#include <settbll.h> 
+#include <replicant/stbl.h>
 
 struct SchemaColumn {
     QString name;

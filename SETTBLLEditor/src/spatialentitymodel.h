@@ -2,7 +2,7 @@
 
 #include <QAbstractTableModel>
 #include <vector>
-#include <settbll.h>
+#include <replicant/stbl.h>
 
 class SpatialEntityModel : public QAbstractTableModel
 {

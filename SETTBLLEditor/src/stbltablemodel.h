@@ -1,7 +1,7 @@
 #pragma once
 
 #include <QAbstractTableModel>
-#include <settbll.h>
+#include <replicant/stbl.h>
 #include "schema.h" 
 #include <optional> 
 

@@ -1,7 +1,7 @@
 #pragma once
 
 #include <QMainWindow>
-#include <settbll.h>
+#include <replicant/stbl.h>
 #include <optional>
 #include "schema.h"
 #include <QMap>

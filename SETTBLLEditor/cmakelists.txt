@@ -12,7 +12,7 @@ add_executable(SETTBLLEditor
 target_link_libraries(SETTBLLEditor
     PRIVATE
         Qt6::Widgets
-        libsettbll 
+        libreplicant 
 )
 
 add_custom_command(TARGET SETTBLLEditor POST_BUILD
