@@ -130,7 +130,7 @@ int handlePatchMode(const std::string& patch_base_path, const std::string& patch
             game_entry->assetsDataSize = mod_entry.assetsDataSize;
         }
         else {
-            std::cerr << "New entries not implemented.";
+            std::cerr << "Error: Support for new entries not implemented. (did you typo the asset path?)";
             return 1;
         }
     }

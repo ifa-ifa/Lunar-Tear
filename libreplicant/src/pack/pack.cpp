@@ -2,7 +2,7 @@
 #include <cstring> 
 
 namespace {
-    // This struct directly maps to the on-disk header of a PACK/.xap file
+    // This struct directly maps to the on-disk header of a PACK file
 #pragma pack(push, 1)
     struct RawPackHeader {
         char     magic[4];

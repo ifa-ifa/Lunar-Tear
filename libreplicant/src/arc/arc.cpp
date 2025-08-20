@@ -24,10 +24,52 @@ namespace replicant::archive {
         return decompressed_buffer;
     }
 
+    std::expected<std::vector<char>, ArcError> compress_zstd_with_long15(
+        const void* uncompressed_data,
+        size_t uncompressed_size,
+        int compression_level
+    ) {
+        if (!uncompressed_data || uncompressed_size == 0) {
+            return std::unexpected(ArcError{ ArcErrorCode::EmptyInput, "Input data cannot be empty." });
+        }
+
+        ZSTD_CCtx* cctx = ZSTD_createCCtx();
+        if (!cctx) {
+            return std::unexpected(ArcError{ ArcErrorCode::ZstdCompressionError, "Failed to create ZSTD context" });
+        }
+
+        ZSTD_CCtx_setParameter(cctx, ZSTD_c_compressionLevel, compression_level);
+
+        // Set window log to 15 (equivalent to --long=15, which gives 2^15 = 32KB window) TODO: MAKE THIS A CMD ARGUMENT
+        // Never set this higher than 15, game will not load it
+        ZSTD_CCtx_setParameter(cctx, ZSTD_c_windowLog, 15);
+
+        size_t max_compressed_size = ZSTD_compressBound(uncompressed_size);
+        std::vector<char> compressed_buffer(max_compressed_size);
+
+        size_t result = ZSTD_compress2(
+            cctx,
+            compressed_buffer.data(),
+            compressed_buffer.size(),
+            uncompressed_data,
+            uncompressed_size
+        );
+
+        ZSTD_freeCCtx(cctx);
+
+        if (ZSTD_isError(result)) {
+            return std::unexpected(ArcError{ ArcErrorCode::ZstdCompressionError, ZSTD_getErrorName(result) });
+        }
+
+        compressed_buffer.resize(result);
+        return compressed_buffer;
+    }
+
     std::expected<std::vector<char>, ArcError> compress_zstd(const void* uncompressed_data, size_t uncompressed_size, int compression_level) {
         if (!uncompressed_data || uncompressed_size == 0) {
             return std::unexpected(ArcError{ ArcErrorCode::EmptyInput, "Input data cannot be empty." });
         }
+
         const size_t max_compressed_size = ZSTD_compressBound(uncompressed_size);
         std::vector<char> compressed_buffer(max_compressed_size);
         const size_t result = ZSTD_compress(compressed_buffer.data(), compressed_buffer.size(), uncompressed_data, uncompressed_size, compression_level);
@@ -111,7 +153,7 @@ namespace replicant::archive {
             constexpr size_t ALIGNMENT = 16;
 
             for (const auto& pending_entry : m_pending_entries) {
-                auto compressed_result = compress_zstd(pending_entry.uncompressed_data.data(), pending_entry.uncompressed_data.size(), compression_level);
+                auto compressed_result = compress_zstd_with_long15(pending_entry.uncompressed_data.data(), pending_entry.uncompressed_data.size(), compression_level);
                 if (!compressed_result) {
                     return std::unexpected(compressed_result.error());
                 }
@@ -151,3 +193,5 @@ namespace replicant::archive {
         return m_built_entries;
     }
 }
+
+

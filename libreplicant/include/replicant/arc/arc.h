@@ -26,11 +26,11 @@ namespace replicant::archive {
 
     enum class ArcBuildMode {
         // For LOAD_PRELOAD_DECOMPRESS: Concatenate all files raw, then compress the entire blob once.
-        // Offsets will be relative to the uncompressed data.
+        // Offsets will be relative to the uncompressed dat
         SingleStream,
 
-        // For LOAD_STREAM and LOAD_STREAM_ONDEMAND: Individually compress each file and concatenate the results.
-        // Offsets will be the physical offset of each compressed chunk.
+        // For LOAD_STREAM and LOAD_STREAM_ONDEMAND: Individually compress each file and concatenate the frames.
+        // Offsets will be the physical offset of each frame
         ConcatenatedFrames
     };
 
