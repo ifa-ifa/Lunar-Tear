@@ -54,17 +54,7 @@ std::expected<std::vector<char>, std::string> loadAndDecompressIndex(const std::
     return *decompress_result;
 }
 
-void printMetadataTable(const std::vector<replicant::archive::ArcWriter::Entry>& entries, replicant::archive::ArcBuildMode mode) {
-    std::cout << "\n--- Archive Entry Metadata ---\n";
-    const char* offset_header = (mode == replicant::archive::ArcBuildMode::SingleStream) ? "Uncompressed Offset" : "Physical Offset";
-    std::cout << std::left << std::setw(40) << "Key" << std::setw(22) << offset_header << std::setw(18) << "Index Offset" << std::setw(18) << "Compressed Size" << std::setw(18) << "Decompressed Size" << "\n";
-    std::cout << std::string(116, '-') << "\n";
-    for (const auto& entry : entries) {
-        uint32_t index_offset = entry.offset / 16;
-        std::cout << std::left << std::setw(40) << entry.key << std::setw(22) << entry.offset << std::setw(18) << index_offset << std::setw(18) << entry.compressed_size << std::setw(18) << entry.uncompressed_size << "\n";
-    }
-    std::cout << "\n";
-}
+
 
 bool writeCompressedIndex(const std::string& path, std::vector<char>& bxon_data) {
     size_t original_size = bxon_data.size();
@@ -130,21 +120,18 @@ int handlePatchMode(const std::string& patch_base_path, const std::string& patch
         if (game_entry) {
             std::cout << "Patching entry: " << mod_entry.key << "\n";
             game_entry->archiveIndex = new_archive_index;
-            game_entry->arcOffset = mod_entry.offset / 16;
+
+            const auto& archive_entries = param->getArchiveEntries();
+            uint32_t scale = archive_entries[new_archive_index].offsetScale;
+            game_entry->arcOffset = mod_entry.offset >> scale; 
+
             game_entry->compressedSize = mod_entry.compressed_size;
-            game_entry->decompressedSize = mod_entry.uncompressed_size;
-            game_entry->bufferSize = align16(mod_entry.uncompressed_size*20);
+            game_entry->everythingExceptAssetsDataSize = mod_entry.everythingExceptAssetsDataSize;
+            game_entry->assetsDataSize = mod_entry.assetsDataSize;
         }
         else {
-            std::cout << "Adding new entry: " << mod_entry.key << "\n";
-            replicant::bxon::FileEntry fe;
-            fe.filePath = mod_entry.key;
-            fe.archiveIndex = new_archive_index;
-            fe.arcOffset = mod_entry.offset / 16;
-            fe.compressedSize = mod_entry.compressed_size;
-            fe.decompressedSize = mod_entry.uncompressed_size;
-            fe.bufferSize = align16(mod_entry.uncompressed_size);
-            param->getFileEntries().push_back(fe);
+            std::cerr << "New entries not implemented.";
+            return 1;
         }
     }
     auto patched_data_result = replicant::bxon::buildArchiveParam(*param, bxon_file.getVersion(), bxon_file.getProjectID());
@@ -237,6 +224,6 @@ int main(int argc, char* argv[]) {
     int result = 0;
     if (patch_base_path) { result = handlePatchMode(*patch_base_path, *patch_out_path, arc_filename, entries, load_type); }
     else if (new_index_path) { result = handleNewIndexMode(*new_index_path, arc_filename, entries, load_type); }
-    if (result == 0) { printMetadataTable(entries, build_mode); }
+
     return result;
 }

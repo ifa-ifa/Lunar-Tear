@@ -11,7 +11,8 @@ namespace replicant::archive {
         DecompressionSizeMismatch,
         EmptyInput,
         DuplicateKey,
-        FileReadError
+        FileReadError,
+        Unimplemented
     };
 
     struct ArcError {

@@ -23,8 +23,8 @@ namespace replicant::bxon {
         std::string filePath;
         uint32_t arcOffset = 0; // Uncompressed offset, bit-shifted by ArchiveEntry::offsetScale
         uint32_t compressedSize = 0;
-        uint32_t decompressedSize = 0;
-        uint32_t bufferSize = 0;
+        uint32_t everythingExceptAssetsDataSize = 0;
+        uint32_t assetsDataSize = 0;
         uint8_t archiveIndex = 0;
         uint8_t flags = 0;
     };

@@ -38,9 +38,10 @@ namespace replicant::archive {
     public:
         struct Entry {
             std::string key;
-            size_t uncompressed_size;
+            size_t everythingExceptAssetsDataSize;
             size_t compressed_size; 
             uint64_t offset;
+            uint32_t assetsDataSize;
         };
 
         std::expected<void, ArcError> addFile(std::string key, std::vector<char> data);

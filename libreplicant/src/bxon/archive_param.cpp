@@ -17,8 +17,8 @@ namespace {
         uint32_t nameOffset;
         uint32_t arcOffset;
         uint32_t compressedSize;
-        uint32_t decompressedSize;
-        uint32_t bufferSize;
+        uint32_t everythingExceptAssetsDataSize;
+        uint32_t assetsDataSize;
         uint8_t  archiveIndex;
         uint8_t  flags;
         uint8_t  padding[2];
@@ -104,8 +104,8 @@ namespace replicant::bxon {
             entry.filePath = detail::ReadStringFromOffset(buffer, size, &raw_entry.nameOffset, raw_entry.nameOffset);
             entry.arcOffset = raw_entry.arcOffset;
             entry.compressedSize = raw_entry.compressedSize;
-            entry.decompressedSize = raw_entry.decompressedSize;
-            entry.bufferSize = raw_entry.bufferSize;
+            entry.everythingExceptAssetsDataSize = raw_entry.everythingExceptAssetsDataSize;
+            entry.assetsDataSize = raw_entry.assetsDataSize;
             entry.archiveIndex = raw_entry.archiveIndex;
             entry.flags = raw_entry.flags;
             asset.getFileEntries().push_back(std::move(entry));

@@ -28,7 +28,7 @@ namespace {
 #pragma pack(push, 1)
     struct RawBxonHeader { char magic[4]; uint32_t version; uint32_t projectID; uint32_t offsetToAssetTypeName; uint32_t offsetToAssetTypeData; };
     struct RawArchiveEntry { uint32_t offsetToFilename; uint32_t unknown_1; replicant::bxon::ArchiveLoadType loadType; uint8_t  padding[3]; };
-    struct RawFileEntry { uint32_t pathHash; uint32_t nameOffset; uint32_t arcOffset; uint32_t compressedSize; uint32_t decompressedSize; uint32_t bufferSize; uint8_t archiveIndex; uint8_t flags; uint8_t padding[2]; };
+    struct RawFileEntry { uint32_t pathHash; uint32_t nameOffset; uint32_t arcOffset; uint32_t compressedSize; uint32_t everythingExceptAssetsDataSize; uint32_t assetsDataSize; uint8_t archiveIndex; uint8_t flags; uint8_t padding[2]; };
     struct RawArchiveFileParam { uint32_t numArchives; uint32_t offsetToArray; uint32_t fileEntryCount; uint32_t offsetToFileTable; };
 #pragma pack(pop)
 
@@ -58,8 +58,8 @@ namespace replicant::bxon {
             fe.filePath = entry.key;
             fe.arcOffset = entry.offset >> offsetScale;
             fe.compressedSize = entry.compressed_size;
-            fe.decompressedSize = entry.uncompressed_size;
-            fe.bufferSize = align16(entry.uncompressed_size);
+            fe.everythingExceptAssetsDataSize = entry.everythingExceptAssetsDataSize;
+            fe.assetsDataSize = entry.assetsDataSize;
             fe.archiveIndex = archive_index;
             param.getFileEntries().push_back(fe);
         }
@@ -129,8 +129,8 @@ namespace replicant::bxon {
             file_entry_ptr->pathHash = fnv1_32(entry.filePath);
             file_entry_ptr->arcOffset = entry.arcOffset;
             file_entry_ptr->compressedSize = entry.compressedSize;
-            file_entry_ptr->decompressedSize = entry.decompressedSize;
-            file_entry_ptr->bufferSize = entry.bufferSize;
+            file_entry_ptr->everythingExceptAssetsDataSize = entry.everythingExceptAssetsDataSize;
+            file_entry_ptr->assetsDataSize = entry.assetsDataSize;
             file_entry_ptr->archiveIndex = entry.archiveIndex;
             file_entry_ptr->flags = entry.flags;
             file_entry_ptr->nameOffset = asset_string_absolute_offsets.at(entry.filePath) - (current_file_entry_start + offsetof(RawFileEntry, nameOffset));

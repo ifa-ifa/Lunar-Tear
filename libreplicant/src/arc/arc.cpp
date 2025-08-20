@@ -1,6 +1,8 @@
 #include "replicant/arc/arc.h"
+#define ZSTD_STATIC_LINKING_ONLY
 #include <zstd.h>
 #include <fstream>
+#include "replicant/pack.h"
 #include <algorithm>
 #include <system_error>
 #include <cerrno>
@@ -67,14 +69,28 @@ namespace replicant::archive {
         m_built_entries.clear();
 
         if (mode == ArcBuildMode::SingleStream) {
-            // Mode for LOAD_PRELOAD_DECOMPRESS
+            
             std::vector<char> uncompressed_blob;
             uint64_t current_uncompressed_offset = 0;
 
             for (const auto& pending_entry : m_pending_entries) {
+
+                pack::PackFile packfile;
+                bool status = packfile.loadFromMemory(pending_entry.uncompressed_data.data(), pending_entry.uncompressed_data.size());
+
+                if (!status) {
+                    return std::unexpected(ArcError{ ArcErrorCode::FileReadError, "Failed to read pack file" });
+                }
+
+
                 Entry built_entry;
                 built_entry.key = pending_entry.key;
-                built_entry.uncompressed_size = pending_entry.uncompressed_data.size();
+
+
+                built_entry.assetsDataSize = packfile.getResourceSize();       
+
+                built_entry.everythingExceptAssetsDataSize = packfile.getTotalSize() - packfile.getResourceSize();
+
                 built_entry.offset = current_uncompressed_offset;
                 // In this mode, individual compressed size is not meaningful, but we can store it for metadata.
                 // A real implementation might compress temporarily to get the size, but for now we set to 0.
@@ -109,9 +125,19 @@ namespace replicant::archive {
 
                 Entry built_entry;
                 built_entry.key = pending_entry.key;
-                built_entry.uncompressed_size = pending_entry.uncompressed_data.size();
                 built_entry.compressed_size = compressed_data.size();
                 built_entry.offset = current_compressed_offset; // Physical offset
+
+                pack::PackFile packfile;
+                bool status = packfile.loadFromMemory(pending_entry.uncompressed_data.data(), pending_entry.uncompressed_data.size());
+
+                if (!status) {
+                    return std::unexpected(ArcError{ ArcErrorCode::FileReadError, "Failed to read pack file" });
+                }
+            
+                built_entry.everythingExceptAssetsDataSize = packfile.getTotalSize() - packfile.getResourceSize(); 
+                built_entry.assetsDataSize = packfile.getResourceSize();
+
                 m_built_entries.push_back(built_entry);
 
                 arc_data.insert(arc_data.end(), compressed_data.begin(), compressed_data.end());
