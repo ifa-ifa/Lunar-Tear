@@ -5,389 +5,440 @@
 #include <iomanip>
 #include <optional>
 #include <filesystem>
+#include <memory>
+#include <algorithm>
 #include <zstd.h>
 #include "replicant/arc/arc.h"
 #include "replicant/bxon/archive_param_builder.h"
 #include "replicant/bxon.h"
-#include "replicant/bxon/texture_builder.h"
 #include "replicant/pack.h"
+#include "replicant/bxon/texture_builder.h"
 
-void printUsage() {
-    std::cout << "Usage: UnsealedVerses <output_path> [options] <inputs...>\n\n";
-    std::cout << "MODES:\n\n";
-    std::cout << "  Archive Mode (default):\n";
-    std::cout << "    UnsealedVerses <output.arc> [options] <key=filepath>...\n";
-    std::cout << "    Options:\n";
-    std::cout << "      --index <path>          Generate a new index file from scratch.\n";
-    std::cout << "      --patch <original>      Patch an existing index file.\n";
-    std::cout << "      --out <patched_path>    Optional with --patch. Specifies the output path.\n";
-    std::cout << "      --load-type <0|1|2>     Set the load type for the new archive.\n";
-    std::cout << "                              0: Preload (default), 1: Stream, 2: Stream Special.\n\n";
-    std::cout << "  Texture Conversion Mode:\n";
-    std::cout << "    UnsealedVerses <output.rtex> --rtex <input.dds>\n";
-    std::cout << "    Options:\n";
-    std::cout << "      --rtex <path>           Enable texture mode and specify the input DDS file.\n\n";
-    std::cout << "  PACK File Patching Mode:\n";
-    std::cout << "    UnsealedVerses <output.xap> --patch-pack <input.xap> <entry=new.dds>...\n";
-    std::cout << "    Options:\n";
-    std::cout << "      --patch-pack <path>     Enable PACK patching and specify the input file.\n";
+namespace util {
+    std::expected<std::vector<char>, std::string> readFile(const std::filesystem::path& path) {
+        std::ifstream file(path, std::ios::binary | std::ios::ate);
+        if (!file) {
+            return std::unexpected("Could not open file: " + path.string());
+        }
+        std::streamsize size = file.tellg();
+        file.seekg(0, std::ios::beg);
+        if (size <= 0) {
+            return std::unexpected("File is empty or invalid: " + path.string());
+        }
+        std::vector<char> buffer(size);
+        if (!file.read(buffer.data(), size)) {
+            return std::unexpected("Failed to read all data from file: " + path.string());
+        }
+        return buffer;
+    }
+
+    bool writeFile(const std::filesystem::path& path, const std::vector<char>& data) {
+        std::ofstream out_file(path, std::ios::binary);
+        if (!out_file) {
+            std::cerr << "Error: Could not open output file for writing: " << path << "\n";
+            return false;
+        }
+        out_file.write(data.data(), data.size());
+        std::cout << "Successfully wrote " << data.size() << " bytes to " << path << ".\n";
+        return true;
+    }
+
+    uint32_t align16(uint32_t size) {
+        return (size + 15) & ~15;
+    }
 }
 
-std::expected<std::vector<char>, std::string> readFile(const std::string& path) {
-    std::ifstream file(path, std::ios::binary | std::ios::ate);
-    if (!file) {
-        return std::unexpected("Could not open file: " + path);
+class Command {
+public:
+    virtual ~Command() = default;
+    virtual int execute() = 0; 
+protected:
+    Command(std::vector<std::string> args) : m_args(std::move(args)) {}
+    std::vector<std::string> m_args;
+};
+
+class TextureCommand : public Command {
+public:
+    TextureCommand(std::vector<std::string> args) : Command(std::move(args)) {}
+    int execute() override {
+        if (m_args.size() != 2) {
+            std::cerr << "Error: Texture mode requires <output.rtex> <input.dds>\n";
+            return 1;
+        }
+        const std::filesystem::path output_path(m_args[0]);
+        const std::filesystem::path input_path(m_args[1]);
+
+        std::cout << "Converting DDS to BXON Texture\n";
+        std::cout << "Input:  " << input_path << "\n";
+        std::cout << "Output: " << output_path << "\n";
+
+        auto dds_data = util::readFile(input_path);
+        if (!dds_data) {
+            std::cerr << "Error: " << dds_data.error() << "\n";
+            return 1;
+        }
+
+        auto bxon_result = replicant::bxon::buildTextureFromDDS(*dds_data);
+        if (!bxon_result) {
+            std::cerr << "Error building BXON texture: " << bxon_result.error().message << "\n";
+            return 1;
+        }
+
+        return util::writeFile(output_path, *bxon_result) ? 0 : 1;
     }
-    std::streamsize size = file.tellg();
-    file.seekg(0, std::ios::beg);
-    if (size <= 0) {
-        return std::unexpected("File is empty or invalid: " + path);
-    }
-    std::vector<char> buffer(size);
-    if (!file.read(buffer.data(), size)) {
-        return std::unexpected("Failed to read all data from file: " + path);
-    }
-    return buffer;
-}
+};
 
+class PackPatchCommand : public Command {
+public:
+    PackPatchCommand(std::vector<std::string> args) : Command(std::move(args)) {}
+    int execute() override {
+        if (m_args.size() != 3) {
+            std::cerr << "Error: Pack patch mode requires <output.xap> <input.xap> <dds_folder>\n";
+            return 1;
+        }
+        const std::string& output_path = m_args[0];
+        const std::string& input_path = m_args[1];
+        const std::filesystem::path dds_folder_path(m_args[2]);
 
-uint32_t align16(uint32_t size) {
-    return (size + 15) & ~15;
-}
+        std::cout << "Patching PACK file\n";
+        std::cout << "Input PACK:  " << input_path << "\n";
+        std::cout << "DDS Folder:  " << dds_folder_path << "\n";
+        std::cout << "Output PACK: " << output_path << "\n\n";
 
-std::expected<std::vector<char>, std::string> loadAndDecompressIndex(const std::string& path) {
-    auto read_result = readFile(path);
-    if (!read_result) {
-        return std::unexpected(read_result.error());
-    }
-    const auto& compressed_data = *read_result;
+        if (!std::filesystem::is_directory(dds_folder_path)) {
+            std::cerr << "Error: Provided path for patching is not a directory: " << dds_folder_path.string() << "\n";
+            return 1;
+        }
 
-    unsigned long long const decompressed_size = ZSTD_getFrameContentSize(compressed_data.data(), compressed_data.size());
-    if (decompressed_size == ZSTD_CONTENTSIZE_ERROR) {
-        return std::unexpected("File is not a valid ZSTD stream.");
-    }
-    if (decompressed_size == ZSTD_CONTENTSIZE_UNKNOWN || decompressed_size == 0) {
-        return std::unexpected("Could not determine a valid decompressed size from ZSTD stream.");
-    }
-    auto decompress_result = replicant::archive::decompress_zstd(compressed_data.data(), compressed_data.size(), decompressed_size);
-    if (!decompress_result) {
-        return std::unexpected("Zstd decompression failed: " + decompress_result.error().message);
-    }
-    return *decompress_result;
-}
+        auto pack_data = util::readFile(input_path);
+        if (!pack_data) {
+            std::cerr << "Error: " << pack_data.error() << "\n";
+            return 1;
+        }
 
-bool writeCompressedIndex(const std::string& path, std::vector<char>& bxon_data) {
-    size_t original_size = bxon_data.size();
-    size_t padded_size = align16(original_size);
-    if (padded_size > original_size) {
-        bxon_data.resize(padded_size, 0);
-        std::cout << "Padded uncompressed index from " << original_size << " to " << padded_size << " bytes for alignment.\n";
-    }
-    auto compressed_result = replicant::archive::compress_zstd(bxon_data.data(), bxon_data.size());
-    if (!compressed_result) {
-        std::cerr << "Error compressing index: " << compressed_result.error().message << "\n";
-        return false;
-    }
-    const auto& final_compressed_data = *compressed_result;
-    std::ofstream out_file(path, std::ios::binary);
-    if (!out_file) {
-        std::cerr << "Error: Could not open index for writing: " << path << "\n";
-        return false;
-    }
-    out_file.write(final_compressed_data.data(), final_compressed_data.size());
-    std::cout << "Successfully wrote index to " << path << " (" << final_compressed_data.size() << " bytes total).\n";
-    return true;
-}
+        replicant::pack::PackFile pack_file;
+        if (auto res = pack_file.loadFromMemory(pack_data->data(), pack_data->size()); !res) {
+            std::cerr << "Error parsing PACK file: " << res.error().message << "\n";
+            return 1;
+        }
+        std::cout << "Successfully loaded and parsed '" << input_path << "'.\n";
 
-int handleTextureMode(const std::string& output_rtex_path, const std::string& input_dds_path) {
-    std::cout << "--- Converting DDS to BXON Texture ---\n";
-    std::cout << "Input:  " << input_dds_path << "\n";
-    std::cout << "Output: " << output_rtex_path << "\n";
+        int patch_count = 0;
+        for (const auto& dir_entry : std::filesystem::directory_iterator(dds_folder_path)) {
+            if (dir_entry.is_regular_file() && (dir_entry.path().extension() == ".dds" || dir_entry.path().extension() == ".DDS")) {
+                const auto& dds_path = dir_entry.path();
+                std::string entry_name = dds_path.stem().string() + ".rtex";
 
-    auto dds_data_result = readFile(input_dds_path);
-    if (!dds_data_result) {
-        std::cerr << "Error: " << dds_data_result.error() << "\n";
-        return 1;
-    }
+                std::cout << "Attempting to patch '" << entry_name << "' with '" << dds_path.filename().string() << "'...\n";
 
-    auto bxon_result = replicant::bxon::buildTextureFromDDS(*dds_data_result);
-    if (!bxon_result) {
-        std::cerr << "Error building BXON texture: " << bxon_result.error().message << "\n";
-        return 1;
-    }
+                auto dds_data = util::readFile(dds_path.string());
+                if (!dds_data) {
+                    std::cerr << "  - Error reading DDS file: " << dds_data.error() << "\n";
+                    continue;
+                }
 
-    std::ofstream out_file(output_rtex_path, std::ios::binary);
-    if (!out_file) {
-        std::cerr << "Error: Could not open output file for writing: " << output_rtex_path << "\n";
-        return 1;
-    }
-
-    out_file.write(bxon_result->data(), bxon_result->size());
-    std::cout << "Successfully created " << output_rtex_path << " (" << bxon_result->size() << " bytes).\n";
-    return 0;
-}
-
-
-int handlePackPatchMode(const std::string& output_pack_path, const std::string& input_pack_path, const std::string& dds_folder_path) {
-    std::cout << "--- Patching PACK file ---\n";
-    std::cout << "Input PACK:  " << input_pack_path << "\n";
-    std::cout << "Output PACK: " << output_pack_path << "\n";
-    std::cout << "DDS Folder:  " << dds_folder_path << "\n\n";
-
-    if (!std::filesystem::is_directory(dds_folder_path)) {
-        std::cerr << "Error: Provided path for patching is not a directory: " << dds_folder_path << "\n";
-        return 1;
-    }
-
-    auto pack_data_result = readFile(input_pack_path);
-    if (!pack_data_result) {
-        std::cerr << "Error: " << pack_data_result.error() << "\n";
-        return 1;
-    }
-
-    replicant::pack::PackFile pack_file;
-    auto load_result = pack_file.loadFromMemory(pack_data_result->data(), pack_data_result->size());
-    if (!load_result) {
-        std::cerr << "Error parsing PACK file: " << load_result.error().message << "\n";
-        return 1;
-    }
-    std::cout << "Successfully loaded and parsed '" << input_pack_path << "'.\n";
-
-    int patch_count = 0;
-    for (const auto& dir_entry : std::filesystem::directory_iterator(dds_folder_path)) {
-        if (dir_entry.is_regular_file() && (dir_entry.path().extension() == ".dds" || dir_entry.path().extension() == ".DDS")) {
-            std::filesystem::path dds_path = dir_entry.path();
-            std::string entry_name = dds_path.stem().string() + ".rtex"; // e.g., "my_tex.dds" -> "my_tex.rtex"
-
-            std::cout << "Attempting to patch '" << entry_name << "' with '" << dds_path.filename().string() << "'...\n";
-
-            auto dds_data_result = readFile(dds_path.string());
-            if (!dds_data_result) {
-                std::cerr << "  - Error reading DDS file: " << dds_data_result.error() << "\n";
-                continue; 
-            }
-
-            auto patch_result = pack_file.patchFile(entry_name, *dds_data_result);
-            if (!patch_result) {
-                // If entry is not found, it's not an error, just skip it.
-                if (patch_result.error().code == replicant::pack::PackErrorCode::EntryNotFound) {
-                    std::cout << "  - Entry not found in PACK. Skipping.\n";
+                auto patch_result = pack_file.patchFile(entry_name, *dds_data);
+                if (!patch_result) {
+                    if (patch_result.error().code == replicant::pack::PackErrorCode::EntryNotFound) {
+                        std::cout << "  - Entry not found in PACK. Skipping.\n";
+                    }
+                    else {
+                        std::cerr << "  - Failed to apply patch: " << patch_result.error().message << "\n";
+                    }
                 }
                 else {
-                    std::cerr << "  - Failed to apply patch: " << patch_result.error().message << "\n";
+                    std::cout << "  + Successfully patched.\n";
+                    patch_count++;
+                }
+            }
+        }
+
+        if (patch_count == 0) {
+            std::cout << "\nNo matching textures were found to patch. Output file will be identical to input.\n";
+        }
+
+        std::cout << "\nRebuilding PACK file...\n";
+        auto build_result = pack_file.build();
+        if (!build_result) {
+            std::cerr << "Error rebuilding PACK file: " << build_result.error().message << "\n";
+            return 1;
+        }
+
+        return util::writeFile(output_path, *build_result) ? 0 : 1;
+    }
+};
+
+class ArchiveCommand : public Command {
+private:
+    std::optional<std::filesystem::path> index_new_path;
+    std::optional<std::filesystem::path> index_patch_path;
+    std::optional<std::filesystem::path> index_patch_out_path;
+    replicant::bxon::ArchiveLoadType load_type = replicant::bxon::ArchiveLoadType::PRELOAD_DECOMPRESS;
+    std::filesystem::path output_archive_path;
+    std::vector<std::string> file_inputs;
+
+    bool parse_archive_args() {
+        if (m_args.empty()) {
+            std::cerr << "Error: 'archive' command requires an output path.\n";
+            return false;
+        }
+
+        output_archive_path = m_args[0];
+
+        for (size_t i = 1; i < m_args.size(); ++i) {
+            std::string arg = m_args[i];
+            if (arg == "--index" && i + 1 < m_args.size()) {
+                index_new_path = m_args[++i];
+            }
+            else if (arg == "--patch" && i + 1 < m_args.size()) {
+                index_patch_path = m_args[++i];
+            }
+            else if (arg == "--out" && i + 1 < m_args.size()) {
+                index_patch_out_path = m_args[++i];
+            }
+            else if (arg == "--load-type" && i + 1 < m_args.size()) {
+                try {
+                    int type = std::stoi(m_args[++i]);
+                    if (type < 0 || type > 2) { std::cerr << "Error: Invalid load type.\n"; return false; }
+                    load_type = static_cast<replicant::bxon::ArchiveLoadType>(type);
+                }
+                catch (...) { std::cerr << "Error: Invalid number for load type.\n"; return false; }
+            }
+            else {
+                file_inputs.push_back(arg);
+            }
+        }
+
+        if (index_new_path && index_patch_path) {
+            std::cerr << "Error: Cannot use --index and --patch together.\n";
+            return false;
+        }
+        if (file_inputs.empty()) {
+            std::cerr << "Error: No input files or folder provided for archive.\n";
+            return false;
+        }
+        if (index_patch_path && !index_patch_out_path) {
+            std::cout << "Warning: --out not specified. The original patch file '" << index_patch_path->string() << "' will be overwritten.\n";
+            index_patch_out_path = *index_patch_path;
+        }
+        return true;
+    }
+
+    std::expected<std::vector<char>, std::string> loadAndDecompressIndex(const std::filesystem::path& path) {
+        auto read_result = util::readFile(path);
+        if (!read_result) {
+            return std::unexpected(read_result.error());
+        }
+        const auto& compressed_data = *read_result;
+
+        unsigned long long const decompressed_size = ZSTD_getFrameContentSize(compressed_data.data(), compressed_data.size());
+        if (decompressed_size == ZSTD_CONTENTSIZE_ERROR) {
+            return std::unexpected("File is not a valid ZSTD stream: " + path.string());
+        }
+        if (decompressed_size == ZSTD_CONTENTSIZE_UNKNOWN || decompressed_size == 0) {
+            return std::unexpected("Could not determine a valid decompressed size from ZSTD stream: " + path.string());
+        }
+        auto decompress_result = replicant::archive::decompress_zstd(compressed_data.data(), compressed_data.size(), decompressed_size);
+        if (!decompress_result) {
+            return std::unexpected("Zstd decompression failed: " + decompress_result.error().message);
+        }
+        return *decompress_result;
+    }
+
+    bool writeCompressedIndex(const std::filesystem::path& path, std::vector<char>& bxon_data) {
+        size_t original_size = bxon_data.size();
+        size_t padded_size = util::align16(original_size);
+        if (padded_size > original_size) {
+            bxon_data.resize(padded_size, 0);
+        }
+        auto compressed_result = replicant::archive::compress_zstd(bxon_data.data(), bxon_data.size());
+        if (!compressed_result) {
+            std::cerr << "Error compressing index: " << compressed_result.error().message << "\n";
+            return false;
+        }
+        return util::writeFile(path, *compressed_result);
+    }
+
+    int handleNewIndex(const std::string& arc_filename, const std::vector<replicant::archive::ArcWriter::Entry>& entries) {
+        auto res = replicant::bxon::buildArchiveParam(entries, 0, arc_filename, load_type);
+        if (!res) {
+            std::cerr << "Error building new index: " << res.error().message << "\n";
+            return 1;
+        }
+        std::vector<char> bxon_data = std::move(*res);
+        return writeCompressedIndex(*index_new_path, bxon_data) ? 0 : 1;
+    }
+
+    int handlePatchMode(const std::string& arc_filename, const std::vector<replicant::archive::ArcWriter::Entry>& entries) {
+        std::cout << "\n Patching original index: " << *index_patch_path << "\n";
+        auto decompressed_result = loadAndDecompressIndex(*index_patch_path);
+        if (!decompressed_result) {
+            std::cerr << "Error: " << decompressed_result.error() << "\n";
+            return 1;
+        }
+        std::vector<char> decompressed_data = std::move(*decompressed_result);
+        std::cout << "Successfully decompressed original index (" << decompressed_data.size() << " bytes).\n";
+
+        replicant::bxon::File bxon_file;
+        if (!bxon_file.loadFromMemory(decompressed_data.data(), decompressed_data.size())) {
+            std::cerr << "Error: Failed to parse the decompressed index data as a BXON file.\n";
+            return 1;
+        }
+
+        auto* param = std::get_if<replicant::bxon::ArchiveFileParam>(&bxon_file.getAsset());
+        if (!param) {
+            std::cerr << "Error: Decompressed data from '" << *index_patch_path << "' is not a tpArchiveFileParam BXON.\n";
+            return 1;
+        }
+
+        uint8_t new_archive_index = param->addArchive(arc_filename, load_type);
+        std::cout << "Using archive '" << arc_filename << "' at index " << (int)new_archive_index << " with LoadType " << (int)load_type << ".\n";
+
+        for (const auto& mod_entry : entries) {
+            auto* game_entry = param->findFileEntryMutable(mod_entry.key);
+            if (game_entry) {
+                std::cout << "Patching entry: " << mod_entry.key << "\n";
+                game_entry->archiveIndex = new_archive_index;
+
+                const auto& archive_entries = param->getArchiveEntries();
+                uint32_t scale = archive_entries[new_archive_index].offsetScale;
+                game_entry->arcOffset = mod_entry.offset >> scale;
+
+                game_entry->compressedSize = mod_entry.compressed_size;
+                game_entry->everythingExceptAssetsDataSize = mod_entry.everythingExceptAssetsDataSize;
+                game_entry->assetsDataSize = mod_entry.assetsDataSize;
+            }
+            else {
+                std::cerr << "Error: Support for adding new file entries to an index is not implemented. (Did you misspell the asset path '" << mod_entry.key << "'?)\n";
+                return 1;
+            }
+        }
+
+        auto patched_data_result = replicant::bxon::buildArchiveParam(*param, bxon_file.getVersion(), bxon_file.getProjectID());
+        if (!patched_data_result) {
+            std::cerr << "Error building patched index: " << patched_data_result.error().message << "\n";
+            return 1;
+        }
+        std::vector<char> bxon_data = std::move(*patched_data_result);
+        return writeCompressedIndex(*index_patch_out_path, bxon_data) ? 0 : 1;
+    }
+
+public:
+    ArchiveCommand(std::vector<std::string> args) : Command(std::move(args)) {}
+    int execute() override {
+        if (!parse_archive_args()) return 1;
+
+        replicant::archive::ArcWriter writer;
+        std::cout << "--- Preparing files for archive: " << output_archive_path.string() << " ---\n";
+
+        for (const auto& input_arg : file_inputs) {
+            std::filesystem::path input_path(input_arg);
+
+            if (std::filesystem::is_directory(input_path)) {
+                // --- FOLDER SCANNING LOGIC ---
+                std::cout << "Scanning directory '" << input_path.string() << "'...\n";
+                for (const auto& entry : std::filesystem::recursive_directory_iterator(input_path)) {
+                    if (entry.is_regular_file()) {
+                        const auto& file_path = entry.path();
+                        std::filesystem::path relative_path = std::filesystem::relative(file_path, input_path);
+                        std::string key = relative_path.generic_string();
+                        std::replace(key.begin(), key.end(), '\\', '/');
+                        std::cout << "Adding '" << key << "' from '" << file_path.string() << "'...\n";
+                        auto res = writer.addFileFromDisk(key, file_path.string());
+                        if (!res) {
+                            std::cerr << "  - FAILED to add file. Reason: " << res.error().message << "\n";
+                            return 1;
+                        }
+                    }
                 }
             }
             else {
-                std::cout << "  + Successfully patched.\n";
-                patch_count++;
-            }
-        }
-    }
+                // --- FILE-BY-FILE LOGIC ---
+                size_t sep = input_arg.find('=');
+                std::string key = (sep == std::string::npos) ? input_arg : input_arg.substr(0, sep);
+                std::filesystem::path path((sep == std::string::npos) ? input_arg : input_arg.substr(sep + 1));
 
-    if (patch_count == 0) {
-        std::cout << "\nNo matching textures were found to patch. Output file will be identical to input.\n";
-    }
-
-    std::cout << "\nRebuilding PACK file...\n";
-    auto build_result = pack_file.build();    if (!build_result) {
-        std::cerr << "Error rebuilding PACK file: " << build_result.error().message << "\n";
-        return 1;
-    }
-
-    std::ofstream out_file(output_pack_path, std::ios::binary);
-    if (!out_file) {
-        std::cerr << "Error: Could not open output file for writing: " << output_pack_path << "\n";
-        return 1;
-    }
-    out_file.write(build_result->data(), build_result->size());
-    std::cout << "Successfully wrote patched PACK to " << output_pack_path << " (" << build_result->size() << " bytes).\n";
-
-    return 0;
-}
-
-int handleNewIndexMode(const std::string& new_index_path, const std::string& arc_filename, const std::vector<replicant::archive::ArcWriter::Entry>& entries, replicant::bxon::ArchiveLoadType load_type) {
-    auto index_data_result = replicant::bxon::buildArchiveParam(entries, 0, arc_filename, load_type);
-    if (!index_data_result) {
-        std::cerr << "Error building new index: " << index_data_result.error().message << "\n";
-        return 1;
-    }
-    std::vector<char> bxon_data = std::move(*index_data_result);
-    if (!writeCompressedIndex(new_index_path, bxon_data)) { return 1; }
-    return 0;
-}
-
-int handlePatchMode(const std::string& patch_base_path, const std::string& patch_out_path, const std::string& arc_filename, const std::vector<replicant::archive::ArcWriter::Entry>& entries, replicant::bxon::ArchiveLoadType load_type) {
-    std::cout << "\n Patching original index: " << patch_base_path << " \n";
-    auto decompressed_result = loadAndDecompressIndex(patch_base_path);
-    if (!decompressed_result) {
-        std::cerr << "Error: Failed to load and decompress original index.\n " << decompressed_result.error() << "\n";
-        return 1;
-    }
-    std::vector<char> decompressed_data = std::move(*decompressed_result);
-    std::cout << "Successfully decompressed original index (" << decompressed_data.size() << " bytes).\n";
-    replicant::bxon::File bxon_file;
-    if (!bxon_file.loadFromMemory(decompressed_data.data(), decompressed_data.size())) {
-        std::cerr << "Error: Failed to parse the decompressed index data as a BXON file.\n";
-        return 1;
-    }
-    auto* param = std::get_if<replicant::bxon::ArchiveFileParam>(&bxon_file.getAsset());
-    if (!param) {
-        std::cerr << "Error: Decompressed data from '" << patch_base_path << "' is not a tpArchiveFileParam BXON.\n";
-        return 1;
-    }
-
-    uint8_t new_archive_index = param->addArchive(arc_filename, load_type);
-    std::cout << "Using archive '" << arc_filename << "' at index " << (int)new_archive_index << " with LoadType " << (int)load_type << ".\n";
-
-    for (const auto& mod_entry : entries) {
-        auto* game_entry = param->findFileEntryMutable(mod_entry.key);
-        if (game_entry) {
-            std::cout << "Patching entry: " << mod_entry.key << "\n";
-            game_entry->archiveIndex = new_archive_index;
-
-            const auto& archive_entries = param->getArchiveEntries();
-            uint32_t scale = archive_entries[new_archive_index].offsetScale;
-            game_entry->arcOffset = mod_entry.offset >> scale;
-
-            game_entry->compressedSize = mod_entry.compressed_size;
-            game_entry->everythingExceptAssetsDataSize = mod_entry.everythingExceptAssetsDataSize;
-            game_entry->assetsDataSize = mod_entry.assetsDataSize;
-        }
-        else {
-            std::cerr << "Error: Support for new entries not implemented. (did you typo the asset path?)";
-            return 1;
-        }
-    }
-    auto patched_data_result = replicant::bxon::buildArchiveParam(*param, bxon_file.getVersion(), bxon_file.getProjectID());
-    if (!patched_data_result) {
-        std::cerr << "Error building patched index: " << patched_data_result.error().message << "\n";
-        return 1;
-    }
-    std::vector<char> bxon_data = std::move(*patched_data_result);
-    if (!writeCompressedIndex(patch_out_path, bxon_data)) { return 1; }
-    return 0;
-}
-
-int main(int argc, char* argv[]) {
-    if (argc < 3) { printUsage(); return 1; }
-
-    std::string output_path;
-    std::optional<std::string> new_index_path, patch_base_path, patch_out_path;
-    std::optional<std::string> rtex_input_dds_path;
-    std::optional<std::string> pack_patch_input_path;
-    std::vector<std::string> file_args;
-    replicant::bxon::ArchiveLoadType load_type = replicant::bxon::ArchiveLoadType::PRELOAD_DECOMPRESS;
-
-    for (int i = 1; i < argc; ++i) {
-        std::string arg = argv[i];
-        if (arg == "--index") {
-            if (i + 1 < argc) { new_index_path = argv[++i]; }
-            else { std::cerr << "Error: --index requires a path.\n"; return 1; }
-        }
-        else if (arg == "--patch") {
-            if (i + 1 < argc) { patch_base_path = argv[++i]; }
-            else { std::cerr << "Error: --patch requires a path.\n"; return 1; }
-        }
-        else if (arg == "--out") {
-            if (i + 1 < argc) { patch_out_path = argv[++i]; }
-            else { std::cerr << "Error: --out requires a path.\n"; return 1; }
-        }
-        else if (arg == "--rtex") {
-            if (i + 1 < argc) { rtex_input_dds_path = argv[++i]; }
-            else { std::cerr << "Error: --rtex requires an input DDS path.\n"; return 1; }
-        }
-        else if (arg == "--patch-pack") {
-            if (i + 1 < argc) { pack_patch_input_path = argv[++i]; }
-            else { std::cerr << "Error: --patch-pack requires an input PACK path.\n"; return 1; }
-        }
-        else if (arg == "--load-type") {
-            if (i + 1 < argc) {
-                try {
-                    int type_val = std::stoi(argv[++i]);
-                    if (type_val >= 0 && type_val <= 2) {
-                        load_type = static_cast<replicant::bxon::ArchiveLoadType>(type_val);
-                    }
-                    else { std::cerr << "Error: Invalid value for --load-type. Must be 0, 1, or 2.\n"; return 1; }
+                std::cout << "Adding '" << key << "' from '" << path.string() << "'...\n";
+                if (auto res = writer.addFileFromDisk(key, path.string()); !res) {
+                    std::cerr << "Error: " << res.error().message << "\n";
+                    return 1;
                 }
-                catch (const std::exception&) { std::cerr << "Error: Invalid number format for --load-type.\n"; return 1; }
             }
-            else { std::cerr << "Error: --load-type requires a value (0, 1, or 2).\n"; return 1; }
-        }
-        else if (output_path.empty()) {
-            output_path = arg;
-        }
-        else {
-            file_args.push_back(arg);
-        }
-    }
-
-    if (output_path.empty()) { std::cerr << "Error: An output path is required.\n\n"; printUsage(); return 1; }
-
-    if (rtex_input_dds_path) {
-        if (new_index_path || patch_base_path || pack_patch_input_path) {
-            std::cerr << "Error: Cannot use archive/pack options with texture mode (--rtex).\n\n";
-            printUsage();
-            return 1;
-        }
-        if (!file_args.empty()) {
-            std::cerr << "Error: Cannot provide key=value file arguments in texture mode.\n\n";
-            printUsage();
-            return 1;
-        }
-        return handleTextureMode(output_path, *rtex_input_dds_path);
-    }
-    else if (pack_patch_input_path) {
-        if (new_index_path || patch_base_path) {
-            std::cerr << "Error: Cannot use archive options with --patch-pack.\n\n";
-            printUsage();
-            return 1;
-        }
-        if (file_args.size() != 1) {
-            std::cerr << "Error: --patch-pack requires exactly one folder path as an argument.\n\n";
-            printUsage();
-            return 1;
-        }
-        return handlePackPatchMode(output_path, *pack_patch_input_path, file_args[0]);
-    }
-    else {
-        if (file_args.empty()) { std::cerr << "Error: At least one input file is required for archive mode.\n\n"; printUsage(); return 1; }
-        if (patch_base_path && !patch_out_path) {
-            std::cout << "Warning: --out not specified. The original patch file '" << *patch_base_path << "' will be overwritten.\n";
-            patch_out_path = *patch_base_path;
-        }
-        if (new_index_path && patch_base_path) { std::cerr << "Error: Cannot use --index and --patch at the same time.\n\n"; printUsage(); return 1; }
-
-        replicant::archive::ArcWriter writer;
-        std::cout << "--- Preparing files for archive: " << output_path << " ---\n";
-        for (const auto& arg : file_args) {
-            size_t separator_pos = arg.find('=');
-            std::string key, filepath;
-            if (separator_pos == std::string::npos) { key = arg; filepath = arg; std::cout << "Adding '" << key << "' (key and path are the same)...\n"; }
-            else { key = arg.substr(0, separator_pos); filepath = arg.substr(separator_pos + 1); if (key.empty() || filepath.empty()) { std::cerr << "Error: Invalid input format '" << arg << "'.\n"; return 1; } std::cout << "Adding '" << key << "' from '" << filepath << "'...\n"; }
-            auto result = writer.addFileFromDisk(key, filepath);
-            if (!result) { std::cerr << "Error: Failed to add file '" << filepath << "'.\n  Reason [" << (int)result.error().code << "]: " << result.error().message << "\n"; return 1; }
         }
 
-        replicant::archive::ArcBuildMode build_mode = (load_type == replicant::bxon::ArchiveLoadType::PRELOAD_DECOMPRESS)
+        if (writer.getPendingEntryCount() == 0) {
+            std::cerr << "Error: No valid input files were found to add to the archive.\n";
+            return 1;
+        }
+
+        auto build_mode = (load_type == replicant::bxon::ArchiveLoadType::PRELOAD_DECOMPRESS)
             ? replicant::archive::ArcBuildMode::SingleStream
             : replicant::archive::ArcBuildMode::ConcatenatedFrames;
 
         auto build_result = writer.build(build_mode);
-        if (!build_result) { std::cerr << "Error: Failed to build archive.\n  Reason [" << (int)build_result.error().code << "]: " << build_result.error().message << "\n"; return 1; }
+        if (!build_result) {
+            std::cerr << "Error building archive: " << build_result.error().message << "\n";
+            return 1;
+        }
 
-        const auto& arc_data = *build_result;
-        std::cout << "Build successful. Total archive size: " << arc_data.size() << " bytes.\n";
-        std::ofstream arc_out_file(output_path, std::ios::binary);
-        if (!arc_out_file) { std::cerr << "Error: Could not write to " << output_path << "\n"; return 1; }
-        arc_out_file.write(arc_data.data(), arc_data.size());
-        std::cout << "Successfully wrote archive to " << output_path << "\n";
+        if (!util::writeFile(output_archive_path, *build_result)) return 1;
 
-        const auto& entries = writer.getEntries();
-        std::string arc_filename = std::filesystem::path(output_path).filename().string();
-        int result = 0;
-        if (patch_base_path) { result = handlePatchMode(*patch_base_path, *patch_out_path, arc_filename, entries, load_type); }
-        else if (new_index_path) { result = handleNewIndexMode(*new_index_path, arc_filename, entries, load_type); }
+        std::string arc_filename = output_archive_path.filename().string();
+        if (index_new_path) {
+            return handleNewIndex(arc_filename, writer.getEntries());
+        }
+        else if (index_patch_path) {
+            return handlePatchMode(arc_filename, writer.getEntries());
+        }
 
-        return result;
+        return 0;
+    }
+};
+
+void printUsage() {
+    std::cout << "Usage: UnsealedVerses <command> [options] <args...>\n\n";
+    std::cout << "COMMANDS:\n";
+    std::cout << "  archive <output.arc> <inputs...> [options]   Build a game archive.\n";
+    std::cout << "    Inputs: <key=filepath>... OR a single <folder_path> to scan for .xap files.\n"; 
+    std::cout << "    Options:\n";
+    std::cout << "      --index <path>      Generate a new index file.\n";
+    std::cout << "      --patch <path>      Patch an existing index file.\n";
+    std::cout << "      --out <path>        Output for patched index. Overwrites original if not set.\n";
+    std::cout << "      --load-type <0|1|2> Set load type (0=Preload, 1=Stream, 2=StreamSpecial).\n\n";
+    std::cout << "  texture <output.rtex> <input.dds>             Convert a DDS texture.\n\n";
+    std::cout << "  pack-patch <out.xap> <in.xap> <dds_folder>    Patch textures in a PACK file.\n";
+}
+
+int main(int argc, char* argv[]) {
+    if (argc < 2) {
+        printUsage();
+        return 1;
+    }
+
+    std::string command_name = argv[1];
+    std::vector<std::string> command_args(argv + 2, argv + argc);
+    std::unique_ptr<Command> command;
+
+    if (command_name == "archive") {
+        command = std::make_unique<ArchiveCommand>(command_args);
+    }
+    else if (command_name == "texture") {
+        command = std::make_unique<TextureCommand>(command_args);
+    }
+    else if (command_name == "pack-patch") {
+        command = std::make_unique<PackPatchCommand>(command_args);
+    }
+    else {
+        std::cerr << "Error: Unknown command '" << command_name << "'\n\n";
+        printUsage();
+        return 1;
+    }
+
+    try {
+        return command->execute();
+    }
+    catch (const std::exception& e) {
+        std::cerr << "An unexpected error occurred: " << e.what() << "\n";
+        return 1;
     }
 }

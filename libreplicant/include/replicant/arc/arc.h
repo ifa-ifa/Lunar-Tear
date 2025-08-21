@@ -20,17 +20,12 @@ namespace replicant::archive {
     std::expected<std::vector<char>, ArcError> compress_zstd(
         const void* uncompressed_data,
         size_t uncompressed_size,
-        int compression_level = 1 
+        int compression_level = 1
     );
 
 
     enum class ArcBuildMode {
-        // For LOAD_PRELOAD_DECOMPRESS: Concatenate all files raw, then compress the entire blob once.
-        // Offsets will be relative to the uncompressed dat
         SingleStream,
-
-        // For LOAD_STREAM and LOAD_STREAM_ONDEMAND: Individually compress each file and concatenate the frames.
-        // Offsets will be the physical offset of each frame
         ConcatenatedFrames
     };
 
@@ -39,12 +34,19 @@ namespace replicant::archive {
         struct Entry {
             std::string key;
             size_t everythingExceptAssetsDataSize;
-            size_t compressed_size; 
+            size_t compressed_size;
             uint64_t offset;
             uint32_t assetsDataSize;
         };
 
-        std::expected<void, ArcError> addFile(std::string key, std::vector<char> data);
+  
+        std::expected<void, ArcError> addFile(
+            std::string key,
+            std::vector<char> data,
+            uint32_t serialized_size,
+            uint32_t resource_size
+        );
+
         std::expected<void, ArcError> addFileFromDisk(std::string key, const std::string& filepath);
 
         std::expected<std::vector<char>, ArcError> build(
@@ -53,11 +55,15 @@ namespace replicant::archive {
         );
 
         const std::vector<Entry>& getEntries() const;
+        size_t getPendingEntryCount() const;
 
     private:
         struct PendingEntry {
             std::string key;
             std::vector<char> uncompressed_data;
+            uint32_t serialized_size; 
+            uint32_t resource_size;  
+
         };
 
         std::vector<PendingEntry> m_pending_entries;

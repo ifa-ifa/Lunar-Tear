@@ -24,8 +24,7 @@ namespace replicant::archive {
         return decompressed_buffer;
     }
 
-    // <--- THIS FUNCTION WAS MISSING AND HAS BEEN RE-ADDED ---
-    std::expected<std::vector<char>, ArcError> compress_zstd_with_long15(
+    std::expected<std::vector<char>, ArcError> compress_zstd(
         const void* uncompressed_data,
         size_t uncompressed_size,
         int compression_level
@@ -40,7 +39,8 @@ namespace replicant::archive {
         }
 
         ZSTD_CCtx_setParameter(cctx, ZSTD_c_compressionLevel, compression_level);
-        ZSTD_CCtx_setParameter(cctx, ZSTD_c_windowLog, 15);
+        // The game will crash if the window size is any larger
+        ZSTD_CCtx_setParameter(cctx, ZSTD_c_windowLog, 15); 
 
         size_t max_compressed_size = ZSTD_compressBound(uncompressed_size);
         std::vector<char> compressed_buffer(max_compressed_size);
@@ -62,24 +62,18 @@ namespace replicant::archive {
         compressed_buffer.resize(result);
         return compressed_buffer;
     }
-    // <--- END OF RE-ADDED FUNCTION ---
 
-    std::expected<std::vector<char>, ArcError> compress_zstd(const void* uncompressed_data, size_t uncompressed_size, int compression_level) {
-        if (!uncompressed_data || uncompressed_size == 0) {
-            return std::unexpected(ArcError{ ArcErrorCode::EmptyInput, "Input data cannot be empty." });
-        }
-
-        const size_t max_compressed_size = ZSTD_compressBound(uncompressed_size);
-        std::vector<char> compressed_buffer(max_compressed_size);
-        const size_t result = ZSTD_compress(compressed_buffer.data(), compressed_buffer.size(), uncompressed_data, uncompressed_size, compression_level);
-        if (ZSTD_isError(result)) {
-            return std::unexpected(ArcError{ ArcErrorCode::ZstdCompressionError, ZSTD_getErrorName(result) });
-        }
-        compressed_buffer.resize(result);
-        return compressed_buffer;
+    size_t ArcWriter::getPendingEntryCount() const {
+        return m_pending_entries.size();
     }
 
-    std::expected<void, ArcError> ArcWriter::addFile(std::string key, std::vector<char> data) {
+
+    std::expected<void, ArcError> ArcWriter::addFile(
+        std::string key,
+        std::vector<char> data,
+        uint32_t serialized_size,
+        uint32_t resource_size
+    ) {
         if (key.empty() || data.empty()) {
             return std::unexpected(ArcError{ ArcErrorCode::EmptyInput, "File key or data cannot be empty." });
         }
@@ -88,7 +82,12 @@ namespace replicant::archive {
                 return std::unexpected(ArcError{ ArcErrorCode::DuplicateKey, "Duplicate key added to writer: " + key });
             }
         }
-        m_pending_entries.emplace_back(PendingEntry{ std::move(key), std::move(data) });
+        m_pending_entries.emplace_back(PendingEntry{
+            std::move(key),
+            std::move(data),
+            serialized_size,
+            resource_size
+            });
         return {};
     }
 
@@ -103,30 +102,36 @@ namespace replicant::archive {
         if (!file.read(data.data(), size)) {
             return std::unexpected(ArcError{ ArcErrorCode::FileReadError, "Failed to read all data from file: " + filepath });
         }
-        return addFile(std::move(key), std::move(data));
+
+        pack::PackFile packfile;
+        auto status = packfile.loadFromMemory(data.data(), data.size());
+     if (!status) {
+        return std::unexpected(ArcError{ 
+            ArcErrorCode::FileReadError,
+            "Failed to parse as PACK file '" + filepath + "'. Reason: " + status.error().message 
+        });
+    }
+
+        return addFile(
+            std::move(key),
+            std::move(data),
+            packfile.getSerializedSize(),
+            packfile.getResourceSize()
+        );
     }
 
     std::expected<std::vector<char>, ArcError> ArcWriter::build(ArcBuildMode mode, int compression_level) {
         m_built_entries.clear();
 
         if (mode == ArcBuildMode::SingleStream) {
-
             std::vector<char> uncompressed_blob;
             uint64_t current_uncompressed_offset = 0;
 
             for (const auto& pending_entry : m_pending_entries) {
-
-                pack::PackFile packfile;
-                auto status = packfile.loadFromMemory(pending_entry.uncompressed_data.data(), pending_entry.uncompressed_data.size());
-
-                if (!status) {
-                    return std::unexpected(ArcError{ ArcErrorCode::FileReadError, "Failed to read pack file for entry: " + pending_entry.key });
-                }
-
                 Entry built_entry;
                 built_entry.key = pending_entry.key;
-                built_entry.assetsDataSize = packfile.getResourceSize();
-                built_entry.everythingExceptAssetsDataSize = packfile.getTotalSize() - packfile.getResourceSize();
+                built_entry.assetsDataSize = pending_entry.resource_size;
+                built_entry.everythingExceptAssetsDataSize = pending_entry.serialized_size;
                 built_entry.offset = current_uncompressed_offset;
                 built_entry.compressed_size = 0;
                 m_built_entries.push_back(built_entry);
@@ -134,9 +139,7 @@ namespace replicant::archive {
                 uncompressed_blob.insert(uncompressed_blob.end(), pending_entry.uncompressed_data.begin(), pending_entry.uncompressed_data.end());
                 current_uncompressed_offset += pending_entry.uncompressed_data.size();
             }
-
             return compress_zstd(uncompressed_blob.data(), uncompressed_blob.size(), compression_level);
-
         }
         else { // mode == ArcBuildMode::ConcatenatedFrames
             std::vector<char> arc_data;
@@ -144,7 +147,7 @@ namespace replicant::archive {
             constexpr size_t ALIGNMENT = 16;
 
             for (const auto& pending_entry : m_pending_entries) {
-                auto compressed_result = compress_zstd_with_long15(pending_entry.uncompressed_data.data(), pending_entry.uncompressed_data.size(), compression_level);
+                auto compressed_result = compress_zstd(pending_entry.uncompressed_data.data(), pending_entry.uncompressed_data.size(), compression_level);
                 if (!compressed_result) {
                     return std::unexpected(compressed_result.error());
                 }
@@ -172,17 +175,8 @@ namespace replicant::archive {
                 built_entry.key = pending_entry.key;
                 built_entry.compressed_size = unpadded_size;
                 built_entry.offset = entry_offset;
-
-                pack::PackFile packfile;
-                auto status = packfile.loadFromMemory(pending_entry.uncompressed_data.data(), pending_entry.uncompressed_data.size());
-
-                if (!status) {
-                    return std::unexpected(ArcError{ ArcErrorCode::FileReadError, "Failed to read pack file for entry: " + pending_entry.key });
-                }
-
-                built_entry.everythingExceptAssetsDataSize = packfile.getTotalSize() - packfile.getResourceSize();
-                built_entry.assetsDataSize = packfile.getResourceSize();
-
+                built_entry.everythingExceptAssetsDataSize = pending_entry.serialized_size;
+                built_entry.assetsDataSize = pending_entry.resource_size;
                 m_built_entries.push_back(built_entry);
             }
             return arc_data;

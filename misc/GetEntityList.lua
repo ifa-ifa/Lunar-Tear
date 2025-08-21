@@ -1,4 +1,4 @@
---[[
+[[
   Nier Replicant - Entity List Reader
 
   Run in Cheat Engines lua engine. change the "show_rtti_tree" to see actor inheritance structure.
