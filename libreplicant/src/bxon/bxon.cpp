@@ -50,8 +50,13 @@ namespace replicant::bxon {
             parseArchiveFileParam(param, buffer, size, asset_base);
             return true;
         }
+        else if (m_assetTypeName == "tpGxTexHead") {
+            tpGxTexHead& tex = m_asset.emplace<tpGxTexHead>();
+            return true;
+        }
         return false;
     }
+
 
     bool File::loadFromMemory(const char* buffer, size_t size) {
         m_asset.emplace<std::monostate>();

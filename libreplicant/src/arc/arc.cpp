@@ -24,6 +24,7 @@ namespace replicant::archive {
         return decompressed_buffer;
     }
 
+    // <--- THIS FUNCTION WAS MISSING AND HAS BEEN RE-ADDED ---
     std::expected<std::vector<char>, ArcError> compress_zstd_with_long15(
         const void* uncompressed_data,
         size_t uncompressed_size,
@@ -39,9 +40,6 @@ namespace replicant::archive {
         }
 
         ZSTD_CCtx_setParameter(cctx, ZSTD_c_compressionLevel, compression_level);
-
-        // Set window log to 15 (equivalent to --long=15, which gives 2^15 = 32KB window) TODO: MAKE THIS A CMD ARGUMENT
-        // Never set this higher than 15, game will not load it
         ZSTD_CCtx_setParameter(cctx, ZSTD_c_windowLog, 15);
 
         size_t max_compressed_size = ZSTD_compressBound(uncompressed_size);
@@ -64,6 +62,7 @@ namespace replicant::archive {
         compressed_buffer.resize(result);
         return compressed_buffer;
     }
+    // <--- END OF RE-ADDED FUNCTION ---
 
     std::expected<std::vector<char>, ArcError> compress_zstd(const void* uncompressed_data, size_t uncompressed_size, int compression_level) {
         if (!uncompressed_data || uncompressed_size == 0) {
@@ -111,31 +110,24 @@ namespace replicant::archive {
         m_built_entries.clear();
 
         if (mode == ArcBuildMode::SingleStream) {
-            
+
             std::vector<char> uncompressed_blob;
             uint64_t current_uncompressed_offset = 0;
 
             for (const auto& pending_entry : m_pending_entries) {
 
                 pack::PackFile packfile;
-                bool status = packfile.loadFromMemory(pending_entry.uncompressed_data.data(), pending_entry.uncompressed_data.size());
+                auto status = packfile.loadFromMemory(pending_entry.uncompressed_data.data(), pending_entry.uncompressed_data.size());
 
                 if (!status) {
-                    return std::unexpected(ArcError{ ArcErrorCode::FileReadError, "Failed to read pack file" });
+                    return std::unexpected(ArcError{ ArcErrorCode::FileReadError, "Failed to read pack file for entry: " + pending_entry.key });
                 }
-
 
                 Entry built_entry;
                 built_entry.key = pending_entry.key;
-
-
-                built_entry.assetsDataSize = packfile.getResourceSize();       
-
+                built_entry.assetsDataSize = packfile.getResourceSize();
                 built_entry.everythingExceptAssetsDataSize = packfile.getTotalSize() - packfile.getResourceSize();
-
                 built_entry.offset = current_uncompressed_offset;
-                // In this mode, individual compressed size is not meaningful, but we can store it for metadata.
-                // A real implementation might compress temporarily to get the size, but for now we set to 0.
                 built_entry.compressed_size = 0;
                 m_built_entries.push_back(built_entry);
 
@@ -147,7 +139,6 @@ namespace replicant::archive {
 
         }
         else { // mode == ArcBuildMode::ConcatenatedFrames
-            // Mode for LOAD_STREAM
             std::vector<char> arc_data;
             uint64_t current_compressed_offset = 0;
             constexpr size_t ALIGNMENT = 16;
@@ -159,31 +150,40 @@ namespace replicant::archive {
                 }
                 std::vector<char>& compressed_data = *compressed_result;
 
-                size_t padding_needed = (ALIGNMENT - (current_compressed_offset % ALIGNMENT)) % ALIGNMENT;
-                if (padding_needed > 0) {
-                    arc_data.insert(arc_data.end(), padding_needed, 0x00);
-                    current_compressed_offset += padding_needed;
+                size_t start_padding = (ALIGNMENT - (current_compressed_offset % ALIGNMENT)) % ALIGNMENT;
+                if (start_padding > 0) {
+                    arc_data.insert(arc_data.end(), start_padding, 0x00);
+                    current_compressed_offset += start_padding;
                 }
+
+                uint64_t entry_offset = current_compressed_offset;
+                arc_data.insert(arc_data.end(), compressed_data.begin(), compressed_data.end());
+
+                size_t unpadded_size = compressed_data.size();
+                size_t padded_size = (unpadded_size + ALIGNMENT - 1) & ~(ALIGNMENT - 1);
+                size_t end_padding = padded_size - unpadded_size;
+
+                if (end_padding > 0) {
+                    arc_data.insert(arc_data.end(), end_padding, 0x00);
+                }
+                current_compressed_offset += padded_size;
 
                 Entry built_entry;
                 built_entry.key = pending_entry.key;
-                built_entry.compressed_size = compressed_data.size();
-                built_entry.offset = current_compressed_offset; // Physical offset
+                built_entry.compressed_size = unpadded_size;
+                built_entry.offset = entry_offset;
 
                 pack::PackFile packfile;
-                bool status = packfile.loadFromMemory(pending_entry.uncompressed_data.data(), pending_entry.uncompressed_data.size());
+                auto status = packfile.loadFromMemory(pending_entry.uncompressed_data.data(), pending_entry.uncompressed_data.size());
 
                 if (!status) {
-                    return std::unexpected(ArcError{ ArcErrorCode::FileReadError, "Failed to read pack file" });
+                    return std::unexpected(ArcError{ ArcErrorCode::FileReadError, "Failed to read pack file for entry: " + pending_entry.key });
                 }
-            
-                built_entry.everythingExceptAssetsDataSize = packfile.getTotalSize() - packfile.getResourceSize(); 
+
+                built_entry.everythingExceptAssetsDataSize = packfile.getTotalSize() - packfile.getResourceSize();
                 built_entry.assetsDataSize = packfile.getResourceSize();
 
                 m_built_entries.push_back(built_entry);
-
-                arc_data.insert(arc_data.end(), compressed_data.begin(), compressed_data.end());
-                current_compressed_offset += compressed_data.size();
             }
             return arc_data;
         }
@@ -193,5 +193,3 @@ namespace replicant::archive {
         return m_built_entries;
     }
 }
-
-

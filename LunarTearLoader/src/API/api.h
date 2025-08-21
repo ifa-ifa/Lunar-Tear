@@ -18,6 +18,5 @@ namespace API {
 
     extern std::mutex s_lua_binding_mutex;
 
-    // Get all registered Lua bindings from plugins
     const std::vector<std::pair<std::string, LT_LuaCFunc>>& GetPluginLuaBindings();
 }

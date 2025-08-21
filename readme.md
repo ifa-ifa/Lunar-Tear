@@ -1,12 +1,14 @@
  # Lunar Tear
 
-Loose File loader for Nier Replicant. Can load textures, lua scripts, game tables and plugins.
+Tool repository for Nier Replicant
 
-This repository also includes some mod development tools, documentation for the games internal types and functionality, and some misc scripts.
+- UnsealesVerses - .arc patcher and repacker
+- SETTBLLEditor - STBL editor
+- Lunar Tear Loader - Script tool / modding api / loose loader
 
 For modding instructions see `docs/`
 
-## Install
+## Install Lunar Tear Loader
 
 #### With SpecialK 
 
@@ -41,6 +43,6 @@ If building the editor, you will need Qt 6. I reccomend you install it yourself 
 
 ## Credits
 
-"Kaine" by yretenai (https://github.com/yretenai/kaine) and binary templates by WoefulWolf (https://github.com/WoefulWolf/replicant_templates/tree/main) were very helpful when making this mod
+"Kaine" by yretenai (https://github.com/yretenai/kaine) and binary templates by WoefulWolf (https://github.com/WoefulWolf/replicant_templates/tree/main) were very helpful when making this
 
 iffyfuistatement for helping me test the mod and providing test files.
