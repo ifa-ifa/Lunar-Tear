@@ -4,7 +4,6 @@
 #include "Common/Settings.h"
 #include "Game/Globals.h"
 #include "Common/Logger.h"
-
 #include "Common/Dump.h"
 #include <string>
 #include <MinHook.h>

@@ -19,6 +19,7 @@ namespace {
 }
 
 uint64_t TexHook_detoured(tpgxResTexture* tex, void* param_2, void* param_3) {
+
     if (Logger::IsActive(FileInfo)) Logger::Log(FileInfo) << "Hooked texture: " << std::string(tex->name)
         << " | Original Format: " << XonFormatToString(tex->bxonAssetHeader->XonSurfaceFormat)
         << " | Original Mipmap Count: " << tex->bxonAssetHeader->numMipSurfaces;
@@ -37,7 +38,7 @@ uint64_t TexHook_detoured(tpgxResTexture* tex, void* param_2, void* param_3) {
     bool foundByHash = false;
     std::string hashed_filename;
 
-    // If not found, try loading by CRC32c hash (older mods based on SpecialK's injection use this)
+    // If not found, try loading by CRC32c hash (older mods based on SpecialK injection use this)
     if (!ddsFileData) {
         mipSurface* pMipSurfaces = (mipSurface*)((uintptr_t)&tex->bxonAssetHeader->offsetToMipSurfaces + tex->bxonAssetHeader->offsetToMipSurfaces);
         if (tex->bxonAssetHeader->numMipSurfaces > 0 && pMipSurfaces) {
@@ -57,7 +58,6 @@ uint64_t TexHook_detoured(tpgxResTexture* tex, void* param_2, void* param_3) {
             }
         }
     }
-
 
     if (!ddsFileData) {
         return TexHook_original(tex, param_2, param_3);
@@ -92,7 +92,7 @@ uint64_t TexHook_detoured(tpgxResTexture* tex, void* param_2, void* param_3) {
     }
     else if (ddsHeader->ddspf_dwFlags & DDPF_RGB) {
         Logger::Log(Verbose) << " | Uncompressed RGB header detected.";
-        // Check for 32bpp BGRA (a very common format)
+        // Check for 32bpp BGRA 
         if (ddsHeader->ddspf_dwRGBBitCount == 32 &&
             ddsHeader->ddspf_dwRBitMask == 0x00FF0000 &&
             ddsHeader->ddspf_dwGBitMask == 0x0000FF00 &&

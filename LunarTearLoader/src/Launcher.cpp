@@ -1,8 +1,30 @@
 #include<Windows.h>
+#include <iostream>
 #include<string>
+#include <TlHelp32.h>
 
 LPCWSTR app_path = L"NieR Replicant ver.1.22474487139.exe";
 LPCWSTR dll_path = L"LunarTearLoader.dll";
+
+
+DWORD GetProcessIdByName(const wchar_t* processName) {
+    PROCESSENTRY32W entry;
+    entry.dwSize = sizeof(PROCESSENTRY32W);
+
+    HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, NULL);
+
+    if (Process32FirstW(snapshot, &entry) == TRUE) {
+        while (Process32NextW(snapshot, &entry) == TRUE) {
+            if (_wcsicmp(entry.szExeFile, processName) == 0) {
+                CloseHandle(snapshot);
+                return entry.th32ProcessID;
+            }
+        }
+    }
+
+    CloseHandle(snapshot);
+    return 0;
+}
 
 std::string GetLastErrorAsString()
 {
@@ -55,39 +77,40 @@ BOOL WINAPI main(int argc, char* argv[])
         return FALSE;
     }
 
-
+    DWORD stubProcessId = pi.dwProcessId;
 
     /*
-    Can't directly use the handle returned from CreateProcess becuase that process isn't the game, its
-    a short lived process that at some point creates the game process. Therefore we wait for the actual
-    game window to load then hook to that
+    Can't directly use the handle returned from CreateProcess becuase it just calls 
+    the steamapi and asks to be opened, then closes itself.
     */
-    HWND window_handle = NULL;
-    const int maxAttempts = 40;
-    const int interval = 500;
-    for (int i = 0; i < maxAttempts; i++) {
-        window_handle = FindWindowW(NULL, L"NieR Replicant ver.1.22474487139...");
-        if (window_handle) break;
+    DWORD gameProcessId = 0;
+    const int maxAttempts = 10000; 
+    const int interval = 0;  
+
+    std::wcout << L"Waiting for game process to appear..." << std::endl;
+    for (int i = 0; i < maxAttempts; ++i) {
+        DWORD foundProcessId = GetProcessIdByName(L"NieR Replicant ver.1.22474487139.exe");
+
+        // If we found a process AND its PID is NOT the same as the stub's PID, we've found the real game.
+        if (foundProcessId != 0 && foundProcessId != stubProcessId) {
+            std::wcout << L"Real game process found! PID: " << foundProcessId << std::endl;
+            gameProcessId = foundProcessId;
+            break;
+        }
         Sleep(interval);
     }
 
 
-    if (!window_handle) {
-        MessageBoxW(0, L"Error when opening window handle. Error message: Handle is null.", L"launcher error", 0);
+    if (gameProcessId == 0) {
+        MessageBoxW(0, L"Error when opening window handle. Error message: PID is null.", L"launcher error", 0);
         return FALSE;
     }
 
 
-    DWORD process_id;
-    GetWindowThreadProcessId(window_handle, &process_id);
-    if (process_id == NULL) {
-        error = GetLastErrorAsString();
-        MessageBoxW(0, (std::wstring(L"Error when getting window thread process id. Error message:") + stringToWide(error)).c_str(), L"launcher error", 0);
-        return FALSE;
-    }
 
 
-    HANDLE process_handle = OpenProcess(PROCESS_CREATE_THREAD | PROCESS_VM_OPERATION | PROCESS_VM_WRITE | PROCESS_VM_READ, FALSE, process_id);
+
+    HANDLE process_handle = OpenProcess(PROCESS_CREATE_THREAD | PROCESS_VM_OPERATION | PROCESS_VM_WRITE | PROCESS_VM_READ, FALSE, gameProcessId);
 
 
     if (process_handle == NULL) {

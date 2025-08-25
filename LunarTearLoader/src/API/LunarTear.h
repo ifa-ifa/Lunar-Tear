@@ -1,7 +1,7 @@
 #pragma once
 
 #include <cstdint>
-#include <Game/Types.h>
+#include "Game/Types.h"
 
 #ifdef __cplusplus
 extern "C" {

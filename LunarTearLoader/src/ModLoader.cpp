@@ -12,6 +12,7 @@
 #include <atomic>
 #include <iterator>
 #include "nlohmann/json.hpp"
+#include "VFS/ArchivePatcher.h"
 
 using json = nlohmann::json;
 
@@ -27,7 +28,7 @@ namespace {
     static std::map<std::string, std::string> s_resolvedFileMap;
     static std::mutex s_fileMapMutex;
 
-    // Maps a mod's unique ID (from manifest or folder name) to its absolute directory path
+    // Maps a mod ID (from manifest or folder name) to its absolute directory path
     static std::map<std::string, std::string> s_mod_paths;
     static std::mutex s_mod_paths_mutex;
 
@@ -99,7 +100,6 @@ void ScanModsAndResolveConflicts() {
         return;
     }
 
-    // --- Mod Discovery and ID Resolution ---
     {
         const std::lock_guard<std::mutex> lock(s_mod_paths_mutex);
         s_mod_paths.clear();
@@ -108,7 +108,7 @@ void ScanModsAndResolveConflicts() {
             if (!mod_entry.is_directory()) continue;
 
             std::string folder_name = mod_entry.path().filename().string();
-            std::string mod_id = folder_name; // Default to folder name
+            std::string mod_id = folder_name;
 
             std::filesystem::path manifest_path = mod_entry.path() / "manifest.json";
             if (std::filesystem::exists(manifest_path)) {
@@ -136,10 +136,6 @@ void ScanModsAndResolveConflicts() {
         }
     }
 
-    // --- File Conflict Resolution and Injection Script Scanning ---
-    std::map<std::string, std::vector<std::string>> file_to_mods_map;
-    std::map<std::string, std::vector<std::string>> temp_injection_scripts;
-
     std::vector<std::string> sorted_mod_ids;
     {
         const std::lock_guard<std::mutex> lock(s_mod_paths_mutex);
@@ -149,13 +145,31 @@ void ScanModsAndResolveConflicts() {
     }
     std::sort(sorted_mod_ids.begin(), sorted_mod_ids.end());
 
+    Logger::Log(Info) << "Starting VFS archive scan...";
+    g_patched_archive_mods.clear();
+    for (const auto& mod_id : sorted_mod_ids) {
+        auto mod_path_opt = GetModPath(mod_id);
+        if (!mod_path_opt) continue;
+
+        std::filesystem::path mod_path = *mod_path_opt;
+
+        std::filesystem::path index_path = mod_path / "info.arc";
+
+        if (std::filesystem::exists(index_path)) {
+            g_patched_archive_mods.push_back({ mod_id, "", index_path.string() });
+        }
+    }
+    Logger::Log(Info) << "VFS archive scan complete. Found " << g_patched_archive_mods.size() << " VFS mod(s).";
+
+    std::map<std::string, std::vector<std::string>> file_to_mods_map;
+    std::map<std::string, std::vector<std::string>> temp_injection_scripts;
 
     for (const auto& mod_id : sorted_mod_ids) {
         auto mod_path_opt = GetModPath(mod_id);
         if (!mod_path_opt) continue;
         std::filesystem::path mod_path = *mod_path_opt;
 
-        Logger::Log(Verbose) << "Scanning mod: " << mod_id;
+        Logger::Log(Verbose) << "Scanning mod for loose files: " << mod_id;
 
         for (const auto& file_entry : std::filesystem::recursive_directory_iterator(mod_path)) {
             if (!file_entry.is_regular_file()) continue;
@@ -164,7 +178,7 @@ void ScanModsAndResolveConflicts() {
             std::replace(relative_path_str.begin(), relative_path_str.end(), '\\', '/');
 
             if (relative_path_str.starts_with("inject/")) {
-                std::string injection_point = relative_path_str.substr(7); // 7 is length of "inject/"
+                std::string injection_point = relative_path_str.substr(7);
                 temp_injection_scripts[injection_point].push_back(file_entry.path().string());
             }
             else {
@@ -180,7 +194,6 @@ void ScanModsAndResolveConflicts() {
             Logger::Log(Verbose) << "Found " << paths.size() << " injection script(s) for point '" << point << "'";
         }
     }
-
 
     const std::set<std::string> relevant_extensions = { ".dds", ".lua", ".settbll", ".settb" };
 
@@ -283,7 +296,6 @@ void* LoadLooseFile(const char* filename, size_t& out_size) {
         }
     }
 
-    // Slow, but it doesnt block other threads from accessing the cache
     std::vector<char> fileData;
     {
         std::ifstream file(full_path, std::ios::binary | std::ios::ate);
@@ -310,7 +322,6 @@ void* LoadLooseFile(const char* filename, size_t& out_size) {
 
         auto cache_it = s_fileCache.find(full_path);
         if (cache_it != s_fileCache.end()) {
-            // Another thread beat us to it. Discard our data and use the existing entry.
             auto& cachedEntry = cache_it->second;
             cachedEntry.lastAccessTime = std::chrono::steady_clock::now();
             out_size = cachedEntry.data.size();
@@ -318,7 +329,7 @@ void* LoadLooseFile(const char* filename, size_t& out_size) {
         }
 
         CachedFile newFile{
-            std::move(fileData), // Move our local data into the cache to avoid a copy
+            std::move(fileData),
             std::chrono::steady_clock::now()
         };
 

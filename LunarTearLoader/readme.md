@@ -15,7 +15,7 @@ You need a DLL injector. there are manual tools out there but you can use specia
 [Import.LunarTear]
 Architecture=x64
 Role=ThirdParty
-When=PlugIn
+When=Early
 Filename=path\to\LunarTearLoader.dll
 ```	
 

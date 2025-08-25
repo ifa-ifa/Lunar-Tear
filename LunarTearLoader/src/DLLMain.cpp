@@ -1,5 +1,6 @@
 ﻿#include <Windows.h>
 #include <MinHook.h>
+#include "tether.h"
 #include <API/api.h>
 #include "Common/Logger.h"
 #include "Game/Globals.h"
@@ -7,6 +8,9 @@
 #include "Common/Settings.h"
 #include "ModLoader.h"
 #include "Hooks/Hooks.h"
+#include "VFS/ArchivePatcher.h"
+#include "VFS/patchInfo.h"
+
 
 using enum Logger::LogCategory;
 
@@ -14,6 +18,23 @@ static DWORD WINAPI Initialize(LPVOID lpParameter) {
 
     try {
 
+        int ret = MH_Initialize();
+        if (ret != MH_OK) {
+            std::string error_message = "Failed to create mod directories. Please check permissions.\n\nError: ";
+            error_message += ret;
+            MessageBoxA(NULL, error_message.c_str(), "Lunar Tear - Filesystem Error", MB_OK | MB_ICONERROR);
+            return FALSE;
+        }
+
+        InitialiseGlobals();
+
+        bool hooks_ok = true;
+        hooks_ok &= InstallVFSHooks(); // Enable this hook ASAP
+
+        if (MH_EnableHook(MH_ALL_HOOKS) != MH_OK) {
+            MessageBoxA(NULL, "Could not enable VFS Hook", "Lunar Tear - Filesystem Error", MB_OK | MB_ICONERROR);
+            return FALSE;
+        }
 
         try {
             std::filesystem::create_directories("LunarTear/mods");
@@ -25,11 +46,9 @@ static DWORD WINAPI Initialize(LPVOID lpParameter) {
             return FALSE;
         }
 
-        InitialiseGlobals();
         InitialiseGameFunctions();
 
-
-        int ret = Settings::Instance().LoadFromFile();
+        ret = Settings::Instance().LoadFromFile();
 
         Logger::Init();
 
@@ -49,12 +68,6 @@ static DWORD WINAPI Initialize(LPVOID lpParameter) {
             return FALSE;
         }
 
-        if (MH_Initialize() != MH_OK) {
-            Logger::Log(Error) << "Could not initialize MinHook.";
-            return FALSE;
-        }
-
-        bool hooks_ok = true;
         hooks_ok &= InstallTextureHooks();
         hooks_ok &= InstallScriptInjectHooks();
         hooks_ok &= InstallTableHooks();
@@ -76,8 +89,9 @@ static DWORD WINAPI Initialize(LPVOID lpParameter) {
 
         API::Init();
 
-
         ScanModsAndResolveConflicts();
+        StartArchivePatchingThread();
+
         StartCacheCleanupThread();
 
         if (Settings::Instance().EnablePlugins) {
@@ -88,24 +102,16 @@ static DWORD WINAPI Initialize(LPVOID lpParameter) {
     }
 
 
-        catch (const std::exception& e) {
-            MessageBoxA(NULL, e.what(), "Lunar Tear", MB_OK | MB_ICONERROR);
-        }
-        catch (...) {
-            MessageBoxA(NULL, "An unknown exception occurred during initialization.", "Lunar Tear", MB_OK | MB_ICONERROR);
-        }
-
-
-
-
-
-        return TRUE;
-
-
-
+    catch (const std::exception& e) {
+        MessageBoxA(NULL, e.what(), "Lunar Tear", MB_OK | MB_ICONERROR);
+    }
+    catch (...) {
+        MessageBoxA(NULL, "An unknown exception occurred during initialization.", "Lunar Tear", MB_OK | MB_ICONERROR);
     }
 
+    return TRUE;
 
+}
 
 
 BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserved) {
@@ -115,6 +121,7 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
         if (hThread) CloseHandle(hThread);
     }
     else if (ul_reason_for_call == DLL_PROCESS_DETACH) {
+        StopArchivePatchingThread();
         StopCacheCleanupThread();
         MH_Uninitialize();
     }

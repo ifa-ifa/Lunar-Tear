@@ -1,4 +1,4 @@
-﻿set(CMAKE_CXX_STANDARD 20)
+﻿set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 project ("LunarTearLoader" LANGUAGES C CXX ASM_NASM)
@@ -6,6 +6,7 @@ project ("LunarTearLoader" LANGUAGES C CXX ASM_NASM)
 find_package(minhook REQUIRED CONFIG)
 find_package(unofficial-inih REQUIRED CONFIG)
 find_package(crc32c REQUIRED CONFIG)
+find_package(zstd REQUIRED CONFIG)
 find_package(nlohmann_json REQUIRED CONFIG)
 
 
@@ -46,11 +47,16 @@ add_library(LunarTearLoader SHARED
     "src/Lua/CoreBindings.h"
     "src/Lua/CoreBindings.cpp"
 
-)
+ "src/Hooks/VFSHooks.cpp" "include/tether.h" "src/VFS/ArchivePatcher.cpp" "src/VFS/ArchivePatcher.h" "src/VFS/PatchInfo.h" "src/VFS/PatchInfo.cpp")
 
 add_executable(LunarTearLauncher "src/Launcher.cpp")
 
+
 target_include_directories(LunarTearLoader PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+target_include_directories(LunarTearLoader PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+
 
 target_link_libraries(LunarTearLoader PRIVATE minhook::minhook unofficial::inih::inireader libreplicant 
-                                              Crc32c::crc32c nlohmann_json::nlohmann_json)
+                                              Crc32c::crc32c nlohmann_json::nlohmann_json zstd::libzstd)
+
+target_link_libraries(LunarTearLauncher PRIVATE ) 
