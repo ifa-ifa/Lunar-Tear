@@ -1,8 +1,8 @@
-[[
+--[[
   Nier Replicant - Entity List Reader
 
   Run in Cheat Engines lua engine. change the "show_rtti_tree" to see actor inheritance structure.
-]]
+--]]
 
 -- ========================== CONFIGURATION ==========================
 
@@ -11,8 +11,6 @@ local config = {
   module_name = "NieR Replicant ver.1.22474487139.exe",
   manager_address = "NieR Replicant ver.1.22474487139.exe+26FA120", 
 }
-
--- ===================================================================
 
 -- =========================== OFFSETS ===============================
 
@@ -35,13 +33,10 @@ local ACTOR_TYPE_INFO_NAME_OFFSET = 0x00
 local ACTOR_TYPE_INFO_ID_OFFSET = 0x40        
 local ACTOR_TYPE_INFO_ASSET_PATH_OFFSET = 0x48 
 
--- ===================================================================
-
 -- ========================= GLOBAL CACHE ============================
 local image_base = getAddress(config.module_name)
 local cached_actor_type_names = {}  
 local cached_actor_asset_paths = {}
--- ===================================================================
 
 -- ======================== RTTI PARSING LOGIC =======================
 
