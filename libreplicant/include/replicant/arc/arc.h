@@ -1,45 +1,68 @@
 #pragma once
-
 #include <vector>
 #include <string>
 #include <cstddef>
 #include <cstdint>
 #include <expected> 
-
 #include "replicant/arc/error.h"
 
 namespace replicant::archive {
 
-
+    /*!
+     * @brief Decompresses a ZSTD frame.
+     * @param compressed_data Pointer to the start of the compressed data buffer.
+     * @param compressed_size The size of the compressed data.
+     * @param decompressed_size The known, exact size of the original uncompressed data.
+     * @return An expected object containing the decompressed data vector on success, or an ArcError on failure.
+     */
     std::expected<std::vector<char>, ArcError> decompress_zstd(
         const void* compressed_data,
         size_t compressed_size,
         size_t decompressed_size
     );
 
+    /*!
+     * @brief Compresses data ito a single ZSTD frame.
+     * @param uncompressed_data Pointer to the start of the data to compress.
+     * @param uncompressed_size The size of the data to compress.
+     * @param compression_level The ZSTD compression level 
+     * @return An expected object containing the compressed data vector on success, or an ArcError on failure.
+     */
     std::expected<std::vector<char>, ArcError> compress_zstd(
         const void* uncompressed_data,
         size_t uncompressed_size,
         int compression_level = 1
     );
 
-
+    /// @brief Defines the structure of the output .arc file.
     enum class ArcBuildMode {
-        SingleStream,
-        ConcatenatedFrames
+   
+        SingleStream,   /// @brief All files are concatenated and compressed together in one stream. Used for PRELOAD_DECOMPRESS.
+        ConcatenatedFrames   ///@brief Each file is compressed into a separate, aligned ZSTD frame. Used for STREAM types.
     };
 
+    /*!
+     * @brief A builder class for creating .arc archive files.
+     *
+     * To create a full arc:
+     * 1. Create an ArcWriter instance
+     * 2. Add files using addFile() or addFileFromDisk()
+     * 3. build()
+     * 4. Call getEntries() to get the metadata required to generate a index file
+     */
     class ArcWriter {
     public:
         struct Entry {
             std::string key;
-            size_t everythingExceptAssetsDataSize;
+            size_t PackSerialisedSize;
             size_t compressed_size;
             uint64_t offset;
             uint32_t assetsDataSize;
         };
 
-  
+        /*!
+         * @brief Adds a file from in memory to the archive.
+         */
         std::expected<void, ArcError> addFile(
             std::string key,
             std::vector<char> data,
@@ -55,6 +78,11 @@ namespace replicant::archive {
         );
 
         const std::vector<Entry>& getEntries() const;
+
+        /*!
+         * @brief Gets the number of files currently waiting to be built.
+         * @return The number of pending files.
+         */
         size_t getPendingEntryCount() const;
 
     private:

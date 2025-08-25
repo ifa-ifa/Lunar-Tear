@@ -2,7 +2,7 @@ set(LIBREPLICANT_SOURCES
     src/stbl/stbl.cpp
     src/bxon/bxon.cpp
     "src/bxon/archive_param.cpp"
- "src/arc/arc.cpp" "src/pack/pack.cpp" "include/replicant/bxon/error.h" "include/replicant/bxon/archive_param_builder.h" "src/bxon/archive_param_builder.cpp" "src/bxon/common.h" "include/replicant/bxon/texture.h" "src/bxon/texture_builder.cpp" )
+ "src/arc/arc.cpp" "src/pack/pack.cpp" "include/replicant/bxon/error.h" "include/replicant/bxon/archive_param_builder.h" "src/bxon/archive_param_builder.cpp" "src/bxon/common.h" "include/replicant/bxon/texture.h" "src/bxon/texture_builder.cpp"  "include/replicant/patcher.h" "src/patcher.cpp")
 
   find_package(zstd CONFIG REQUIRED)
 

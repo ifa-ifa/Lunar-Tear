@@ -39,6 +39,7 @@ namespace replicant::archive {
         }
 
         ZSTD_CCtx_setParameter(cctx, ZSTD_c_compressionLevel, compression_level);
+
         // The game will crash if the window size is any larger
         ZSTD_CCtx_setParameter(cctx, ZSTD_c_windowLog, 15); 
 
@@ -131,7 +132,7 @@ namespace replicant::archive {
                 Entry built_entry;
                 built_entry.key = pending_entry.key;
                 built_entry.assetsDataSize = pending_entry.resource_size;
-                built_entry.everythingExceptAssetsDataSize = pending_entry.serialized_size;
+                built_entry.PackSerialisedSize = pending_entry.serialized_size;
                 built_entry.offset = current_uncompressed_offset;
                 built_entry.compressed_size = 0;
                 m_built_entries.push_back(built_entry);
@@ -175,7 +176,7 @@ namespace replicant::archive {
                 built_entry.key = pending_entry.key;
                 built_entry.compressed_size = unpadded_size;
                 built_entry.offset = entry_offset;
-                built_entry.everythingExceptAssetsDataSize = pending_entry.serialized_size;
+                built_entry.PackSerialisedSize = pending_entry.serialized_size;
                 built_entry.assetsDataSize = pending_entry.resource_size;
                 m_built_entries.push_back(built_entry);
             }

@@ -3,14 +3,9 @@
 #include <cstdint>
 #include <vector>
 
-
-
 namespace replicant::bxon {
 
     class File;
-
-
-
 
     enum XonSurfaceDXGIFormat {
         UNKNOWN = 0,

@@ -173,23 +173,23 @@ namespace {
         switch (format) {
         case replicant::bxon::XonSurfaceDXGIFormat::BC1_UNORM:
         case replicant::bxon::XonSurfaceDXGIFormat::BC1_UNORM_SRGB:
-        case replicant::bxon::XonSurfaceDXGIFormat::BC4_UNORM:
+        case replicant::bxon::XonSurfaceDXGIFormat::BC4_UNORM: {
+            // 8 bytes per 4x4 block
+            out_pitch = std::max(1u, (width + 3) / 4) * 8;
+            out_rows = std::max(1u, (height + 3) / 4);
+            break;
+        }
         case replicant::bxon::XonSurfaceDXGIFormat::BC2_UNORM:
         case replicant::bxon::XonSurfaceDXGIFormat::BC2_UNORM_SRGB:
         case replicant::bxon::XonSurfaceDXGIFormat::BC3_UNORM:
         case replicant::bxon::XonSurfaceDXGIFormat::BC3_UNORM_SRGB:
         case replicant::bxon::XonSurfaceDXGIFormat::BC5_UNORM:
-        case replicant::bxon::XonSurfaceDXGIFormat::BC7_UNORM: {
-            out_pitch = calculateMipSize(width, height, format);
-            out_rows = 1;
-            break;
-        }
+        case replicant::bxon::XonSurfaceDXGIFormat::BC7_UNORM:
+        { // Add SRGB variant here ????????????????????
 
-        case replicant::bxon::XonSurfaceDXGIFormat::R8G8B8A8_UNORM:
-        case replicant::bxon::XonSurfaceDXGIFormat::R8G8B8A8_UNORM_SRGB:
-        case replicant::bxon::XonSurfaceDXGIFormat::R8G8B8A8_UNORM_STRAIGHT: {
-            out_pitch = width * 4;
-            out_rows = height;
+            // 16 bytes per 4x4 block
+            out_pitch = std::max(1u, (width + 3) / 4) * 16;
+            out_rows = std::max(1u, (height + 3) / 4);
             break;
         }
         case replicant::bxon::XonSurfaceDXGIFormat::UNKN_A8_UNORM: {
@@ -241,7 +241,7 @@ namespace replicant::bxon {
                 memcpy(fourcc_str, &pf.dwFourCC, 4);
                 error_msg += "FourCC: " + std::string(fourcc_str);
             }
-            else { 
+            else {
                 error_msg += "Uncompressed Format Details: BitCount=" + std::to_string(pf.dwRGBBitCount)
                     + ", RMask=" + std::to_string(pf.dwRBitMask)
                     + ", GMask=" + std::to_string(pf.dwGBitMask)
@@ -258,8 +258,17 @@ namespace replicant::bxon {
 
         const uint32_t header_start = 0;
         const uint32_t asset_type_name_start = align_to(header_start + sizeof(RawBxonHeader), ALIGNMENT);
-        const uint32_t asset_param_start = align_to(asset_type_name_start + asset_type_name.length() + 1, ALIGNMENT);
-        const uint32_t mip_surface_array_start = asset_param_start + sizeof(RawGxTexHeader);
+        const uint32_t asset_param_start = 8 + align_to(asset_type_name_start + asset_type_name.length() + 1, 8);
+
+        // The mip surface array must be aligned 16 bytes from the start of tpGxTexHead header
+        // asset_param_start is where tpGxTexHead header begins
+        const uint32_t tex_header_end = asset_param_start + sizeof(RawGxTexHeader);
+
+        // Find the next 16-byte aligned position relative to the tpGxTexHead header start
+        const uint32_t distance_from_header_start = tex_header_end - asset_param_start;
+        const uint32_t next_16_aligned_distance = align_to(distance_from_header_start, 16);
+        const uint32_t mip_surface_array_start = asset_param_start + next_16_aligned_distance;
+
         const uint32_t texture_data_block_start = mip_surface_array_start + (sizeof(RawGxTexMipSurface) * mip_levels);
 
         size_t total_texture_data_size = 0;
@@ -292,6 +301,7 @@ namespace replicant::bxon {
         tex_header->unknownInt1 = 2147483648;
         tex_header->XonSurfaceFormat = xon_format;
         tex_header->numMipSurfaces = mip_levels;
+        // Set the offset to the mip surface array relative to the tex header field
         tex_header->offsetToMipSurface = mip_surface_array_start - (asset_param_start + offsetof(RawGxTexHeader, offsetToMipSurface));
 
         auto* mip_surfaces = reinterpret_cast<RawGxTexMipSurface*>(buffer.data() + mip_surface_array_start);
@@ -309,7 +319,7 @@ namespace replicant::bxon {
 
             mip_surfaces[i].rowPitch_bpr = pitch;
             mip_surfaces[i].rowCount = rows;
-            mip_surfaces[i].offset = (texture_data_block_start + current_tex_data_offset_in_bxon) - asset_param_start;
+            mip_surfaces[i].offset = current_tex_data_offset_in_bxon;
             mip_surfaces[i].size = mip_size;
             mip_surfaces[i].width = current_width;
             mip_surfaces[i].height = current_height;

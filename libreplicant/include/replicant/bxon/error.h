@@ -1,5 +1,4 @@
 #pragma once
-
 #include <string>
 
 namespace replicant::bxon {
@@ -13,5 +12,4 @@ namespace replicant::bxon {
         BxonErrorCode code;
         std::string message;
     };
-
 } 

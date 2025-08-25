@@ -26,9 +26,13 @@ namespace replicant::pack {
     struct PackFileEntry {
         std::string name;
         std::vector<char> serialized_data;
-   
         std::vector<char> resource_data;
-        uint32_t assetsDataHash = 0;
+
+        bool has_resource_data = false;
+        uint32_t resource_offset = 0;
+
+        size_t asset_header_offset = 0;
+
     };
 
     class PackFile {
@@ -50,5 +54,11 @@ namespace replicant::pack {
         uint32_t m_serialized_size = 0;
         uint32_t m_resource_size = 0;
         std::vector<PackFileEntry> m_file_entries;
+
+        // From tpGxAssetHeader, a BXON asset type. Dont think there is ever a reason to change it, so we will not make proper utilities / API
+        std::vector<char> m_paths_data;
+        std::vector<char> m_asset_packs_data;
+        uint32_t m_original_path_count = 0;
+        uint32_t m_original_asset_pack_count = 0;
     };
 }

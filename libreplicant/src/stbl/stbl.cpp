@@ -10,7 +10,6 @@
 
 namespace {
 
-
 #pragma pack(push, 1)
     struct STBL_FileHeader {
         char magic_bytes[4];
