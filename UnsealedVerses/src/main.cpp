@@ -3,6 +3,7 @@
 #include <string>
 #include <fstream>
 #include <iomanip>
+#include "replicant/patcher.h" 
 #include <optional>
 #include <filesystem>
 #include <memory>
@@ -78,7 +79,7 @@ public:
             return 1;
         }
 
-        auto bxon_result = replicant::bxon::buildTextureFromDDS(*dds_data);
+        auto bxon_result = replicant::bxon::buildTextureFromDDS(*dds_data, 3);
         if (!bxon_result) {
             std::cerr << "Error building BXON texture: " << bxon_result.error().message << "\n";
             return 1;
@@ -224,26 +225,6 @@ private:
         return true;
     }
 
-    std::expected<std::vector<char>, std::string> loadAndDecompressIndex(const std::filesystem::path& path) {
-        auto read_result = util::readFile(path);
-        if (!read_result) {
-            return std::unexpected(read_result.error());
-        }
-        const auto& compressed_data = *read_result;
-
-        unsigned long long const decompressed_size = ZSTD_getFrameContentSize(compressed_data.data(), compressed_data.size());
-        if (decompressed_size == ZSTD_CONTENTSIZE_ERROR) {
-            return std::unexpected("File is not a valid ZSTD stream: " + path.string());
-        }
-        if (decompressed_size == ZSTD_CONTENTSIZE_UNKNOWN || decompressed_size == 0) {
-            return std::unexpected("Could not determine a valid decompressed size from ZSTD stream: " + path.string());
-        }
-        auto decompress_result = replicant::archive::decompress_zstd(compressed_data.data(), compressed_data.size(), decompressed_size);
-        if (!decompress_result) {
-            return std::unexpected("Zstd decompression failed: " + decompress_result.error().message);
-        }
-        return *decompress_result;
-    }
 
     bool writeCompressedIndex(const std::filesystem::path& path, std::vector<char>& bxon_data) {
         size_t original_size = bxon_data.size();
@@ -259,7 +240,9 @@ private:
         return util::writeFile(path, *compressed_result);
     }
 
+
     int handleNewIndex(const std::string& arc_filename, const std::vector<replicant::archive::ArcWriter::Entry>& entries) {
+        // This function now directly uses the builder from the library.
         auto res = replicant::bxon::buildArchiveParam(entries, 0, arc_filename, load_type);
         if (!res) {
             std::cerr << "Error building new index: " << res.error().message << "\n";
@@ -271,62 +254,34 @@ private:
 
     int handlePatchMode(const std::string& arc_filename, const std::vector<replicant::archive::ArcWriter::Entry>& entries) {
         std::cout << "\n Patching original index: " << *index_patch_path << "\n";
-        auto decompressed_result = loadAndDecompressIndex(*index_patch_path);
-        if (!decompressed_result) {
-            std::cerr << "Error: " << decompressed_result.error() << "\n";
-            return 1;
-        }
-        std::vector<char> decompressed_data = std::move(*decompressed_result);
-        std::cout << "Successfully decompressed original index (" << decompressed_data.size() << " bytes).\n";
 
-        replicant::bxon::File bxon_file;
-        if (!bxon_file.loadFromMemory(decompressed_data.data(), decompressed_data.size())) {
-            std::cerr << "Error: Failed to parse the decompressed index data as a BXON file.\n";
+        // Read the original compressed index file into a buffer
+        auto read_result = util::readFile(*index_patch_path);
+        if (!read_result) {
+            std::cerr << "Error: " << read_result.error() << "\n";
             return 1;
         }
 
-        auto* param = std::get_if<replicant::bxon::ArchiveFileParam>(&bxon_file.getAsset());
-        if (!param) {
-            std::cerr << "Error: Decompressed data from '" << *index_patch_path << "' is not a tpArchiveFileParam BXON.\n";
+        // Call the new high-level library function
+        auto patch_result = replicant::patcher::patchIndex(*read_result, arc_filename, entries, load_type);
+        if (!patch_result) {
+            std::cerr << "Error patching index: " << patch_result.error().message << "\n";
             return 1;
         }
 
-        uint8_t new_archive_index = param->addArchive(arc_filename, load_type);
-        std::cout << "Using archive '" << arc_filename << "' at index " << (int)new_archive_index << " with LoadType " << (int)load_type << ".\n";
+        std::cout << "Successfully patched index in memory.\n";
 
-        for (const auto& mod_entry : entries) {
-            auto* game_entry = param->findFileEntryMutable(mod_entry.key);
-            if (game_entry) {
-                std::cout << "Patching entry: " << mod_entry.key << "\n";
-                game_entry->archiveIndex = new_archive_index;
-
-                const auto& archive_entries = param->getArchiveEntries();
-                uint32_t scale = archive_entries[new_archive_index].offsetScale;
-                game_entry->arcOffset = mod_entry.offset >> scale;
-
-                game_entry->compressedSize = mod_entry.compressed_size;
-                game_entry->everythingExceptAssetsDataSize = mod_entry.everythingExceptAssetsDataSize;
-                game_entry->assetsDataSize = mod_entry.assetsDataSize;
-            }
-            else {
-                std::cerr << "Error: Support for adding new file entries to an index is not implemented. (Did you misspell the asset path '" << mod_entry.key << "'?)\n";
-                return 1;
-            }
-        }
-
-        auto patched_data_result = replicant::bxon::buildArchiveParam(*param, bxon_file.getVersion(), bxon_file.getProjectID());
-        if (!patched_data_result) {
-            std::cerr << "Error building patched index: " << patched_data_result.error().message << "\n";
-            return 1;
-        }
-        std::vector<char> bxon_data = std::move(*patched_data_result);
+        // Compress and write the result
+        std::vector<char> bxon_data = std::move(*patch_result);
         return writeCompressedIndex(*index_patch_out_path, bxon_data) ? 0 : 1;
     }
 
 public:
     ArchiveCommand(std::vector<std::string> args) : Command(std::move(args)) {}
     int execute() override {
-        if (!parse_archive_args()) return 1;
+        if (!parse_archive_args()) {
+            return 1;
+        }
 
         replicant::archive::ArcWriter writer;
         std::cout << "--- Preparing files for archive: " << output_archive_path.string() << " ---\n";
@@ -381,7 +336,9 @@ public:
             return 1;
         }
 
-        if (!util::writeFile(output_archive_path, *build_result)) return 1;
+        if (!util::writeFile(output_archive_path, *build_result)) {
+            return 1;
+        }
 
         std::string arc_filename = output_archive_path.filename().string();
         if (index_new_path) {
