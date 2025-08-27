@@ -7,14 +7,17 @@
 #include <cstdint>
 #include "replicant/bxon/archive_param.h"
 #include "replicant/bxon/texture.h"
+#include "replicant/bxon/error.h"
+
 
 
 namespace replicant::bxon {
 
+
     using AssetData = std::variant<
         std::monostate,
-        ArchiveFileParam,
-        tpGxTexHead
+        ArchiveParameters,
+        Texture
     >;
 
     class File {

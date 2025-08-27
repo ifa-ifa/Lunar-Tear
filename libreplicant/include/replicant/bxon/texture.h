@@ -1,7 +1,14 @@
 #pragma once
 
+#include "replicant/bxon/error.h"
 #include <cstdint>
 #include <vector>
+#include <expected>
+#include <span>
+
+namespace replicant::dds {
+    class DDSFile;
+}
 
 namespace replicant::bxon {
 
@@ -26,50 +33,61 @@ namespace replicant::bxon {
     };
 
     struct mipSurface {
-        uint32_t offset;
-        uint32_t unknown_1;
-        uint32_t rowPitch_bpr;
-        uint32_t unknown_3; // unused
+        uint32_t offset; // From texData
+        uint32_t unk3; // always 0
+        uint32_t rowPitch;
+        uint32_t unk4; // always 0
         uint32_t size;
-        uint32_t unknown_5; // unused
+        uint32_t unk5; // always 0
         uint32_t width;
         uint32_t height;
-        uint32_t depthSliceCount; // The depth of the mip level ( for volume textures). 1 for 2D.
-        uint32_t rowCount; //  in pixels (uncompressed) or blocks (compressed)
+        uint32_t currentDepth;
+        uint32_t heightInBlocks;
     };
 
-    class tpGxTexHead {
+    /// @brief Represents a 'tpGxTexHead' BXON asset, including its header and pixel data.
+    class Texture {
     public:
+
+        static std::expected<Texture, BxonError> FromDDS(const dds::DDSFile& dds_file);
+        static std::expected<Texture, BxonError> FromGameData(
+            uint32_t width,
+            uint32_t height,
+            uint32_t depth,
+            uint32_t numSurfaces,
+            XonSurfaceDXGIFormat format,
+            uint32_t totalTextureSize,
+            std::span<const mipSurface> mip_surfaces,
+            std::span<const char> texture_data
+        );
+
+        std::expected<std::vector<char>, BxonError> build(uint32_t version, uint32_t projectID) const;
+
         uint32_t getWidth() const { return m_width; }
         uint32_t getHeight() const { return m_height; }
-        uint32_t getSurfaceCount() const { return m_surfaceCount; }
-        uint32_t getMipmapLevels() const { return m_mipmapLevels; }
+        uint32_t getDepth() const { return m_depth; }
+        uint32_t getSurfaceCount() const { return m_numSurfaces; }
         XonSurfaceDXGIFormat getFormat() const { return m_format; }
         const std::vector<mipSurface>& getMipSurfaces() const { return m_mipSurfaces; }
         const std::vector<char>& getTextureData() const { return m_textureData; }
+        uint32_t getTotalTextureSize() const { return m_totalTextureSize; }
 
         friend class File;
 
     private:
+
+        bool parse(const char* buffer, size_t size, const char* asset_base);
+
+
         uint32_t m_width = 0;
         uint32_t m_height = 0;
-        uint32_t m_surfaceCount = 1;
-        uint32_t m_mipmapLevels = 0; // Number of mipmap levels PER surface/face.
-							    	// For a texture with no mips, this is 1.
-							        	// For a full mip chain, this is log2(max(width, height)) + 1.
+        uint32_t m_depth = 0;
+        uint32_t m_numSurfaces = 0;
         uint32_t m_totalTextureSize = 0;
-        uint32_t  m_unknownInt1;  // constant: 2147483648
 
         XonSurfaceDXGIFormat m_format = XonSurfaceDXGIFormat::UNKNOWN;
-        uint32_t m_numMipSurfaces = 0;       // The total number of mipmap surfaces in the file.
-									          // For a standard 2D texture, this equals mipmapLevels.
-						  	           	      // For a cubemap, this is (mipmapLevels * 6).
 
         std::vector<mipSurface> m_mipSurfaces;
         std::vector<char> m_textureData;
     };
-
-
-
-
 }

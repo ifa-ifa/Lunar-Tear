@@ -1,6 +1,6 @@
 #pragma once
 
-#include "replicant/arc/arc.h"
+#include "replicant/arc.h"
 #include "replicant/bxon.h"
 #include <expected>
 #include <string>
@@ -31,8 +31,7 @@ namespace replicant::patcher {
      * @param new_entries A vector of built entries from an replicant::archive::ArcWriter instance. 
               This contains the metadata for the files inside the new archive.
      * @param load_type The load type for the new archive
-     * @return An expected object containing the new, uncompressed BXON data on success,
-     *         or a PatcherError on failure.
+     * @return New, uncompressed BXON data
      */
     std::expected<std::vector<char>, PatcherError> patchIndex(
         const std::vector<char>& original_compressed_index,

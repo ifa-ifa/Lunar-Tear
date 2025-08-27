@@ -9,12 +9,25 @@
 #include <crc32c/crc32c.h>
 #include <MinHook.h>
 #include <filesystem>
+#include <replicant/dds.h>
+#include <replicant/bxon/texture.h>
+
 
 using enum Logger::LogCategory;
 
 namespace {
     typedef uint64_t(__fastcall* TexHook_t)(tpgxResTexture*, void*, void*);
     TexHook_t TexHook_original = nullptr;
+
+    bool AreFormatsSRGBCompatible(replicant::bxon::XonSurfaceDXGIFormat a, replicant::bxon::XonSurfaceDXGIFormat b) {
+        using namespace replicant::bxon;
+        if ((a == R8G8B8A8_UNORM && b == R8G8B8A8_UNORM_SRGB) || (a == R8G8B8A8_UNORM_SRGB && b == R8G8B8A8_UNORM)) return true;
+        if ((a == BC1_UNORM && b == BC1_UNORM_SRGB) || (a == BC1_UNORM_SRGB && b == BC1_UNORM)) return true;
+        if ((a == BC2_UNORM && b == BC2_UNORM_SRGB) || (a == BC2_UNORM_SRGB && b == BC2_UNORM)) return true;
+        if ((a == BC3_UNORM && b == BC3_UNORM_SRGB) || (a == BC3_UNORM_SRGB && b == BC3_UNORM)) return true;
+        return false;
+    }
+
 
 }
 
@@ -69,146 +82,54 @@ uint64_t TexHook_detoured(tpgxResTexture* tex, void* param_2, void* param_3) {
     else {
         Logger::Log(Info) << "Found loose texture file: " << tex_path.string();
     }
-    if (ddsFileSize < sizeof(DDS_HEADER)) {
-        Logger::Log(Error) << " | Error: DDS file is too small to be valid.";
+
+
+    auto dds_result = replicant::dds::DDSFile::FromMemory({ static_cast<char*>(ddsFileData), ddsFileSize });
+    if (!dds_result) {
+        Logger::Log(Error) << " | Failed to parse loose DDS file with libreplicant: " << dds_result.error().message;
         return TexHook_original(tex, param_2, param_3);
     }
-    DDS_HEADER* ddsHeader = static_cast<DDS_HEADER*>(ddsFileData);
-    if (ddsHeader->magic != 0x20534444) {
-        Logger::Log(Error) << " | Error: Invalid DDS magic.";
-        return TexHook_original(tex, param_2, param_3);
+    const auto& dds_file = *dds_result;
+
+    auto original_format = (replicant::bxon::XonSurfaceDXGIFormat)tex->bxonAssetHeader->XonSurfaceFormat;
+    auto mod_format = dds_file.getFormat();
+
+    bool format_ok = (original_format == mod_format);
+
+    if (!format_ok && Settings::Instance().AllowColourSpaceMismatch) {
+        if (AreFormatsSRGBCompatible(original_format, mod_format)) {
+            Logger::Log(Warning) << " | Allowing sRGB/non-sRGB format mismatch for compatibility.";
+            format_ok = true;
+        }
     }
 
-    XonSurfaceDXGIFormat finalFormat = UNKNOWN;
-    void* pixelDataStart = nullptr;
-    size_t pixelDataSize = 0;
-
-    if (ddsHeader->ddspf_dwFourCC == '01XD') { // "DX10"
-        Logger::Log(Verbose) << " | DX10 header detected.";
-        DDS_HEADER_DXT10* dx10Header = (DDS_HEADER_DXT10*)((char*)ddsFileData + sizeof(DDS_HEADER));
-        finalFormat = DXGIFormatToXonFormat(dx10Header->dxgiFormat);
-        pixelDataStart = (char*)dx10Header + sizeof(DDS_HEADER_DXT10);
-        pixelDataSize = ddsFileSize - (sizeof(DDS_HEADER) + sizeof(DDS_HEADER_DXT10));
-    }
-    else if (ddsHeader->ddspf_dwFlags & DDPF_RGB) {
-        Logger::Log(Verbose) << " | Uncompressed RGB header detected.";
-        // Check for 32bpp BGRA 
-        if (ddsHeader->ddspf_dwRGBBitCount == 32 &&
-            ddsHeader->ddspf_dwRBitMask == 0x00FF0000 &&
-            ddsHeader->ddspf_dwGBitMask == 0x0000FF00 &&
-            ddsHeader->ddspf_dwBBitMask == 0x000000FF)
-        {
-            finalFormat = R8G8B8A8_UNORM;
-        }
-        // Check for 32bpp RGBA
-        else if (ddsHeader->ddspf_dwRGBBitCount == 32 &&
-            ddsHeader->ddspf_dwRBitMask == 0x000000FF &&
-            ddsHeader->ddspf_dwGBitMask == 0x0000FF00 &&
-            ddsHeader->ddspf_dwBBitMask == 0x00FF0000)
-        {
-            finalFormat = R8G8B8A8_UNORM;
-        }
-        pixelDataStart = (char*)ddsHeader + sizeof(DDS_HEADER);
-        pixelDataSize = ddsFileSize - sizeof(DDS_HEADER);
-    }
-    else if (ddsHeader->ddspf_dwFlags & DDPF_FOURCC) {
-        Logger::Log(Verbose) << " | Legacy FourCC header detected.";
-        finalFormat = FourCCToXonFormat(ddsHeader->ddspf_dwFourCC);
-        pixelDataStart = (char*)ddsHeader + sizeof(DDS_HEADER);
-        pixelDataSize = ddsFileSize - sizeof(DDS_HEADER);
-    }
-
-    if (finalFormat == UNKNOWN) {
-        if (ddsHeader->ddspf_dwFlags & DDPF_RGB) {
-            Logger::Log(Error) << " | Unsupported DDS pixel format in loose file. Unrecognized uncompressed (RGB) format with bitcount: " << ddsHeader->ddspf_dwRGBBitCount;
-        }
-        else {
-            char fourCCStr[5] = { 0 };
-            memcpy(fourCCStr, &ddsHeader->ddspf_dwFourCC, 4);
-            Logger::Log(Error) << " | Unsupported DDS pixel format in loose file - Unrecognized FourCC: '" << fourCCStr << "'";
-        }
+    if (!format_ok) {
+        Logger::Log(Error) << " | Format mismatch. Original is " << XonFormatToString(original_format)
+            << ", but mod is " << XonFormatToString(mod_format) << ". Texture not replaced.";
         return TexHook_original(tex, param_2, param_3);
     }
 
-    if (ddsHeader->dwMipMapCount != tex->bxonAssetHeader->numMipSurfaces) {
-        Logger::Log(Error) << " | Loose DDS has different mipmap count (" << ddsHeader->dwMipMapCount
-            << ") than original texture (" << tex->bxonAssetHeader->numMipSurfaces << ").";
+    if (tex->bxonAssetHeader->texWidth != dds_file.getWidth() || tex->bxonAssetHeader->texHeight != dds_file.getHeight()) {
+        Logger::Log(Error) << " | Resolution mismatch. Original is " << tex->bxonAssetHeader->texWidth << "x" << tex->bxonAssetHeader->texHeight
+            << ", but mod is " << dds_file.getWidth() << "x" << dds_file.getHeight() << ". Texture not replaced.";
+        return TexHook_original(tex, param_2, param_3);
+    }
+    if (tex->bxonAssetHeader->numMipSurfaces != dds_file.getMipLevels()) {
+        Logger::Log(Error) << " | Mipmap count mismatch. Original has " << tex->bxonAssetHeader->numMipSurfaces
+            << " mips, but mod has " << dds_file.getMipLevels() << ". Texture not replaced.";
         return TexHook_original(tex, param_2, param_3);
     }
 
-    if (ddsHeader->dwWidth != tex->bxonAssetHeader->texWidth || ddsHeader->dwHeight != tex->bxonAssetHeader->texHeight) {
-        Logger::Log(Error) << " | Loose DDS has different dimensions (" << ddsHeader->dwWidth << "x" << ddsHeader->dwHeight
-            << ") than original texture (" << tex->bxonAssetHeader->texWidth << "x" << tex->bxonAssetHeader->texHeight << "). Mismatched resolutions are not supported.";
-        return TexHook_original(tex, param_2, param_3);
-    }
 
-    tex->texData = pixelDataStart; // game uses arena allocator, unlikely to try free this pointer
-    tex->texDataSize = pixelDataSize;
-    tex->bxonAssetHeader->texWidth = ddsHeader->dwWidth;
-    tex->bxonAssetHeader->texHeight = ddsHeader->dwHeight;
-    tex->bxonAssetHeader->texSize = pixelDataSize;
-    tex->bxonAssetHeader->XonSurfaceFormat = finalFormat;
-    tex->bxonAssetHeader->numMipSurfaces = ddsHeader->dwMipMapCount;
+    auto pixel_data = dds_file.getPixelData();
+    tex->texData = (void*)pixel_data.data();
+    tex->texDataSize = pixel_data.size();
+    tex->bxonAssetHeader->texSize = pixel_data.size();
 
-    mipSurface* pMipSurfaces = (mipSurface*)((uintptr_t)&tex->bxonAssetHeader->offsetToMipSurfaces + tex->bxonAssetHeader->offsetToMipSurfaces);
+    Logger::Log(Verbose) << " | Successfully replaced texture data for " << tex->name;
 
-    uint32_t currentOffset = 0;
-    uint32_t currentWidth = ddsHeader->dwWidth;
-    uint32_t currentHeight = ddsHeader->dwHeight;
-
-    bool isBlockCompressed = false;
-    uint32_t bytesPerPixel = 0;
-
-    switch (finalFormat) {
-    case BC1_UNORM:
-    case BC1_UNORM_SRGB:
-    case BC2_UNORM:
-    case BC2_UNORM_SRGB:
-    case BC3_UNORM:
-    case BC3_UNORM_SRGB:
-    case BC4_UNORM:
-    case BC5_UNORM:
-    case BC7_UNORM:
-        isBlockCompressed = true;
-        break;
-    case R8G8B8A8_UNORM_STRAIGHT:
-    case R8G8B8A8_UNORM:
-    case R8G8B8A8_UNORM_SRGB:
-        bytesPerPixel = 4;
-        break;
-        // Add other uncompressed formats here if needed
-    default:
-        Logger::Log(Error) << "Cannot rebuild mip surfaces: Unknown format size for " << XonFormatToString(finalFormat);
-        return TexHook_original(tex, param_2, param_3); // Abort if we don't know the size
-    }
-
-
-    for (uint32_t i = 0; i < ddsHeader->dwMipMapCount; i++) {
-        uint32_t mipWidth = std::max(1u, currentWidth);
-        uint32_t mipHeight = std::max(1u, currentHeight);
-        uint32_t mipSize = 0;
-
-        if (isBlockCompressed) {
-            bool is_8_byte_format = (finalFormat == BC1_UNORM || finalFormat == BC1_UNORM_SRGB || finalFormat == BC4_UNORM);
-            uint32_t bytesPerBlock = is_8_byte_format ? 8 : 16;
-            mipSize = ((mipWidth + 3) / 4) * ((mipHeight + 3) / 4) * bytesPerBlock;
-        }
-        else {
-            mipSize = mipWidth * mipHeight * bytesPerPixel;
-        }
-
-        pMipSurfaces[i].offset = currentOffset;
-        pMipSurfaces[i].size = mipSize;
-        pMipSurfaces[i].width = mipWidth;
-        pMipSurfaces[i].height = mipHeight;
-
-        currentOffset += mipSize;
-        if (currentWidth > 1) currentWidth /= 2;
-        if (currentHeight > 1) currentHeight /= 2;
-    }
     return TexHook_original(tex, param_2, param_3);
 }
-
 
 bool InstallTextureHooks() {
 

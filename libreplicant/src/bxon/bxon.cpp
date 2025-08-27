@@ -19,7 +19,7 @@ namespace {
 
 namespace replicant::bxon {
 
-    void parseArchiveFileParam(ArchiveFileParam& asset, const char* buffer, size_t size, const char* asset_base);
+    void parseArchiveParameters(ArchiveParameters& asset, const char* buffer, size_t size, const char* asset_base);
 
     bool File::loadFromFile(const std::string& filepath) {
         std::ifstream file(filepath, std::ios::binary);
@@ -46,13 +46,13 @@ namespace replicant::bxon {
         const char* asset_base = buffer + asset_data_offset;
 
         if (m_assetTypeName == "tpArchiveFileParam") {
-            ArchiveFileParam& param = m_asset.emplace<ArchiveFileParam>();
-            parseArchiveFileParam(param, buffer, size, asset_base);
+            ArchiveParameters& param = m_asset.emplace<ArchiveParameters>();
+            parseArchiveParameters(param, buffer, size, asset_base);
             return true;
         }
         else if (m_assetTypeName == "tpGxTexHead") {
-            tpGxTexHead& tex = m_asset.emplace<tpGxTexHead>();
-            return true;
+            Texture& tex = m_asset.emplace<Texture>();
+            return tex.parse(buffer, size, asset_base);
         }
         return false;
     }

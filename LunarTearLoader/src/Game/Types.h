@@ -75,4 +75,3 @@ struct EndingsData {
     int endingsBitflags; /* flags that shows which endings are complete. see docs */
     char old_name[32]; /* name entered in the save that was wiped for ending e */
 };
-

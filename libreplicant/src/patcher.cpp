@@ -1,5 +1,5 @@
 #include "replicant/patcher.h"
-#include "replicant/bxon/archive_param_builder.h"
+#include "replicant/bxon/archive_param.h"
 #include <zstd.h>
 
 namespace replicant::patcher {
@@ -26,7 +26,7 @@ namespace replicant::patcher {
             return std::unexpected(PatcherError{ PatcherErrorCode::ParseError, "Failed to parse the decompressed index data as a BXON file." });
         }
 
-        auto* param = std::get_if<bxon::ArchiveFileParam>(&bxon_file.getAsset());
+        auto* param = std::get_if<bxon::ArchiveParameters>(&bxon_file.getAsset());
         if (!param) {
             return std::unexpected(PatcherError{ PatcherErrorCode::AssetTypeError, "Decompressed data is not a tpArchiveFileParam BXON." });
         }
@@ -34,7 +34,7 @@ namespace replicant::patcher {
         uint8_t new_archive_index = param->addArchive(new_arc_filename, load_type);
 
         for (const auto& mod_entry : new_entries) {
-            auto* game_entry = param->findFileEntryMutable(mod_entry.key);
+            auto* game_entry = param->findFile(mod_entry.key);
             if (game_entry) {
                 game_entry->archiveIndex = new_archive_index;
                 const auto& archive_entries = param->getArchiveEntries();
@@ -50,7 +50,7 @@ namespace replicant::patcher {
             }
         }
 
-        auto patched_data_result = bxon::buildArchiveParam(*param, bxon_file.getVersion(), bxon_file.getProjectID());
+        auto patched_data_result = param->build(bxon_file.getVersion(), bxon_file.getProjectID());
         if (!patched_data_result) {
             return std::unexpected(PatcherError{ PatcherErrorCode::BuildError, "Failed to build patched index: " + patched_data_result.error().message });
         }

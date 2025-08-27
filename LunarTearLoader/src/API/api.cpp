@@ -32,8 +32,6 @@ namespace {
     static std::vector<std::pair<std::string, LT_LuaCFunc>> s_plugin_lua_bindings;
 
 
-
-
     void API_Log(LT_PluginHandle handle, LT_LogLevel level, const char* message) {
         if (!handle) return;
         PluginContext* ctx = static_cast<PluginContext*>(handle);
@@ -253,7 +251,7 @@ namespace API {
             }
 
 
-            context_ptr = context.get(); // Get raw pointer before moving ownership
+            context_ptr = context.get(); 
 
             std::lock_guard<std::mutex> lock(s_context_mutex);
             s_plugin_contexts[pluginModule] = std::move(context);

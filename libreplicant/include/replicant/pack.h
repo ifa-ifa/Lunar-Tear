@@ -38,6 +38,8 @@ namespace replicant::pack {
     class PackFile {
     public:
         std::expected<void, PackError> loadFromMemory(const char* buffer, size_t size);
+        std::expected<void, PackError> loadHeaderAndEntriesOnly(std::istream& file_stream);
+
         std::expected<std::vector<char>, PackError> build();
         std::expected<void, PackError> patchFile(const std::string& entry_name, const std::vector<char>& new_dds_data);
 

@@ -17,7 +17,6 @@ std::string ShiftJISToUTF8(const char* shift_jis_str) {
         return "";
     }
 
-    // Step 1: Convert Shift-JIS to UTF-16 (wide string)
     int wide_char_len = MultiByteToWideChar(932, 0, shift_jis_str, -1, NULL, 0);
     if (wide_char_len == 0) {
         return "[Encoding Error: SJIS -> UTF-16 failed]";
@@ -25,7 +24,6 @@ std::string ShiftJISToUTF8(const char* shift_jis_str) {
     std::wstring wide_str(wide_char_len, 0);
     MultiByteToWideChar(932, 0, shift_jis_str, -1, &wide_str[0], wide_char_len);
 
-    // Step 2: Convert UTF-16 to UTF-8
     int utf8_len = WideCharToMultiByte(CP_UTF8, 0, wide_str.c_str(), -1, NULL, 0, NULL, NULL);
     if (utf8_len == 0) {
         return "[Encoding Error: UTF-16 -> UTF-8 failed]";
@@ -33,8 +31,6 @@ std::string ShiftJISToUTF8(const char* shift_jis_str) {
     std::string utf8_str(utf8_len, 0);
     WideCharToMultiByte(CP_UTF8, 0, wide_str.c_str(), -1, &utf8_str[0], utf8_len, NULL, NULL);
 
-    // The string from WideCharToMultiByte is null-terminated, but its size includes the terminator.
-    // We construct the final string without the extra null character.
     utf8_str.resize(utf8_len - 1);
 
     return utf8_str;

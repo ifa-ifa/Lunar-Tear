@@ -8,7 +8,6 @@
 
 // Types in this file are intermediary and not necessarily applicable to the raw binary data
 
-
 class StblFile;
 
 struct Vector4 {

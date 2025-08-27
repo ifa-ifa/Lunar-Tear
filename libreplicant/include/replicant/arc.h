@@ -4,16 +4,35 @@
 #include <cstddef>
 #include <cstdint>
 #include <expected> 
-#include "replicant/arc/error.h"
+#include <span>
+
+
+
 
 namespace replicant::archive {
+
+    enum class ArcErrorCode {
+        Success,
+        ZstdCompressionError,
+        ZstdDecompressionError,
+        DecompressionSizeMismatch,
+        EmptyInput,
+        DuplicateKey,
+        FileReadError,
+        Unimplemented
+    };
+
+    struct ArcError {
+        ArcErrorCode code;
+        std::string message;
+    };
 
     /*!
      * @brief Decompresses a ZSTD frame.
      * @param compressed_data Pointer to the start of the compressed data buffer.
      * @param compressed_size The size of the compressed data.
      * @param decompressed_size The known, exact size of the original uncompressed data.
-     * @return An expected object containing the decompressed data vector on success, or an ArcError on failure.
+     * @return The decompressed data vector
      */
     std::expected<std::vector<char>, ArcError> decompress_zstd(
         const void* compressed_data,
@@ -26,12 +45,22 @@ namespace replicant::archive {
      * @param uncompressed_data Pointer to the start of the data to compress.
      * @param uncompressed_size The size of the data to compress.
      * @param compression_level The ZSTD compression level 
-     * @return An expected object containing the compressed data vector on success, or an ArcError on failure.
+     * @return The compressed data vector 
      */
     std::expected<std::vector<char>, ArcError> compress_zstd(
         const void* uncompressed_data,
         size_t uncompressed_size,
         int compression_level = 1
+    );
+
+
+    /*!
+     * @brief Gets the original, uncompressed size of a ZSTD frame.
+     * @param compressed_data A span containing the compressed ZSTD frame data.
+     * @return The decompressed size
+     */
+    std::expected<size_t, ArcError> get_decompressed_size_zstd(
+        std::span<const char> compressed_data
     );
 
     /// @brief Defines the structure of the output .arc file.

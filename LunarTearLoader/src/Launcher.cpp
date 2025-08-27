@@ -91,9 +91,9 @@ BOOL WINAPI main(int argc, char* argv[])
     for (int i = 0; i < maxAttempts; ++i) {
         DWORD foundProcessId = GetProcessIdByName(L"NieR Replicant ver.1.22474487139.exe");
 
-        // If we found a process AND its PID is NOT the same as the stub's PID, we've found the real game.
+        // If we found a process AND its PID is NOT the same as the stub PID, weve found the real game.
         if (foundProcessId != 0 && foundProcessId != stubProcessId) {
-            std::wcout << L"Real game process found! PID: " << foundProcessId << std::endl;
+            std::wcout << L"Real game process found. PID: " << foundProcessId << std::endl;
             gameProcessId = foundProcessId;
             break;
         }

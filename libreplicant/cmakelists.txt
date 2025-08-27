@@ -2,11 +2,14 @@ set(LIBREPLICANT_SOURCES
     src/stbl/stbl.cpp
     src/bxon/bxon.cpp
     "src/bxon/archive_param.cpp"
- "src/arc/arc.cpp" "src/pack/pack.cpp" "include/replicant/bxon/error.h" "include/replicant/bxon/archive_param_builder.h" "src/bxon/archive_param_builder.cpp" "src/bxon/common.h" "include/replicant/bxon/texture.h" "src/bxon/texture_builder.cpp"  "include/replicant/patcher.h" "src/patcher.cpp")
+ "src/arc/arc.cpp" "src/pack/pack.cpp"  "src/patcher.cpp" "src/dds.cpp"  "src/bxon/texture.cpp" )
 
-  find_package(zstd CONFIG REQUIRED)
 
-add_library(libreplicant STATIC ${LIBREPLICANT_SOURCES})
+find_package(zstd CONFIG REQUIRED)
+find_package(DirectXTex CONFIG REQUIRED)
+
+
+add_library(libreplicant STATIC ${LIBREPLICANT_SOURCES} )
 
 target_include_directories(libreplicant PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
@@ -17,4 +20,7 @@ target_include_directories(libreplicant
         $<INSTALL_INTERFACE:include>
 )
 
-target_link_libraries(libreplicant zstd::libzstd) 
+target_link_libraries(libreplicant zstd::libzstd Microsoft::DirectXTex) 
+
+get_target_property(_dirs Microsoft::DirectXTex INTERFACE_INCLUDE_DIRECTORIES)
+message(STATUS "DirectXTex include dirs: ${_dirs}")

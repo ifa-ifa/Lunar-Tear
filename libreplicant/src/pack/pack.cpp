@@ -1,5 +1,7 @@
 #include "replicant/pack.h"
-#include "replicant/bxon/texture_builder.h"
+#include "replicant/bxon/texture.h"
+
+#include "replicant/dds.h"
 #include <cstring>
 #include <set>
 #include <map>
@@ -42,7 +44,7 @@ namespace {
         uint32_t nameOffset;
         uint32_t fileSize;
         uint32_t contentStartOffset;
-        AssetDataInfo assetDataInfo; 
+        AssetDataInfo assetDataInfo;
     };
 #pragma pack(pop)
 
@@ -60,7 +62,6 @@ namespace {
 namespace replicant::pack {
 
     std::expected<void, PackError> PackFile::loadFromMemory(const char* buffer, size_t size) {
-        // Clear any previous data
         m_file_entries.clear();
         m_paths_data.clear();
         m_asset_packs_data.clear();
@@ -82,6 +83,19 @@ namespace replicant::pack {
         m_serialized_size = header->serializedSize;
         m_resource_size = header->resourceSize;
 
+        const char* paths_start_ptr = get_ptr_from_field(buffer, &header->offsetToPaths, header->offsetToPaths);
+        const char* asset_packs_start_ptr = get_ptr_from_field(buffer, &header->offsetToAssetPacks, header->offsetToAssetPacks);
+        const char* files_start_ptr = get_ptr_from_field(buffer, &header->offsetToFiles, header->offsetToFiles);
+        const char* buffer_end = buffer + size;
+        if (paths_start_ptr < buffer || paths_start_ptr > buffer_end ||
+            asset_packs_start_ptr < buffer || asset_packs_start_ptr > buffer_end ||
+            files_start_ptr < buffer || files_start_ptr > buffer_end) {
+            return std::unexpected(PackError{ PackErrorCode::ParseError, "Header contains offsets pointing outside the file." });
+        }
+        if (paths_start_ptr > asset_packs_start_ptr || asset_packs_start_ptr > files_start_ptr) {
+            return std::unexpected(PackError{ PackErrorCode::ParseError, "Header offsets are not sequential." });
+        }
+
         m_original_path_count = header->pathCount;
         // ONLY read the data block if there are entries to read.
         if (header->pathCount > 0) {
@@ -101,6 +115,11 @@ namespace replicant::pack {
         }
 
         if (header->fileCount == 0) return {};
+
+        if (files_start_ptr + (header->fileCount * sizeof(RawFileEntry)) > buffer_end) {
+            return std::unexpected(PackError{ PackErrorCode::ParseError, "File entry table extends beyond file bounds." });
+        }
+
 
         const auto* raw_file_entries = reinterpret_cast<const RawFileEntry*>(
             get_ptr_from_field(buffer, &header->offsetToFiles, header->offsetToFiles)
@@ -136,14 +155,14 @@ namespace replicant::pack {
             }
 
             if (bxon_file.getAssetTypeName() == "tpGxTexHead") {
-                struct RawBxonHeader { char m[4]; uint32_t v, p, o1, o2; };
-                struct RawGxTexHeader { uint32_t w, h, s, m, texSize; };
+                auto* tex = std::get_if<replicant::bxon::Texture>(&bxon_file.getAsset());
+                if (!tex) continue; 
 
+                size_t tex_data_size = tex->getTotalTextureSize();
+
+                struct RawBxonHeader { char m[4]; uint32_t v, p, o1, o2; };
                 const auto* bxon_header_ptr = reinterpret_cast<const RawBxonHeader*>(entry.serialized_data.data());
                 const char* asset_data_ptr = get_ptr_from_field(entry.serialized_data.data(), &bxon_header_ptr->o2, bxon_header_ptr->o2);
-                const auto* tex_header = reinterpret_cast<const RawGxTexHeader*>(asset_data_ptr);
-                size_t tex_data_size = tex_header->texSize;
-
                 entry.asset_header_offset = asset_data_ptr - entry.serialized_data.data();
 
                 if (header->serializedSize + entry.resource_offset + tex_data_size > size) {
@@ -155,6 +174,72 @@ namespace replicant::pack {
         }
         return {};
     }
+
+    std::expected<void, PackError> PackFile::loadHeaderAndEntriesOnly(std::istream& file_stream) {
+        m_file_entries.clear();
+        m_paths_data.clear();
+        m_asset_packs_data.clear();
+
+        if (!file_stream) {
+            return std::unexpected(PackError{ PackErrorCode::ParseError, "Invalid input stream." });
+        }
+
+        RawPackHeader header;
+        file_stream.read(reinterpret_cast<char*>(&header), sizeof(RawPackHeader));
+        if (file_stream.gcount() != sizeof(RawPackHeader)) {
+            return std::unexpected(PackError{ PackErrorCode::BufferTooSmall, "Could not read PACK header." });
+        }
+
+        if (strncmp(header.magic, "PACK", 4) != 0) {
+            return std::unexpected(PackError{ PackErrorCode::InvalidMagic, "Invalid PACK magic." });
+        }
+
+        if (header.fileCount == 0) {
+            return {}; 
+        }
+
+        uintptr_t offsetToFiles_field_addr = reinterpret_cast<uintptr_t>(&header.offsetToFiles);
+        uintptr_t header_addr_in_struct = reinterpret_cast<uintptr_t>(&header);
+        size_t files_offset = (offsetToFiles_field_addr - header_addr_in_struct) + header.offsetToFiles;
+
+        file_stream.seekg(files_offset);
+        if (!file_stream) {
+            return std::unexpected(PackError{ PackErrorCode::ParseError, "Failed to seek to file entries table." });
+        }
+
+        std::vector<RawFileEntry> raw_entries(header.fileCount);
+        file_stream.read(reinterpret_cast<char*>(raw_entries.data()), header.fileCount * sizeof(RawFileEntry));
+        if (file_stream.gcount() != static_cast<std::streamsize>(header.fileCount * sizeof(RawFileEntry))) {
+            return std::unexpected(PackError{ PackErrorCode::ParseError, "Failed to read file entries table." });
+        }
+
+        m_file_entries.reserve(header.fileCount);
+        for (const auto& raw_entry : raw_entries) {
+            PackFileEntry entry;
+
+            uintptr_t nameOffset_field_addr = reinterpret_cast<uintptr_t>(&raw_entry.nameOffset);
+            uintptr_t raw_entry_base_addr = reinterpret_cast<uintptr_t>(&raw_entry);
+
+
+            size_t file_entry_offset_in_file = files_offset + (&raw_entry - &raw_entries[0]) * sizeof(RawFileEntry);
+            size_t name_offset_field_offset_in_file = file_entry_offset_in_file + offsetof(RawFileEntry, nameOffset);
+            size_t string_absolute_offset = name_offset_field_offset_in_file + raw_entry.nameOffset;
+
+            file_stream.seekg(string_absolute_offset);
+            if (!file_stream) continue; 
+
+            char ch;
+            while (file_stream.get(ch) && ch != '\0') {
+                entry.name += ch;
+            }
+
+            // We dony need the data so just add the entry with the name
+            m_file_entries.push_back(std::move(entry));
+        }
+
+        return {};
+    }
+
 
     PackFileEntry* PackFile::findFileEntryMutable(const std::string& name) {
         for (auto& entry : m_file_entries) {
@@ -171,14 +256,29 @@ namespace replicant::pack {
             return std::unexpected(PackError{ PackErrorCode::EntryNotFound, "Could not find file '" + entry_name + "' in PACK." });
         }
 
-        auto bxon_result = replicant::bxon::buildTextureFromDDS(new_dds_data);
+        replicant::bxon::File original_bxon;
+        if (!original_bxon.loadFromMemory(entry_to_patch->serialized_data.data(), entry_to_patch->serialized_data.size())) {
+            return std::unexpected(PackError{ PackErrorCode::ParseError, "Original file entry '" + entry_name + "' is not a valid BXON file." });
+        }
+
+        auto dds_file_result = replicant::dds::DDSFile::FromMemory({ new_dds_data.data(), new_dds_data.size() });
+        if (!dds_file_result) {
+            return std::unexpected(PackError{ PackErrorCode::BuildError, "Failed to parse DDS data: " + dds_file_result.error().message });
+        }
+
+        auto texture_result = replicant::bxon::Texture::FromDDS(*dds_file_result);
+        if (!texture_result) {
+            return std::unexpected(PackError{ PackErrorCode::BuildError, "Failed to create texture object from DDS: " + texture_result.error().message });
+        }
+
+        auto bxon_result = texture_result->build(original_bxon.getVersion(), original_bxon.getProjectID());
         if (!bxon_result) {
-            return std::unexpected(PackError{ PackErrorCode::BuildError, "Failed to build texture from DDS: " + bxon_result.error().message });
+            return std::unexpected(PackError{ PackErrorCode::BuildError, "Failed to build texture BXON data: " + bxon_result.error().message });
         }
         const std::vector<char>& full_bxon_data = *bxon_result;
 
         struct RawBxonHeader { char m[4]; uint32_t v, p, o1, o2; };
-        struct RawGxTexHeader { uint32_t w, h, s, mipLevels, texSize, u1, fmt, numMips, mipOffset; };
+        struct RawGxTexHeader { uint32_t w, h, d, numSurfaces, texSize, u1, fmt, numMips, mipOffset; };
 
         const auto* raw_bxon_header = reinterpret_cast<const RawBxonHeader*>(full_bxon_data.data());
         const char* asset_data_ptr = get_ptr_from_field(full_bxon_data.data(), &raw_bxon_header->o2, raw_bxon_header->o2);
@@ -247,18 +347,17 @@ namespace replicant::pack {
                 size_t asset_header_start_addr = content_start_addr + entry.asset_header_offset;
 
                 size_t candidate_resource_start_addr = serialized_size + current_resource_offset;
-      
+
                 size_t required_alignment = 16;
                 size_t pre_padding = 0;
 
                 if (is_texture) {
-                    // For textures, the first mipmap must be aligned 16 bytes relative to the tpGxTexHead header
-                    // The tpGxTexHead header starts at asset_header_start_addr
+                    // For textures the first mipmap must be aligned 16 bytes relative to the tpGxTexHead header
+         
                     size_t relative_offset = candidate_resource_start_addr - asset_header_start_addr;
                     pre_padding = (required_alignment - (relative_offset % required_alignment)) % required_alignment;
                 }
                 else {
-                    // For non-textures, use the old logic (align relative to asset header)
                     size_t relative_offset = candidate_resource_start_addr - asset_header_start_addr;
                     pre_padding = (required_alignment - (relative_offset % required_alignment)) % required_alignment;
                 }

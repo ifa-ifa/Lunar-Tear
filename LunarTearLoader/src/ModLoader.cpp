@@ -18,6 +18,8 @@ using json = nlohmann::json;
 
 using enum Logger::LogCategory;
 
+bool VFS_ready =  false;
+
 
 namespace {
     struct CachedFile {
@@ -46,7 +48,7 @@ namespace {
 
 
     void CacheCleanupRoutine() {
-        Logger::Log(Info) << "Texture cache cleanup thread started.";
+        Logger::Log(Verbose) << "Texture cache cleanup thread started.";
         while (!s_stopCleanup) {
             std::this_thread::sleep_for(std::chrono::seconds(3));
 
@@ -80,7 +82,7 @@ namespace {
 
             Logger::Log(Verbose) << "Cache usage: " << size / 1e6 << "MB";
         }
-        Logger::Log(Info) << "Texture cache cleanup thread stopped.";
+        Logger::Log(Verbose) << "Texture cache cleanup thread stopped.";
     }
 }
 
@@ -96,7 +98,7 @@ std::optional<std::string> GetModPath(const std::string& mod_id) {
 void ScanModsAndResolveConflicts() {
     const std::string mods_root = "LunarTear/mods/";
     if (!std::filesystem::exists(mods_root) || !std::filesystem::is_directory(mods_root)) {
-        Logger::Log(Info) << "Mods directory not found, skipping mod scan";
+        Logger::Log(Verbose) << "Mods directory not found, skipping mod scan";
         return;
     }
 
@@ -145,7 +147,7 @@ void ScanModsAndResolveConflicts() {
     }
     std::sort(sorted_mod_ids.begin(), sorted_mod_ids.end());
 
-    Logger::Log(Info) << "Starting VFS archive scan...";
+    Logger::Log(Verbose) << "Starting VFS archive scan...";
     g_patched_archive_mods.clear();
     for (const auto& mod_id : sorted_mod_ids) {
         auto mod_path_opt = GetModPath(mod_id);
@@ -159,7 +161,9 @@ void ScanModsAndResolveConflicts() {
             g_patched_archive_mods.push_back({ mod_id, "", index_path.string() });
         }
     }
-    Logger::Log(Info) << "VFS archive scan complete. Found " << g_patched_archive_mods.size() << " VFS mod(s).";
+    Logger::Log(Verbose) << "VFS archive scan complete. Found " << g_patched_archive_mods.size() << " VFS mod(s).";
+
+    VFS_ready = true;
 
     std::map<std::string, std::vector<std::string>> file_to_mods_map;
     std::map<std::string, std::vector<std::string>> temp_injection_scripts;
@@ -234,7 +238,7 @@ void ScanModsAndResolveConflicts() {
         }
     }
 
-    Logger::Log(Info) << "Mod scan complete.";
+    Logger::Log(Verbose) << "Mod scan complete.";
 }
 
 std::vector<std::vector<char>> GetInjectionScripts(const std::string& injectionPoint) {
@@ -361,7 +365,7 @@ void LoadPlugins() {
         return;
     }
 
-    Logger::Log(Info) << "Scanning for plugins...";
+    Logger::Log(Verbose) << "Scanning for plugins...";
 
     std::vector<std::string> mod_ids;
     {
@@ -379,11 +383,11 @@ void LoadPlugins() {
             if (file_entry.is_regular_file() && file_entry.path().extension() == ".dll") {
 
                 std::wstring plugin_path_wstr = file_entry.path().wstring();
-                Logger::Log(Info) << "Attempting to load plugin: " << file_entry.path().u8string();
+                Logger::Log(Verbose) << "Attempting to load plugin: " << file_entry.path().u8string();
 
                 HMODULE plugin_module = LoadLibraryW(plugin_path_wstr.c_str());
                 if (plugin_module) {
-                    Logger::Log(Info) << "Successfully loaded plugin: " << plugin_path_wstr;
+                    Logger::Log(Verbose) << "Successfully loaded plugin: " << plugin_path_wstr;
                     API::InitializePlugin(mod_id, plugin_module);
                 }
                 else {
@@ -399,5 +403,5 @@ void LoadPlugins() {
             }
         }
     }
-    Logger::Log(Info) << "Plugin scan complete.";
+    Logger::Log(Verbose) << "Plugin scan complete.";
 }

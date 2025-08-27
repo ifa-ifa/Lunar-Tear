@@ -89,6 +89,8 @@ public:
     bool TextureUnloading;
     int TextureUnloadDelaySeconds;
 
+    bool AllowColourSpaceMismatch;
+
     static Settings& Instance() {
         static std::unique_ptr<Settings> instance = [] {
             auto s = std::make_unique<Settings>();
@@ -117,6 +119,9 @@ public:
 
         registerSetting("TextureUnloading", false, &Settings::TextureUnloading, "EXPERIMENTAL - Reduce memory usage when using lots of mods, may cause crashes");
         registerSetting("TextureUnloadDelaySeconds", 3, &Settings::TextureUnloadDelaySeconds, "");
+
+        registerSetting("AllowColourSpaceMismatch", true, &Settings::AllowColourSpaceMismatch, "Many texture mods incorrectly use RGB when sRGB is expected and vice versa");
+
    
     }
 

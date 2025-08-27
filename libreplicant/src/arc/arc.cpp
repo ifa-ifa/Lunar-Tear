@@ -1,4 +1,4 @@
-#include "replicant/arc/arc.h"
+#include "replicant/arc.h"
 #define ZSTD_STATIC_LINKING_ONLY
 #include <zstd.h>
 #include <fstream>
@@ -68,6 +68,23 @@ namespace replicant::archive {
         return m_pending_entries.size();
     }
 
+
+    std::expected<size_t, ArcError> get_decompressed_size_zstd(std::span<const char> compressed_data) {
+        if (compressed_data.empty()) {
+            return std::unexpected(ArcError{ ArcErrorCode::EmptyInput, "Input data cannot be empty." });
+        }
+
+        unsigned long long const size = ZSTD_getFrameContentSize(compressed_data.data(), compressed_data.size());
+
+        if (size == ZSTD_CONTENTSIZE_ERROR) {
+            return std::unexpected(ArcError{ ArcErrorCode::ZstdDecompressionError, "Data is not in a valid ZSTD format." });
+        }
+        if (size == ZSTD_CONTENTSIZE_UNKNOWN) {
+            return std::unexpected(ArcError{ ArcErrorCode::ZstdDecompressionError, "Decompressed size could not be determined from the frame header." });
+        }
+
+        return static_cast<size_t>(size);
+    }
 
     std::expected<void, ArcError> ArcWriter::addFile(
         std::string key,

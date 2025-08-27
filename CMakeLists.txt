@@ -17,10 +17,12 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
-option(BUILD_libreplicant "Build the libreplicant library" ON)
-option(BUILD_UNSEALED_VERSES "Build the Unsealed Verses command-line tool" ON)
-option(BUILD_SETTBLLEDITOR "Build the SETTBLLEditor application" ON)
-option(BUILD_LunarTearLoader "Build the LunarTearLoader library" ON)
+
+# Clear cache for these option changed to take effect
+option(BUILD_libreplicant "Build libreplicant" ON)
+option(BUILD_UNSEALED_VERSES "Build Unsealed Verses" ON)
+option(BUILD_SETTBLLEDITOR "Build SETTBLLEditor" ON)
+option(BUILD_LunarTearLoader "Build LunarTearLoader" ON)
 
 if(BUILD_libreplicant)
     add_subdirectory(libreplicant)

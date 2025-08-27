@@ -1,16 +1,15 @@
 ﻿#include <Windows.h>
 #include <MinHook.h>
-#include "tether.h"
+#include "tether/tether.h"
 #include <API/api.h>
 #include "Common/Logger.h"
 #include "Game/Globals.h"
 #include "Game/Functions.h"
 #include "Common/Settings.h"
+#include <chrono>
 #include "ModLoader.h"
 #include "Hooks/Hooks.h"
 #include "VFS/ArchivePatcher.h"
-#include "VFS/patchInfo.h"
-
 
 using enum Logger::LogCategory;
 
@@ -54,7 +53,7 @@ static DWORD WINAPI Initialize(LPVOID lpParameter) {
 
         switch (ret) {
         case 0:
-            Logger::Log(Info) << "Settings loaded successfully from INI file";
+            Logger::Log(Verbose) << "Settings loaded successfully from INI file";
             break;
         case 1:
             Logger::Log(Warning) << "INI file exists but is corrupt. Using default settings for this session. Correct the error, or delete the ini file to regenerate a new one on restart";
@@ -86,11 +85,9 @@ static DWORD WINAPI Initialize(LPVOID lpParameter) {
 
         Logger::Log(Verbose) << "Hooks initialized";
 
-
         API::Init();
 
         ScanModsAndResolveConflicts();
-        StartArchivePatchingThread();
 
         StartCacheCleanupThread();
 
@@ -113,7 +110,6 @@ static DWORD WINAPI Initialize(LPVOID lpParameter) {
 
 }
 
-
 BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserved) {
     if (ul_reason_for_call == DLL_PROCESS_ATTACH) {
         DisableThreadLibraryCalls(hModule);
@@ -121,9 +117,8 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
         if (hThread) CloseHandle(hThread);
     }
     else if (ul_reason_for_call == DLL_PROCESS_DETACH) {
-        StopArchivePatchingThread();
         StopCacheCleanupThread();
-        MH_Uninitialize();
+        //MH_Uninitialize(); // Causes deadlock
     }
     return TRUE;
 }
