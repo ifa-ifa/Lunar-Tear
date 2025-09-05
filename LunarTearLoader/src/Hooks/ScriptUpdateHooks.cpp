@@ -7,6 +7,7 @@
 #include "Common/Dump.h"
 #include "Lua/LuaCommandQueue.h"
 #include <MinHook.h>
+#include "Lua/CallbackQueue.h"
 #include <filesystem>
 #include<vector>
 
@@ -23,8 +24,9 @@ namespace {
 
 void UpdatePhaseScriptManagerDetoured(PhaseScriptManager* phsm) {
 
+    LuaCommandQueue::ProcessQueue(&(phsm->scriptManager));
+    UpdateCallbackQueue::ProcessCallbacks(UpdateCallbackQueue::UpdateLoopType::Phase);
 
-    LuaCommandQueue::ProcessPhaseScriptQueue(&(phsm->scriptManager));
     return UpdatePhaseScriptManagerOriginal(phsm);
 }
 

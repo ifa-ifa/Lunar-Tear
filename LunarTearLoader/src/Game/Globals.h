@@ -8,6 +8,9 @@ extern RootScriptManager* rootScriptManager;
 extern GameScriptManager* gameScriptManager;
 extern EndingsData* endingsData;
 extern void* localeData;
+extern CPlayerParam* playerParam;
+
+extern PlayableManager* playableManager;
 
 extern PlayerSaveData* playerSaveData;
 

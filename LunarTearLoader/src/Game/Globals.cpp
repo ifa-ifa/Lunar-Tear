@@ -9,6 +9,8 @@ GameScriptManager* gameScriptManager;
 PlayerSaveData* playerSaveData;
 EndingsData* endingsData;
 void* localeData;
+CPlayerParam* playerParam;
+PlayableManager* playableManager;
 
 
 void InitialiseGlobals() {
@@ -20,4 +22,7 @@ void InitialiseGlobals() {
 	playerSaveData = (PlayerSaveData*)(g_processBaseAddress + 0x4374a20);
 	endingsData = (EndingsData*)(g_processBaseAddress + 0x11fdf80);
 	localeData = (void*)(g_processBaseAddress + 0x27e0590);
+	playerParam = (CPlayerParam*)(g_processBaseAddress + 0x122D2C0);
+	playableManager = (PlayableManager*)(g_processBaseAddress + 0x26f84b0);
+
 }

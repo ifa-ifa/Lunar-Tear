@@ -1,6 +1,7 @@
 #include "Game/Functions.h"
 #include "Common/Logger.h"
 #include "Lua/CoreBindings.h"
+#include "Lua/LuaCommandQueue.h"
 #include "API/Api.h"
 #include "ModLoader.h"
 #include <INIReader.h>
@@ -310,8 +311,37 @@ void Binding_LTGetModDirectory(void* L) {
 }
 
 
+void _ReportResult(ScriptState* state) {
+    const char* serializedResult = GetArgumentString(GetArgumentPointer(state->argBuffer, 0));
+    LuaCommandQueue::ReportResult(serializedResult);
+}
 
-LuaCBinding coreBindings[] = {
+void Binding_ReportResult(void* L) {
+    luaBindingDispatcher(L, &_ReportResult);
+}
+
+
+void _GetScript(ScriptState* state) {
+    std::string script;
+    if (LuaCommandQueue::GetNextScript(script)) {
+        SetArgumentString(state->returnBuffer, script.c_str());
+    }
+    else {
+        SetArgumentString(state->returnBuffer, ""); // Return empty string if no command
+    }
+    state->returnArgCount = 1;
+}
+
+
+void Binding_GetScript(void* L) {
+    luaBindingDispatcher(L, &_GetScript);
+}
+
+
+
+LuaCBinding* GetCoreBindings() {
+
+    static LuaCBinding coreBindings[] = {
     { "_LTLog",             Binding_LTLog },
     { "_LTConfigGetString", Binding_LTConfigGetString },
     { "_LTConfigGetBool",   Binding_LTConfigGetBool },
@@ -321,9 +351,20 @@ LuaCBinding coreBindings[] = {
     { "_LTIsPluginActive",  Binding_LTIsPluginActive },
     { "_LTGetModDirectory", Binding_LTGetModDirectory },
 
-    { NULL, NULL }
-};
+    { "_LTLua_type", luaB_type },
+    { "_LTLua_xpcall", luaB_xpcall },
+    { "_LTLua_tostring", luaB_tostring },
+    { "_LTLua_loadstring", luaB_loadstring },
+    { "_LTLua_table_getn", luaB_table_getn },
 
-LuaCBinding* GetCoreBindings() {
+    // Internal use only
+    { "_ifaifa_LTCore_GetScript", Binding_GetScript }, 
+    { "_ifaifa_LTCore_ReportResult", Binding_ReportResult },
+
+
+    { NULL, NULL }
+    };
+
+
     return coreBindings;
 }

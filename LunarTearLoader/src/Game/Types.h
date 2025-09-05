@@ -1,7 +1,7 @@
 #pragma once
 #include <cstdint>
 
-
+#pragma pack(push, 1)
 struct ScriptState {
     void** vtable;
     char field1_0x8[8];
@@ -75,3 +75,57 @@ struct EndingsData {
     int endingsBitflags; /* flags that shows which endings are complete. see docs */
     char old_name[32]; /* name entered in the save that was wiped for ending e */
 };
+
+
+// 1.2.1
+
+struct CPlayerParam {
+    void** pVtable;
+    int64_t field1_0x8;
+    int charIndex; // 0 = player / player kaine, 1 = npc kaine, 2 = npc emil 
+    int32_t field3_0x14;
+    int maxHP;
+    float maxMP;
+    int64_t field6_0x20[3];
+    int32_t field7_0x38;
+    int attack_stat;
+    int magickAttack_stat;
+    int64_t field10_0x44;
+    int defense_stat;
+    int magickDefense_stat;
+    int32_t field13_0x54;
+    void* statusSpecData;
+};
+
+
+struct PlayableManager {
+    void* pVtable;
+    int64_t unk[533];
+    struct ActorPlayable* actorPlayable;
+    struct ActorWhiteBook* actorWhiteBook;
+};
+
+struct ActorWhiteBook {
+    void** vtable;
+};
+
+struct ActorPlayable {
+    void** vtable;
+    int64_t field1_0x8[18];
+    float rotationVal3;
+    float posX;
+    float field4_0xa0;
+    float field5_0xa4;
+    float rotationVal1;
+    float posY;
+    float field8_0xb0;
+    float field9_0xb4;
+    float rotationVal4;
+    float posZ;
+    float field12_0xc0;
+    float field13_0xc4;
+    float rotationVal2;
+    float field15_0xcc;
+};
+
+#pragma pack(pop) 

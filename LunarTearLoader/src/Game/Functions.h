@@ -12,6 +12,14 @@ extern uint64_t(*ScriptManager_registerBindings)(void*, LuaCBinding*);
 
 extern int (*lua_gettop)(void*);
 extern void (*lua_settop)(void*, int);
+extern void (*luaL_openlib)(void*, char*, LuaCBinding*, uint32_t);
+		
+extern void (*luaB_type)(void*);
+extern void (*luaB_xpcall)(void*);
+extern void (*luaB_tostring)(void*);
+extern void (*luaB_loadstring)(void*);
+extern void (*luaB_table_getn)(void*);
+
 
 extern uint64_t(*PrepareScriptFunctionCall)(void* scriptManager, const char* funcname, uint32_t* argcount);
 extern uint64_t(*ExecuteScriptCoroutine)(void* scriptManager, int* param_2);
@@ -48,3 +56,4 @@ extern uint64_t(*IsGameFlag)(void* unused, unsigned int flagId);
 extern void (*SnowGameFlagOn)(void* unused, unsigned int flagId);
 extern void (*SnowGameFlagOff)(void* unused, unsigned int flagId);
 extern uint64_t(*IsSnowGameFlag)(void* unused, unsigned int flagId);
+

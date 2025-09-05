@@ -9,6 +9,13 @@ int (*luaBindingDispatcher)(void*, void*);
 
 int (*lua_gettop)(void*);
 void (*lua_settop)(void*, int);
+void (*luaL_openlib)(void*, char*, LuaCBinding*, uint32_t);
+
+void (*luaB_type)(void*);
+void (*luaB_xpcall)(void*);
+void (*luaB_tostring)(void*);
+void (*luaB_loadstring)(void*);
+void (*luaB_table_getn)(void*);
 
 uint64_t(*PrepareScriptFunctionCall)(void* scriptManager, const char* funcname, uint32_t* argcount);
 uint64_t(*ExecuteScriptCoroutine)(void* scriptManager, int* param_2);
@@ -44,6 +51,8 @@ void (*SnowGameFlagOff)(void* unused, unsigned int flagId);
 uint64_t(*IsSnowGameFlag)(void* unused, unsigned int flagId);
 
 
+
+
 void InitialiseGameFunctions() {
 
 
@@ -53,6 +62,14 @@ void InitialiseGameFunctions() {
 
 	lua_gettop = (int (*)(void*))(g_processBaseAddress + 0x3d68c0);
 	lua_settop = (void (*)(void*, int))(g_processBaseAddress + 0x3d7280);
+	luaL_openlib = (void(*)(void*, char*, LuaCBinding*, uint32_t))(g_processBaseAddress + 0x3d8470);
+
+	luaB_type = (void(*)(void*))(g_processBaseAddress + 0x3d90c0);
+	luaB_xpcall = (void(*)(void*))(g_processBaseAddress + 0x3d9550);
+	luaB_tostring = (void(*)(void*))(g_processBaseAddress + 0x3d95c0);
+	luaB_loadstring = (void(*)(void*))(g_processBaseAddress + 0x3d92b0);
+	luaB_table_getn = (void(*)(void*))(g_processBaseAddress + 0x3eb5d0);
+
 	PrepareScriptFunctionCall = (uint64_t(*)(void*, const char*, uint32_t*))(g_processBaseAddress + 0x3f04e0);
 	ExecuteScriptCoroutine = (uint64_t(*)(void*, int*))(g_processBaseAddress + 0x3eff30);
 	GetArgumentFloat = (float (*)(void*))(g_processBaseAddress + 0x3efa80);
@@ -79,5 +96,7 @@ void InitialiseGameFunctions() {
 	SnowGameFlagOn = (void (*)(void*, unsigned int))(g_processBaseAddress + 0x3b1cc0);
 	SnowGameFlagOff = (void (*)(void*, unsigned int))(g_processBaseAddress + 0x3b1c90);
 	IsSnowGameFlag = (uint64_t(*)(void*, unsigned int))(g_processBaseAddress + 0x3b0cf0);
+
+
 
 }

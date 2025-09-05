@@ -1,6 +1,7 @@
 #include "api.h"
 #include "Common/Logger.h"
 #include "Lua/LuaCommandQueue.h"
+#include "Lua/CallbackQueue.h"
 #include "Game/Globals.h"
 #include "Game/Functions.h"
 #include "ModLoader.h"
@@ -58,6 +59,11 @@ namespace {
         PluginContext* ctx = static_cast<PluginContext*>(handle);
         Logger::Log(Verbose, ctx->name) << "Queueing phase script call: " << function_name;
         LuaCommandQueue::QueuePhaseScriptCall(function_name);
+    }
+
+    void API_QueuePhaseUpdateTask(LT_PluginHandle handle, LT_UpdateFunc pFunc, void* userData) {
+        if (!handle || !pFunc) return;
+        UpdateCallbackQueue::QueueCallback(UpdateCallbackQueue::UpdateLoopType::Phase, pFunc, userData);
     }
 
     int API_Config_GetString(LT_PluginHandle handle, const char* section, const char* key, const char* default_value, char* out_buffer, uint32_t buffer_size) {
@@ -143,6 +149,38 @@ namespace {
         strncpy_s(out_buffer, buffer_size, mod_path_opt->c_str(), _TRUNCATE);
         return strnlen_s(out_buffer, buffer_size);
     }
+
+    void API_Lua_QueuePhaseScriptExecution(LT_PluginHandle handle, const char* script, LT_ScriptExecutionCallbackFunc callback, void* userData) {
+        if (!handle || !script) return;
+        PluginContext* ctx = static_cast<PluginContext*>(handle);
+
+        Logger::Log(Verbose, ctx->name) << "Queueing non-blocking script execution.";
+        LuaCommandQueue::QueuePhaseScriptExecution(script, callback, userData);
+    }   
+
+
+    PlayableManager* API_GetPlayableManager() {
+    
+        if (!playableManager) {
+            return nullptr;
+        }
+        if (playableManager->pVtable == 0) {
+            return nullptr;
+        }
+        return playableManager;
+    
+    }
+
+    ActorPlayable* API_GetActorPlayable(PlayableManager* pm) {
+        
+        if (!pm) {
+            return nullptr;
+        }
+        return pm->actorPlayable;
+
+
+    }
+
 }
 
 namespace API {
@@ -210,17 +248,25 @@ namespace API {
         s_api.Hook_Enable = API_Hook_Enable;
         s_api.Lua_RegisterCFunc = API_Lua_RegisterCFunc;
         s_api.Lua_QueuePhaseScriptCall = API_Lua_QueuePhaseScriptCall;
+        s_api.QueuePhaseUpdateTask = API_QueuePhaseUpdateTask;
+        s_api.Lua_QueuePhaseScriptExecution = API_Lua_QueuePhaseScriptExecution;
         s_api.IsModActive = API_IsModActive;
         s_api.IsPluginActive = API_IsPluginActive;
         s_api.GetModDirectory = API_GetModDirectory;
 
         s_gameApi.processBaseAddress = g_processBaseAddress;
-        s_gameApi.phaseScriptManager = (PhaseScriptManager*)phaseScriptManager;
-        s_gameApi.rootScriptManager = (RootScriptManager*)rootScriptManager;
-        s_gameApi.gameScriptManager = (GameScriptManager*)gameScriptManager;
-        s_gameApi.playerSaveData = (PlayerSaveData*)playerSaveData;
-        s_gameApi.endingsData = (EndingsData*)endingsData;
+        s_gameApi.phaseScriptManager = phaseScriptManager;
+        s_gameApi.rootScriptManager = rootScriptManager;
+        s_gameApi.gameScriptManager = gameScriptManager;
+        s_gameApi.playerSaveData = playerSaveData;
+        s_gameApi.endingsData = endingsData;
         s_gameApi.localeData = localeData;
+        s_gameApi.playerParam = playerParam;
+
+        s_gameApi.GetPlayableManager = API_GetPlayableManager;
+        s_gameApi.GetActorPlayable = API_GetActorPlayable;
+
+
 
         Logger::Log(Info) << "Lunar Tear API Initialized (Version " << s_api.api_version << ")";
     }
