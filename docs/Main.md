@@ -1,3 +1,8 @@
+This wiki is a guide on how to make mods using Lunar Tear. I may forget to update it sometimes so if you need help either create an issue or ask me on discord (@iiiba)
+
+## Preparing a mod
+
+
 Create your mod as a folder. To see where the differnet types of file should go, see the corresponding pages on this wiki. By default the mod name is the folder name. Mod names, wherever determined by folder name or manifest, must be unique. Duplicates will not be loaded. If multiple mods try loose load the same texture or table, the file from the alphebetically last mod will be loaded.
 
 
