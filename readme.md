@@ -6,7 +6,7 @@ Tool repository for Nier Replicant
 - SETTBLLEditor - STBL editor
 - Lunar Tear Loader - Script tool / modding api / loose loader
 
-For modding instructions see `docs/`
+For modding instructions see the [Wiki](https://github.com/ifa-ifa/Lunar-Tear/wiki)
 
 ## Install Lunar Tear Loader
 
