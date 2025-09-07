@@ -2,10 +2,11 @@ This wiki is a guide on how to make mods using Lunar Tear. I may forget to updat
 
 #### Index  
 
-Textures - [Loose Textures](Loose Textures.md), [Custom Archives](Custom Archives.md)  
-Scripting - [Scripts](Scripts.md], [Game Lua API](Game Lua API.md), [LT Lua API](LT Lua API.md)  
+Textures - [Loose Textures](Loose%20Textures.md), [Custom Archives](Custom%20Archives.md)  
+Scripting - [Scripts](Scripts.md), [Game Lua API](Game%20Lua%20API.md), [LT Lua API](LT%20Lua%20API.md)  
 Plugins - [Plugins](Plugins.md)  
 Tables - [Tables](Tables.md)  
+
 
 
 ## Preparing a mod
