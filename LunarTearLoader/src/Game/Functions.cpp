@@ -5,7 +5,7 @@ int (*ScriptManager_LoadAndRunBuffer)(void*, void*, size_t);
 
 uint64_t(*ScriptManager_registerBindings)(void*, LuaCBinding*);
 
-int (*luaBindingDispatcher)(void*, void*);
+int (*phaseBindingDispatcher)(void*, void*);
 
 int (*lua_gettop)(void*);
 void (*lua_settop)(void*, int);
@@ -58,7 +58,7 @@ void InitialiseGameFunctions() {
 
 	ScriptManager_LoadAndRunBuffer = (int (*)(void*, void*, size_t))(g_processBaseAddress + 0x3F0350);
 	ScriptManager_registerBindings = (uint64_t(*)(void*, LuaCBinding*))(g_processBaseAddress + 0x03efea0);
-	luaBindingDispatcher = (int (*)(void*, void*))(g_processBaseAddress + 0x3efd80);
+	phaseBindingDispatcher = (int (*)(void*, void*))(g_processBaseAddress + 0x3efd80);
 
 	lua_gettop = (int (*)(void*))(g_processBaseAddress + 0x3d68c0);
 	lua_settop = (void (*)(void*, int))(g_processBaseAddress + 0x3d7280);

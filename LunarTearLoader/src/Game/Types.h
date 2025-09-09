@@ -11,6 +11,12 @@ struct ScriptState {
     char returnBuffer[576];
 };
 
+// Arbritrary, for any point
+struct ScriptContextManager {
+    void* vtable;
+    char scriptManager[2000];
+};
+
 struct PhaseScriptManager {
     void* vtable;
     char scriptManager[2000];

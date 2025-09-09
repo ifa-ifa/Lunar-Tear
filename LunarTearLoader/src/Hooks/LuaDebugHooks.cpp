@@ -46,7 +46,7 @@ void c_DebugPrint(ScriptState* scriptState) { // Not to be confused with lua_sta
 
 void Binding_DebugPrintDetoured(void* lua_state) {
 
-    luaBindingDispatcher(lua_state, &c_DebugPrint);
+    phaseBindingDispatcher(lua_state, &c_DebugPrint);
     return;
 }
 

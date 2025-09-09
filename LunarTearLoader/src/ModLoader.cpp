@@ -154,7 +154,6 @@ void ScanModsAndResolveConflicts() {
         if (!mod_path_opt) continue;
 
         std::filesystem::path mod_path = *mod_path_opt;
-
         std::filesystem::path index_path = mod_path / "info.arc";
 
         if (std::filesystem::exists(index_path)) {
@@ -165,7 +164,8 @@ void ScanModsAndResolveConflicts() {
 
     VFS_ready = true;
 
-    std::map<std::string, std::vector<std::string>> file_to_mods_map;
+    // Maps a relative file path to a list of pairs {mod_id, full_file_path}
+    std::map<std::string, std::vector<std::pair<std::string, std::string>>> file_to_mods_map;
     std::map<std::string, std::vector<std::string>> temp_injection_scripts;
 
     for (const auto& mod_id : sorted_mod_ids) {
@@ -175,10 +175,21 @@ void ScanModsAndResolveConflicts() {
 
         Logger::Log(Verbose) << "Scanning mod for loose files: " << mod_id;
 
+        if (!std::filesystem::exists(mod_path) || !std::filesystem::is_directory(mod_path)) continue;
+
         for (const auto& file_entry : std::filesystem::recursive_directory_iterator(mod_path)) {
             if (!file_entry.is_regular_file()) continue;
 
-            std::string relative_path_str = std::filesystem::relative(file_entry.path(), mod_path).string();
+            std::filesystem::path loose_dir_path = mod_path / "loose";
+            std::string relative_path_str;
+
+            if (file_entry.path().string().starts_with(loose_dir_path.string())) {
+                relative_path_str = std::filesystem::relative(file_entry.path(), loose_dir_path).string();
+            }
+            else {
+                relative_path_str = std::filesystem::relative(file_entry.path(), mod_path).string();
+            }
+
             std::replace(relative_path_str.begin(), relative_path_str.end(), '\\', '/');
 
             if (relative_path_str.starts_with("inject/")) {
@@ -186,7 +197,10 @@ void ScanModsAndResolveConflicts() {
                 temp_injection_scripts[injection_point].push_back(file_entry.path().string());
             }
             else {
-                file_to_mods_map[relative_path_str].push_back(mod_id);
+                if (file_entry.path().filename() == "manifest.json" || file_entry.path().extension() == ".dll") {
+                    continue;
+                }
+                file_to_mods_map[relative_path_str].push_back({ mod_id, file_entry.path().string() });
             }
         }
     }
@@ -204,7 +218,7 @@ void ScanModsAndResolveConflicts() {
     const std::lock_guard<std::mutex> lock(s_fileMapMutex);
     s_resolvedFileMap.clear();
 
-    for (auto& [file, mods] : file_to_mods_map) {
+    for (auto& [file, mods_and_paths] : file_to_mods_map) {
         std::filesystem::path p(file);
         std::string extension = p.extension().string();
         std::transform(extension.begin(), extension.end(), extension.begin(),
@@ -214,33 +228,33 @@ void ScanModsAndResolveConflicts() {
             continue;
         }
 
-        std::string winner_mod_id;
-        if (mods.size() > 1) {
-            std::sort(mods.begin(), mods.end());
-            winner_mod_id = mods.back();
+        std::string winner_full_path;
+        if (mods_and_paths.size() > 1) {
+            std::sort(mods_and_paths.begin(), mods_and_paths.end(),
+                [](const auto& a, const auto& b) {
+                    return a.first < b.first; // Sort by mod_id
+                });
+
+            const auto& winner_entry = mods_and_paths.back();
+            winner_full_path = winner_entry.second;
 
             std::stringstream losers_ss;
-            for (size_t i = 0; i < mods.size() - 1; ++i) {
-                losers_ss << "'" << mods[i] << "'" << (i < mods.size() - 2 ? ", " : "");
+            for (size_t i = 0; i < mods_and_paths.size() - 1; ++i) {
+                losers_ss << "'" << mods_and_paths[i].first << "'" << (i < mods_and_paths.size() - 2 ? ", " : "");
             }
-            Logger::Log(Warning) << "Conflict for file '" << file << "'. Winner: '" << winner_mod_id
+            Logger::Log(Warning) << "Conflict for file '" << file << "'. Winner: '" << winner_entry.first
                 << "'. Overridden mods: " << losers_ss.str() << ".";
         }
         else {
-            winner_mod_id = mods[0];
+            winner_full_path = mods_and_paths[0].second;
         }
 
-        auto winner_mod_path_opt = GetModPath(winner_mod_id);
-        if (winner_mod_path_opt) {
-            std::filesystem::path full_path = std::filesystem::path(*winner_mod_path_opt) / file;
-            s_resolvedFileMap[file] = full_path.string();
-            Logger::Log(Verbose) << "Mapping " << file << " -> " << s_resolvedFileMap[file];
-        }
+        s_resolvedFileMap[file] = winner_full_path;
+        Logger::Log(Verbose) << "Mapping " << file << " -> " << s_resolvedFileMap[file];
     }
 
     Logger::Log(Verbose) << "Mod scan complete.";
 }
-
 std::vector<std::vector<char>> GetInjectionScripts(const std::string& injectionPoint) {
     std::vector<std::vector<char>> scripts_data;
 

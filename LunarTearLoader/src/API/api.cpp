@@ -208,7 +208,7 @@ namespace API {
 
     void Init() {
 
-        s_gameApi.luaBindingDispatcher = luaBindingDispatcher;
+        s_gameApi.phaseBindingDispatcher = phaseBindingDispatcher;
 
         s_gameApi.GetArgumentPointer = GetArgumentPointer;
         s_gameApi.GetArgumentString = GetArgumentString;

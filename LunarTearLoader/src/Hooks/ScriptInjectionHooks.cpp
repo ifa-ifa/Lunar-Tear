@@ -24,12 +24,21 @@ extern "C" {
     void PostLibStub();
     void* PostLibTrampoline = nullptr;
 
+    void PostRootStub();
+    void* PostRootTrampoline = nullptr;
+
+    void PostGameStub();
+    void* PostGameTrampoline = nullptr;
+
 }
 
 extern "C" {
 
     void InjectPostPhaseScripts(const char* phaseScriptName);
     void InjectPostLibScripts();
+    void InjectPostGameScripts();
+    void InjectPostRootScripts();
+
 
 }
 
@@ -83,7 +92,7 @@ end
 
 
 
-void ExecuteScriptsForPoint(const std::string& point) {
+void ExecuteScriptsForPoint(ScriptContextManager* ctxMn, const std::string& point) {
     auto scripts = GetInjectionScripts(point);
     std::lock_guard<std::mutex> lock(API::s_lua_binding_mutex);
 
@@ -100,10 +109,10 @@ void ExecuteScriptsForPoint(const std::string& point) {
         bindings_with_terminator.push_back({ NULL, NULL }); // NULL terminator
 
         Logger::Log(Info) << "Registering " << plugin_bindings_pairs.size() << " Lua function(s) from plugins...";
-        ScriptManager_registerBindings(&(phaseScriptManager->scriptManager), bindings_with_terminator.data());
+        ScriptManager_registerBindings(&(ctxMn->scriptManager), bindings_with_terminator.data());
     }
 
-    int64_t ret = ScriptManager_registerBindings(&(phaseScriptManager->scriptManager), GetCoreBindings());
+    int64_t ret = ScriptManager_registerBindings(&(ctxMn->scriptManager), GetCoreBindings());
     Logger::Log(Info) << "regisetered bindings, code:" << ret;
 
     if (scripts.empty()) {
@@ -113,7 +122,7 @@ void ExecuteScriptsForPoint(const std::string& point) {
     Logger::Log(Info) << "Injecting " << scripts.size() << " script(s) for point '" << point << "'";
 
     ScriptManager_LoadAndRunBuffer( // internal script for QueuePhaseScriptExecution
-        &(phaseScriptManager->scriptManager),
+        &(ctxMn->scriptManager),
         (void*)scriptDispatcher.data(),
         scriptDispatcher.size()
     );
@@ -121,7 +130,7 @@ void ExecuteScriptsForPoint(const std::string& point) {
     for (const auto& script_data : scripts) {
         if (script_data.empty()) continue;
         ret = ScriptManager_LoadAndRunBuffer(
-            &(phaseScriptManager->scriptManager),
+            &(ctxMn->scriptManager),
             (void*)script_data.data(),
             script_data.size()
         );
@@ -140,18 +149,34 @@ extern "C" void InjectPostPhaseScripts(const char* phaseScriptName) {
     p.replace_extension(".lua");
     std::string script_name_lua = p.filename().string();
 
-    ExecuteScriptsForPoint("post_phase/_any.lua");
-    ExecuteScriptsForPoint("post_phase/" + script_name_lua);
+    ExecuteScriptsForPoint((ScriptContextManager*)phaseScriptManager, "post_phase/_any.lua");
+    ExecuteScriptsForPoint((ScriptContextManager*)phaseScriptManager, "post_phase/" + script_name_lua);
 }
 
 extern "C" void InjectPostLibScripts() {
-    ExecuteScriptsForPoint("post_lib/_any.lua");
-    ExecuteScriptsForPoint("post_lib/__libnier__.lua");
+    ExecuteScriptsForPoint((ScriptContextManager*)phaseScriptManager, "post_lib/_any.lua");
+    ExecuteScriptsForPoint((ScriptContextManager*)phaseScriptManager, "post_lib/__libnier__.lua");
 }
+
+
+extern "C" void InjectPostRootScripts() {
+    ExecuteScriptsForPoint((ScriptContextManager*)rootScriptManager, "post_root/_any.lua");
+    ExecuteScriptsForPoint((ScriptContextManager*)rootScriptManager, "post_root/__root__.lua");
+}
+
+extern "C" void InjectPostGameScripts() {
+    ExecuteScriptsForPoint((ScriptContextManager*)gameScriptManager, "post_game/_any.lua");
+    ExecuteScriptsForPoint((ScriptContextManager*)gameScriptManager, "post_game/__game__.lua");
+}
+
 
 #ifdef __INTELLISENSE__
 void PostPhaseStub() {}
 void PostLibStub() {}
+void PostGameStub() {}
+void PostRootStub() {}
+
+
 #endif 
 
 
@@ -162,12 +187,24 @@ bool InstallScriptInjectHooks() {
     void* PostPhaseTarget = (void*)(g_processBaseAddress + 0x4153fd);
     void* PostLibTarget = (void*)(g_processBaseAddress + 0x415586);
 
+    void* PostGameTarget = (void*)(g_processBaseAddress + 0x41479a);
+    void* PostRootTarget = (void*)(g_processBaseAddress + 0x414202);
+
+
     if (MH_CreateHook(PostPhaseTarget, &PostPhaseStub, &PostPhaseTrampoline) != MH_OK) {
         Logger::Log(Error) << "Could not create post phase hook";
         return false;
     }
     if (MH_CreateHook(PostLibTarget, &PostLibStub, &PostLibTrampoline) != MH_OK) {
         Logger::Log(Error) << "Could not create post lib hook";
+        return false;
+    }
+    if (MH_CreateHook(PostGameTarget, &PostGameStub, &PostGameTrampoline) != MH_OK) {
+        Logger::Log(Error) << "Could not create post game hook";
+        return false;
+    }
+    if (MH_CreateHook(PostRootTarget, &PostRootStub, &PostRootTrampoline) != MH_OK) {
+        Logger::Log(Error) << "Could not create post root hook";
         return false;
     }
 

@@ -19,7 +19,7 @@ void _LTLog(ScriptState* scriptState) {
 }
 
 void Binding_LTLog(void* L) {
-    luaBindingDispatcher(L, &_LTLog);
+    phaseBindingDispatcher(L, &_LTLog);
 }
 
 void _LTIsModActive(ScriptState* scriptState) {
@@ -35,7 +35,7 @@ void _LTIsModActive(ScriptState* scriptState) {
 }
 
 void Binding_LTIsModActive(void* L) {
-    luaBindingDispatcher(L, &_LTIsModActive);
+    phaseBindingDispatcher(L, &_LTIsModActive);
 }
 
 void _LTIsPluginActive(ScriptState* scriptState) {
@@ -51,7 +51,7 @@ void _LTIsPluginActive(ScriptState* scriptState) {
 }
 
 void Binding_LTIsPluginActive(void* L) {
-    luaBindingDispatcher(L, &_LTIsPluginActive);
+    phaseBindingDispatcher(L, &_LTIsPluginActive);
 }
 
 
@@ -111,7 +111,7 @@ void _LTConfigGetInt(ScriptState* scriptState) {
 
 
 void Binding_LTConfigGetInt(void* L) {
-    luaBindingDispatcher(L, &_LTConfigGetInt);
+    phaseBindingDispatcher(L, &_LTConfigGetInt);
 }
 
 
@@ -169,7 +169,7 @@ void _LTConfigGetReal(ScriptState* scriptState) {
 
 
 void Binding_LTConfigGetReal(void* L) {
-    luaBindingDispatcher(L, &_LTConfigGetReal);
+    phaseBindingDispatcher(L, &_LTConfigGetReal);
 }
 
 
@@ -232,7 +232,7 @@ void _LTConfigGetBool(ScriptState* scriptState) {
 
 
 void Binding_LTConfigGetBool(void* L) {
-    luaBindingDispatcher(L, &_LTConfigGetBool);
+    phaseBindingDispatcher(L, &_LTConfigGetBool);
 }
 
 void _LTConfigGetString(ScriptState* scriptState) {
@@ -288,7 +288,7 @@ void _LTConfigGetString(ScriptState* scriptState) {
 
 
 void Binding_LTConfigGetString(void* L) {
-    luaBindingDispatcher(L, &_LTConfigGetString);
+    phaseBindingDispatcher(L, &_LTConfigGetString);
 }
 
 void _LTGetModDirectory(ScriptState* scriptState) {
@@ -307,7 +307,7 @@ void _LTGetModDirectory(ScriptState* scriptState) {
 }
 
 void Binding_LTGetModDirectory(void* L) {
-    luaBindingDispatcher(L, &_LTGetModDirectory);
+    phaseBindingDispatcher(L, &_LTGetModDirectory);
 }
 
 
@@ -317,7 +317,7 @@ void _ReportResult(ScriptState* state) {
 }
 
 void Binding_ReportResult(void* L) {
-    luaBindingDispatcher(L, &_ReportResult);
+    phaseBindingDispatcher(L, &_ReportResult);
 }
 
 
@@ -334,7 +334,7 @@ void _GetScript(ScriptState* state) {
 
 
 void Binding_GetScript(void* L) {
-    luaBindingDispatcher(L, &_GetScript);
+    phaseBindingDispatcher(L, &_GetScript);
 }
 
 

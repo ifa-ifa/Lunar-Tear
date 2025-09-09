@@ -59,7 +59,7 @@ extern "C" {
 
         uintptr_t processBaseAddress;
 
-        int (*luaBindingDispatcher)(void* luaState, void* CFunc);
+        int (*phaseBindingDispatcher)(void* luaState, void* CFunc);
 
         void* (*GetArgumentPointer)(void* argBuffer, int index);
         const char* (*GetArgumentString)(void* arg);

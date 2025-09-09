@@ -24,7 +24,7 @@ extern void (*luaB_table_getn)(void*);
 extern uint64_t(*PrepareScriptFunctionCall)(void* scriptManager, const char* funcname, uint32_t* argcount);
 extern uint64_t(*ExecuteScriptCoroutine)(void* scriptManager, int* param_2);
 
-extern int (*luaBindingDispatcher)(void*, void*);
+extern int (*phaseBindingDispatcher)(void*, void*);
 
 extern void* (*GetArgumentPointer)(void*, int);
 
