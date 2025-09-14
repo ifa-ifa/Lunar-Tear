@@ -55,8 +55,6 @@ void Binding_LTIsPluginActive(void* L) {
 }
 
 
-
-
 void _LTConfigGetInt(ScriptState* scriptState) {
     const char* mod_id = GetArgumentString(GetArgumentPointer(scriptState->argBuffer, 0));
     const char* sectionName = GetArgumentString(GetArgumentPointer(scriptState->argBuffer, 1));

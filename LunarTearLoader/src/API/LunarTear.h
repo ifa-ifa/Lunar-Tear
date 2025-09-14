@@ -7,7 +7,21 @@
 extern "C" {
 #endif
 
-    #define LUNAR_TEAR_API_VERSION 010201 // 1.2.1
+#define LUNAR_TEAR_VERSION_MAJOR 1
+#define LUNAR_TEAR_VERSION_MINOR 2
+#define LUNAR_TEAR_VERSION_PATCH 1
+
+#define LUNAR_TEAR_API_VERSION ((LUNAR_TEAR_VERSION_MAJOR << 16) | \
+                                (LUNAR_TEAR_VERSION_MINOR << 8)  | \
+                                LUNAR_TEAR_VERSION_PATCH)
+
+#define LT_VERSION_STR_HELPER(x) #x
+#define LT_VERSION_STR(x) LT_VERSION_STR_HELPER(x)
+#define LUNAR_TEAR_VERSION_STRING LT_VERSION_STR(LUNAR_TEAR_VERSION_MAJOR) "." \
+                                  LT_VERSION_STR(LUNAR_TEAR_VERSION_MINOR) "." \
+                                  LT_VERSION_STR(LUNAR_TEAR_VERSION_PATCH)
+
+
 
     typedef void* LT_PluginHandle;
 
@@ -96,8 +110,6 @@ extern "C" {
         EndingsData* endingsData;
         void* localeData;
 
-        // 1.2.1
-
         PlayableManager* (*GetPlayableManager)(void);
         ActorPlayable* (*GetActorPlayable)(PlayableManager* pm);
 
@@ -123,12 +135,19 @@ extern "C" {
         void (*Lua_QueuePhaseScriptCall)(LT_PluginHandle handle, const char* function_name); // Not reccomended anymore - use Lua_QueuePhaseScriptExecution
         bool (*IsModActive)(LT_PluginHandle handle, const char* mod_name);
         bool (*IsPluginActive)(LT_PluginHandle handle, const char* plugin_name);
-        int (*GetModDirectory)(LT_PluginHandle handle, const char* mod_name, char* out_buffer, uint32_t buffer_size);
-
-        // 1.2.1
+        int (*
+            
+            
+            Directory)(LT_PluginHandle handle, const char* mod_name, char* out_buffer, uint32_t buffer_size);
 
         void (*QueuePhaseUpdateTask)(LT_PluginHandle handle, LT_UpdateFunc pFunc, void* userData);
         void (*Lua_QueuePhaseScriptExecution)(LT_PluginHandle handle, const char* script, LT_ScriptExecutionCallbackFunc callback, void* userData);
+
+        const char* (*GetVersionString)(void);
+        uint32_t(*GetVersionMajor)(void);
+        uint32_t(*GetVersionMinor)(void);
+        uint32_t(*GetVersionPatch)(void);
+
 
     } LunarTearAPI;
 

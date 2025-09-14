@@ -181,6 +181,23 @@ namespace {
 
     }
 
+    const char* API_GetVersionString() {
+        static std::string version_string = LUNAR_TEAR_VERSION_STRING;
+        return version_string.c_str();
+    }
+
+    uint32_t API_GetVersionMajor() {
+        return LUNAR_TEAR_VERSION_MAJOR;
+    }
+
+    uint32_t API_GetVersionMinor() {
+        return LUNAR_TEAR_VERSION_MINOR;
+    }
+
+    uint32_t API_GetVersionPatch() {
+        return LUNAR_TEAR_VERSION_PATCH;
+    }
+
 }
 
 namespace API {
@@ -254,6 +271,11 @@ namespace API {
         s_api.IsPluginActive = API_IsPluginActive;
         s_api.GetModDirectory = API_GetModDirectory;
 
+        s_api.GetVersionString = API_GetVersionString;
+        s_api.GetVersionMajor = API_GetVersionMajor;
+        s_api.GetVersionMinor = API_GetVersionMinor;
+        s_api.GetVersionPatch = API_GetVersionPatch;
+
         s_gameApi.processBaseAddress = g_processBaseAddress;
         s_gameApi.phaseScriptManager = phaseScriptManager;
         s_gameApi.rootScriptManager = rootScriptManager;
@@ -268,7 +290,7 @@ namespace API {
 
 
 
-        Logger::Log(Info) << "Lunar Tear API Initialized (Version " << s_api.api_version << ")";
+        Logger::Log(Info) << "Lunar Tear API Initialized (Version " << API_GetVersionString() << ")";
     }
 
     const LunarTearAPI* GetAPI() {
