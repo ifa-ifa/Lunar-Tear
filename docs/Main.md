@@ -1,13 +1,33 @@
 This wiki is a guide on how to make mods using Lunar Tear. I may forget to update it sometimes so if you need help either create an issue or ask me on discord (@iiiba)
 
-#### Index  
+## Index  
 
 Textures - [Loose Textures](Loose%20Textures.md), [Custom Archives](Custom%20Archives.md)  
 Scripting - [Scripts](Scripts.md), [Game Lua API](Game%20Lua%20API.md), [LT Lua API](LT%20Lua%20API.md)  
 Plugins - [Plugins](Plugins.md)  
 Tables - [Tables](Tables.md)  
 
+## Example mods
 
+#### Loose textures
+
+Any texture mod on nexus, including ones that were designed for special k injection, will work. For a direct example, see [Cruel Weapons over Virtuous Weapons by iffyuistatement](https://www.nexusmods.com/nierreplicant/mods/88)
+
+#### Custom archives
+
+This is virtually untested and has not been used for any mod except this proof of concpet: [See the proof of concept in Miscellaneous files](https://www.nexusmods.com/nierreplicant/mods/87?tab=files)
+
+#### Scripts
+
+[Automata UI](https://www.nexusmods.com/nierreplicant/mods/96), [Always Spawn Companions](https://www.nexusmods.com/nierreplicant/mods/93), [Shariyar music fix](https://www.nexusmods.com/nierreplicant/mods/92)
+
+#### Tables
+
+[Arachnophobia Mode](https://www.nexusmods.com/nierreplicant/mods/95)
+
+### Plugins
+
+[LTConsole (WIP)](https://github.com/ifa-ifa/LTConsole)
 
 ## Preparing a mod
 

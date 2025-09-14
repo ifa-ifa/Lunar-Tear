@@ -1,4 +1,20 @@
-The game has a script for every phase (map) plus 3 more: \_\_root__, \_\_libnier__ and \_\_game__. To do Script modding youl want to have a good look at these. You can extract them by enabling Script Dumping in config. Then decompile them using a lua 5.0.2 decompiler. I use this one: https://github.com/loosepolygon/luadec-5.0 but for some scripts it doesn't work, in which case i use this one: `https://sourceforge.net/projects/unluac/`. The `batchDecompile.py` in this repository will batch decompile + handle weird Japanese encoding issues.
+## Base lua
+
+The game only loads the `math` base lua library. Anything else must be manually recreated. Lunar Tear does some for you:
+
+```
+_LTLua_type
+_LTLua_xpcall
+_LTLua_tostring
+_LTLua_loadstring
+_LTLua_table_getn
+```
+
+While the game only loads math, the other libraries can be found in the executable. If you really need anything else, you can find the c side function using a decompiler and register a custom binding in a plugin, or if you don't know how to do that just ask me and i can probably find it and add it.
+
+## Scripts
+
+The game has a script for every phase (map) plus 3 more: \_\_root__, \_\_libnier__ and \_\_game__. You can extract them by enabling Script Dumping in config. Then decompile them using a lua 5.0.2 decompiler. I use this one: https://github.com/loosepolygon/luadec-5.0 but for some scripts it doesn't work, in which case i use this one: `https://sourceforge.net/projects/unluac/`. The `batchDecompile.py` in this repository will batch decompile + handle weird Japanese encoding issues.
 
 ## Injection
 

@@ -29,5 +29,5 @@ Checks that there is a mod loaded with that name, or if there is a plugin loaded
 str _LTGetModDirectory(str modName)
 ```
 
-Use this instead of crafting the path yourself, as the user may change mod folders for some reason.
+To access resources in your mod folder, use this and a manifest instead of crafting the path yourself, as the user may change mod folders for conflict resolution.
 

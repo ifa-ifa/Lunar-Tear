@@ -22,6 +22,16 @@ extern "C" __declspec(dllexport) void LunarTearPluginInit(const LunarTearAPI* ap
 The api struct contains pointers to the data and functions.
 
 
+## Invoking
+
+```
+typedef void (*LT_UpdateFunc)(void* userData);
+void (*QueuePhaseUpdateTask)(LT_PluginHandle handle, LT_UpdateFunc pFunc, void* userData);
+```
+
+Queue a task to be invoked on the main thread, in the phase update loop. Stale commands are invalidated after a few seconds. The update loop is exectured 24 times a second, when in gameplay, (no loading screens or main menu) 
+
+
 ## Logging
 
 ```
@@ -56,10 +66,40 @@ LT_HookStatus Hook_Enable(void* pTarget);
 ## Scripting
 
 ```
+typedef enum {
+    LT_LUA_RESULT_NIL,
+    LT_LUA_RESULT_STRING,
+    LT_LUA_RESULT_NUMBER,
+    LT_LUA_RESULT_ERROR_SYNTAX,
+    LT_LUA_RESULT_ERROR_RUNTIME,
+    LT_LUA_RESULT_ERROR_UNSUPPORTED_TYPE
+} LT_LuaResultType;
+
+typedef struct {
+    LT_LuaResultType type;
+    union {
+        const char* stringValue; // Valid if type is STRING or any ERROR
+        double      numberValue;   
+    } value;
+} LT_LuaResult;
+
+typedef void (*LT_ScriptExecutionCallbackFunc)(const LT_LuaResult* result, void* userData);
+
+void (*Lua_QueuePhaseScriptExecution)(
+    LT_PluginHandle handle,
+    const char* script,
+    LT_ScriptExecutionCallbackFunc callback,
+    void* userData
+);
+```
+
+Queue a script to be executed in the phase lua state. Thread safe. You must handle safely casting to your desired type.
+
+```
 void Lua_QueuePhaseScriptCall(LT_PluginHandle handle, const char* function_name);
 ```
 
-A thread safe way to call script functions. No way to pass arguments like this. If you want to call a game function with arguments, create your own wrapper around it using script injection and fetch arguments using a binding.
+Don't use this, use Lua_QueuePhaseScriptExecution instead. A thread safe way to call script functions. No way to pass arguments like this. If you want to call a game function with arguments, create your own wrapper around it using script injection and fetch arguments using a binding.
 
 ## Custom bindings
 
@@ -84,7 +124,7 @@ void c_TestFunc(ScriptState* scriptState) {
 }
 
 void Binding_TestFunc(Lua_State* lua_state) { 
-    luaBindingDispatcher(lua_state, &c_TestFunc);
+    phaseBindingDispatcher(lua_state, &c_TestFunc);
 }
 
 ```
@@ -99,3 +139,29 @@ and call it from lua like:
 num = _TestFunc("Hello," 5)
 ```
 
+
+## Mod loader integration
+
+```
+bool (*IsModActive)(LT_PluginHandle handle, const char* mod_name);
+bool (*IsPluginActive)(LT_PluginHandle handle, const char* plugin_name);
+```
+
+You can use this for compatibility with other mods
+
+```
+int (*GetModDirectory)(LT_PluginHandle handle, const char* mod_name, char* out_buffer, uint32_t buffer_size);
+```
+
+Use a manifest to define a mod name and this to access resources in your mod directory, as users may change the folder name for conflict resolution
+
+
+
+## Versioning
+
+```
+const char* (*GetVersionString)(void);
+uint32_t(*GetVersionMajor)(void);
+uint32_t(*GetVersionMinor)(void);
+uint32_t(*GetVersionPatch)(void);
+```
