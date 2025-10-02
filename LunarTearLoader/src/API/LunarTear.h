@@ -9,7 +9,7 @@ extern "C" {
 
 #define LUNAR_TEAR_VERSION_MAJOR 1
 #define LUNAR_TEAR_VERSION_MINOR 2
-#define LUNAR_TEAR_VERSION_PATCH 1
+#define LUNAR_TEAR_VERSION_PATCH 2
 
 #define LUNAR_TEAR_API_VERSION ((LUNAR_TEAR_VERSION_MAJOR << 16) | \
                                 (LUNAR_TEAR_VERSION_MINOR << 8)  | \
@@ -115,6 +115,9 @@ extern "C" {
 
         CPlayerParam* playerParam;
 
+        tpRhiDevice** rhiDevicePtr;
+
+
 
     } LT_GameAPI;
 
@@ -135,10 +138,7 @@ extern "C" {
         void (*Lua_QueuePhaseScriptCall)(LT_PluginHandle handle, const char* function_name); // Not reccomended anymore - use Lua_QueuePhaseScriptExecution
         bool (*IsModActive)(LT_PluginHandle handle, const char* mod_name);
         bool (*IsPluginActive)(LT_PluginHandle handle, const char* plugin_name);
-        int (*
-            
-            
-            Directory)(LT_PluginHandle handle, const char* mod_name, char* out_buffer, uint32_t buffer_size);
+        int (*GetModDirectory)(LT_PluginHandle handle, const char* mod_name, char* out_buffer, uint32_t buffer_size);
 
         void (*QueuePhaseUpdateTask)(LT_PluginHandle handle, LT_UpdateFunc pFunc, void* userData);
         void (*Lua_QueuePhaseScriptExecution)(LT_PluginHandle handle, const char* script, LT_ScriptExecutionCallbackFunc callback, void* userData);

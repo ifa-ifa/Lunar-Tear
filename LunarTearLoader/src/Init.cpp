@@ -6,6 +6,7 @@
 #include "Game/Functions.h"
 #include "Common/Settings.h"
 #include <chrono>
+#include "Game/d3d11.h"
 #include "ModLoader.h"
 #include "Hooks/Hooks.h"
 #include "VFS/ArchivePatcher.h"
@@ -72,7 +73,12 @@ DWORD WINAPI Initialize(LPVOID) {
         hooks_ok &= InstallTableHooks();
         hooks_ok &= InstallDebugHooks();
         hooks_ok &= InstallScriptUpdateHooks();
+        Sleep(6000); // FOR TESTING - GET RID!
 
+        hooks_ok &= InstallFPSUnlockHooks();
+
+
+        
 
         if (!hooks_ok) {
             Logger::Log(Warning) << "Failed to initialise hooks. Mod loader may not work correctly";

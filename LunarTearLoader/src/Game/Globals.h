@@ -14,4 +14,7 @@ extern PlayableManager* playableManager;
 
 extern PlayerSaveData* playerSaveData;
 
+extern tpRhiDevice** rhiDevicePtr;
+extern void* rhiSwapchainPtr;
+
 void InitialiseGlobals();

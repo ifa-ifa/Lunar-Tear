@@ -134,4 +134,21 @@ struct ActorPlayable {
     float field15_0xcc;
 };
 
+
+// 1.2.2
+
+struct tpRhiDevice {
+
+    void** vtable;
+    char ifactory[16];
+    void* allocator;
+    uint64_t unk[9];
+    void* dxgiFactory;
+    uint64_t unk2[2];
+    void* d3d11Device;
+    void* d3d11DeviceContext;
+
+};
+
+
 #pragma pack(pop) 

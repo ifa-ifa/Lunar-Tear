@@ -15,4 +15,6 @@ bool InstallScriptUpdateHooks();
 bool InstallTableHooks();
 bool InstallDebugHooks();
 bool InstallVFSHooks();
+bool InstallFPSUnlockHooks();
+
 

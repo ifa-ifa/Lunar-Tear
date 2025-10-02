@@ -12,6 +12,9 @@ void* localeData;
 CPlayerParam* playerParam;
 PlayableManager* playableManager;
 
+tpRhiDevice** rhiDevicePtr;
+void* rhiSwapchainPtr;
+
 
 void InitialiseGlobals() {
 
@@ -24,5 +27,7 @@ void InitialiseGlobals() {
 	localeData = (void*)(g_processBaseAddress + 0x27e0590);
 	playerParam = (CPlayerParam*)(g_processBaseAddress + 0x122D2C0);
 	playableManager = (PlayableManager*)(g_processBaseAddress + 0x26f84b0);
+	rhiDevicePtr = (tpRhiDevice**)(g_processBaseAddress + 0x522a5e8);
+	rhiSwapchainPtr = (void*)(g_processBaseAddress + 0x522a5f0);
 
 }
