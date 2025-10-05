@@ -4,6 +4,7 @@
 #include "Lua/CallbackQueue.h"
 #include "Game/Globals.h"
 #include "Game/Functions.h"
+#include "Game/d3d11.h"
 #include "ModLoader.h"
 #include <MinHook.h>
 #include <map>
@@ -181,83 +182,6 @@ namespace {
 
     }
 
-    void* API_GetD3D11Device() {
-
-        if (!rhiDevicePtr) {
-            return nullptr;
-        }
-
-        if (!*rhiDevicePtr) {
-            return nullptr;
-        }
-
-        return (*rhiDevicePtr)->d3d11Device;
-
-    }
-
-    void* API_GetD3D11DeviceContext() {
-
-        if (!rhiDevicePtr) {
-            return nullptr;
-        }
-
-        if (!*rhiDevicePtr) {
-            return nullptr;
-        }
-
-        return (*rhiDevicePtr)->d3d11DeviceContext;
-
-    }
-
-    void* API_GetDXGIFactory() {
-
-        if (!rhiDevicePtr) {
-            return nullptr;
-        }
-
-        if (!*rhiDevicePtr) {
-            return nullptr;
-        }
-
-        return (*rhiDevicePtr)->dxgiFactory;
-
-    }
-
-
-    void* API_GetPresentAddress() {
-
-        void* swapChainVtable[18] = {}; 
-        void* swapChain = nullptr;
-
-        struct DummySwapChainDesc {
-            void* BufferDesc;
-            void* SampleDesc;
-            void* BufferUsage;
-            void* OutputWindow;
-            BOOL Windowed;
-            unsigned int BufferCount;
-            unsigned int Flags;
-            void* SwapEffect;
-        } scd = {};
-        scd.Windowed = TRUE;
-        scd.BufferCount = 1;
-
-        typedef HRESULT(__stdcall* CreateSwapChainFn)(void* factory, void* device, DummySwapChainDesc* desc, void** swapChain);
-        auto CreateSwapChain = *(CreateSwapChainFn*)((char**)API_GetDXGIFactory())[10]; 
-
-        if (CreateSwapChain(API_GetDXGIFactory(), API_GetD3D11Device(), &scd, &swapChain) != 0 || !swapChain)
-            return nullptr;
-
-        void** vtable = *(void***)swapChain;
-        void* presentAddr = vtable[8]; // Present is usually at index 8
-
-        typedef void(__stdcall* ReleaseFn)(void*);
-        auto Release = *(ReleaseFn*)vtable[2];
-        Release(swapChain);
-
-        return presentAddr;
-    }
-
     const char* API_GetVersionString() {
         static std::string version_string = LUNAR_TEAR_VERSION_STRING;
         return version_string.c_str();
@@ -362,10 +286,16 @@ namespace API {
         s_gameApi.localeData = localeData;
         s_gameApi.playerParam = playerParam;
         s_gameApi.rhiDevicePtr = rhiDevicePtr;
-
+        s_gameApi.rhiSwapchainPtr = rhiSwapchainPtr;
 
         s_gameApi.GetPlayableManager = API_GetPlayableManager;
         s_gameApi.GetActorPlayable = API_GetActorPlayable;
+        s_gameApi.GetD3D11Device = GetD3D11Device;
+        s_gameApi.GetD3D11DeviceContext = GetD3D11DeviceContext;
+        s_gameApi.GetDXGIFactory = GetDXGIFactory;
+        s_gameApi.GetPresentAddress = GetPresentAddress;
+        s_gameApi.GetDrawIndexedAddress = GetDrawIndexedAddress;
+
 
 
 

@@ -116,7 +116,15 @@ extern "C" {
         CPlayerParam* playerParam;
 
         tpRhiDevice** rhiDevicePtr;
+        tpRhiSwapchain** rhiSwapchainPtr;
 
+        uint8_t* inLoadingScreen; // 0 = false, !0 = true
+
+        void* (*GetD3D11Device)(void);
+        void* (*GetD3D11DeviceContext)(void);
+        void* (*GetDXGIFactory)(void);
+        void* (*GetPresentAddress)(void);
+        void* (*GetDrawIndexedAddress)(void);
 
 
     } LT_GameAPI;

@@ -91,6 +91,9 @@ public:
 
     bool AllowColourSpaceMismatch;
 
+    int FPS_Cap;
+
+
     static Settings& Instance() {
         static std::unique_ptr<Settings> instance = [] {
             auto s = std::make_unique<Settings>();
@@ -117,12 +120,12 @@ public:
         registerSetting("DumpScripts", false, &Settings::DumpScripts, "");
         registerSetting("DumpTables", false, &Settings::DumpTables, "");
 
-        registerSetting("TextureUnloading", false, &Settings::TextureUnloading, "EXPERIMENTAL - Reduce memory usage when using lots of mods, may cause crashes");
+        registerSetting("TextureUnloading", false, &Settings::TextureUnloading, "EXPERIMENTAL - Reduce memory usage when using lots of mods, may cause crashes (only for loose dds textures, archived textures do not suffer from this problem in the first place)");
         registerSetting("TextureUnloadDelaySeconds", 3, &Settings::TextureUnloadDelaySeconds, "");
 
         registerSetting("AllowColourSpaceMismatch", true, &Settings::AllowColourSpaceMismatch, "Many texture mods incorrectly use RGB when sRGB is expected and vice versa");
 
-   
+        registerSetting("FPSCap", -1, &Settings::FPS_Cap, "-1 = default game behaviour. Do not change this to anything else if you are also using special k.");
     }
 
     // Returns: 0 = success, 1 = used defaults (corrupt file), 2 = used defaults (created new file)

@@ -73,12 +73,12 @@ DWORD WINAPI Initialize(LPVOID) {
         hooks_ok &= InstallTableHooks();
         hooks_ok &= InstallDebugHooks();
         hooks_ok &= InstallScriptUpdateHooks();
-        Sleep(6000); // FOR TESTING - GET RID!
 
-        hooks_ok &= InstallFPSUnlockHooks();
-
-
+        // Swapchain is not initialised until after VFS is initialised
+        // Avoid deadlock with VFS hook
+        std::jthread fpsunlockthread(InstallFPSUnlockHooks);
         
+
 
         if (!hooks_ok) {
             Logger::Log(Warning) << "Failed to initialise hooks. Mod loader may not work correctly";

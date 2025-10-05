@@ -147,8 +147,13 @@ struct tpRhiDevice {
     uint64_t unk2[2];
     void* d3d11Device;
     void* d3d11DeviceContext;
-
 };
 
+
+struct tpRhiSwapchain {
+    void** vtable;
+    uint64_t unk[14];
+    void* dxgiSwapchain;
+};
 
 #pragma pack(pop) 

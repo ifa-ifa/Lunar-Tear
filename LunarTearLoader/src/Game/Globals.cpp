@@ -13,7 +13,9 @@ CPlayerParam* playerParam;
 PlayableManager* playableManager;
 
 tpRhiDevice** rhiDevicePtr;
-void* rhiSwapchainPtr;
+tpRhiSwapchain** rhiSwapchainPtr;
+
+uint8_t* inLoadingScreen;
 
 
 void InitialiseGlobals() {
@@ -28,6 +30,9 @@ void InitialiseGlobals() {
 	playerParam = (CPlayerParam*)(g_processBaseAddress + 0x122D2C0);
 	playableManager = (PlayableManager*)(g_processBaseAddress + 0x26f84b0);
 	rhiDevicePtr = (tpRhiDevice**)(g_processBaseAddress + 0x522a5e8);
-	rhiSwapchainPtr = (void*)(g_processBaseAddress + 0x522a5f0);
+	rhiSwapchainPtr = (tpRhiSwapchain**)(g_processBaseAddress + 0x522a5f0);
+
+	inLoadingScreen = (uint8_t*)(g_processBaseAddress + 0x4B1C9B4);
+
 
 }

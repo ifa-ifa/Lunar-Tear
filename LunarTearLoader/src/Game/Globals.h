@@ -15,6 +15,8 @@ extern PlayableManager* playableManager;
 extern PlayerSaveData* playerSaveData;
 
 extern tpRhiDevice** rhiDevicePtr;
-extern void* rhiSwapchainPtr;
+extern tpRhiSwapchain** rhiSwapchainPtr;
+
+extern uint8_t* inLoadingScreen; // 0 = false, !0 = true
 
 void InitialiseGlobals();
