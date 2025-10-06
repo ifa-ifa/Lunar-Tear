@@ -125,7 +125,7 @@ public:
 
         registerSetting("AllowColourSpaceMismatch", true, &Settings::AllowColourSpaceMismatch, "Many texture mods incorrectly use RGB when sRGB is expected and vice versa");
 
-        registerSetting("FPSCap", -1, &Settings::FPS_Cap, "-1 = default game behaviour. Do not change this to anything else if you are also using special k.");
+        registerSetting("FPSCap", -1, &Settings::FPS_Cap, "-1 = default game behaviour, 0 = unlimited. Do not change this to anything other than -1 if you are also using special k.");
     }
 
     // Returns: 0 = success, 1 = used defaults (corrupt file), 2 = used defaults (created new file)
