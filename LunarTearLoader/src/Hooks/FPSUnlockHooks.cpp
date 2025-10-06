@@ -36,8 +36,8 @@
 #include <Windows.h>
 #include <vector>
 
+using Clock = std::chrono::steady_clock;
 using enum Logger::LogCategory;
-
 
 namespace {
     typedef HRESULT(WINAPI* Present_t)(void* pSwapChain, uint32_t SyncInterval, uint32_t Flags);
@@ -45,29 +45,87 @@ namespace {
 
     int fps_cap = 60;
     std::chrono::nanoseconds targetFrameDuration = std::chrono::nanoseconds(1000000000 / fps_cap);
+
+    bool g_isFrameBoundary = true;
 }
 
 HRESULT WINAPI Present_detoured(void* pSwapChain, uint32_t SyncInterval, uint32_t Flags) {
 
-    static auto nextFrameTime = std::chrono::high_resolution_clock::now();
+    static Clock::time_point nextFrameTime = Clock::now();
+    static std::atomic<bool> initialized{ false };
+    static bool g_isFrameBoundary_local = true; 
 
+    static std::chrono::nanoseconds presentEstimate = std::chrono::milliseconds(2); // initial guess ~2ms?
+    constexpr auto spinThreshold = std::chrono::milliseconds(2); // how long we spin at the end
+    constexpr double emaAlpha = 0.12; // smoothing for present estimate
+
+
+    // Loading screen - keep vsync 
     if (inLoadingScreen != nullptr && *inLoadingScreen != 0) {
-        return Present_original(pSwapChain, 1, Flags); 
+        g_isFrameBoundary = true;
+        return Present_original(pSwapChain, 1, Flags);
     }
 
-    if (fps_cap > 0) {
-        auto now = std::chrono::high_resolution_clock::now();
-
-        if (nextFrameTime < now) {
-            nextFrameTime = now;
-        }
-
-        std::this_thread::sleep_until(nextFrameTime);
-
-        nextFrameTime += targetFrameDuration;
+    if (fps_cap <= 0) {
+        return Present_original(pSwapChain, 0, Flags);
     }
 
-    return Present_original(pSwapChain, 0, Flags);
+    // Present is calle twice per frame, we need to filter out half of them
+    g_isFrameBoundary_local = !g_isFrameBoundary_local;
+    if (!g_isFrameBoundary_local) {
+        return Present_original(pSwapChain, 0, Flags);
+    }
+
+    // initialize nextFrameTime on first real frame boundary
+    if (!initialized.load(std::memory_order_acquire)) {
+        nextFrameTime = Clock::now() + targetFrameDuration;
+        initialized.store(true, std::memory_order_release);
+    }
+
+    // target moment when the frame should end ( when Present should complete)
+    auto target = nextFrameTime;
+
+    // compute a time to wake up before we need to start Present so Present has time to run
+    auto wakeBeforePresent = presentEstimate;
+    // ensure we have a little extra headroom to spin
+    auto sleepUntilTime = target - wakeBeforePresent - spinThreshold;
+
+    auto now = Clock::now();
+
+    if (sleepUntilTime > now) {
+        std::this_thread::sleep_until(sleepUntilTime); // coarse sleep
+    }
+
+    // busy-wait/yield until target - presentEstimate 
+    while (Clock::now() < (target - wakeBeforePresent)) {
+        // yield for a short time instead of pure spin
+        std::this_thread::yield();
+    }
+
+    auto presStart = Clock::now();
+    HRESULT hr = Present_original(pSwapChain, 0, Flags); // present with vsync off
+    auto presEnd = Clock::now();
+
+    // measured present duration
+    auto measuredPresent = std::chrono::duration_cast<std::chrono::nanoseconds>(presEnd - presStart);
+
+    // update EWMA estimate: presentEstimate = (1-alpha)*presentEstimate + alpha*measuredPresent
+    presentEstimate = std::chrono::nanoseconds(
+        static_cast<long long>(
+            (1.0 - emaAlpha) * presentEstimate.count() + emaAlpha * measuredPresent.count()
+            )
+    );
+
+    // Advance ideal nextFrameTime by one frame duration
+    nextFrameTime += targetFrameDuration;
+
+    // If we're already behind (maybe a hitch), resync to now + one frame to avoid cumulative catch-up debt
+    now = Clock::now();
+    if (now > nextFrameTime) {
+        nextFrameTime = now + targetFrameDuration;
+    }
+
+    return hr;
 }
 
 bool InstallFPSUnlockHooks() {
@@ -75,6 +133,7 @@ bool InstallFPSUnlockHooks() {
     fps_cap = Settings::Instance().FPS_Cap;
 
     if (fps_cap < 0) {
+        // Default game behaviour
         return true;
     }
 
@@ -114,8 +173,10 @@ bool InstallFPSUnlockHooks() {
         Logger::Log(Error) << "Could not create hook for IDXGISwapChain::Present.";
         return false;
     }
+    MH_EnableHook(pPresent); // This runs on another thread so we enable it here
     
 
     Logger::Log(Info) << "FPS unlock hooks installed successfully.";
     return true;
+
 }
