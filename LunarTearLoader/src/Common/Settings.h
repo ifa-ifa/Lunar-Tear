@@ -92,7 +92,7 @@ public:
     bool AllowColourSpaceMismatch;
 
     int FPS_Cap;
-
+    bool FixDeviceEnumeration;
 
     static Settings& Instance() {
         static std::unique_ptr<Settings> instance = [] {
@@ -126,6 +126,8 @@ public:
         registerSetting("AllowColourSpaceMismatch", true, &Settings::AllowColourSpaceMismatch, "Many texture mods incorrectly use RGB when sRGB is expected and vice versa");
 
         registerSetting("FPSCap", -1, &Settings::FPS_Cap, "-1 = default game behaviour, 0 = unlimited. Do not change this to anything other than -1 if you are also using special k.");
+        registerSetting("FixDeviceEnumeration", false, &Settings::FixDeviceEnumeration, "Improves performance. Do not enable this if you are using specialk");
+
     }
 
     // Returns: 0 = success, 1 = used defaults (corrupt file), 2 = used defaults (created new file)

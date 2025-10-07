@@ -173,9 +173,10 @@ bool InstallFPSUnlockHooks() {
         Logger::Log(Error) << "Could not create hook for IDXGISwapChain::Present.";
         return false;
     }
-    MH_EnableHook(pPresent); // This runs on another thread so we enable it here
-    
-
+    if (MH_EnableHook(pPresent) != MH_OK) { // This runs on another thread so we enable it here 
+        Logger::Log(Error) << "Could not enable present hook";
+        return false;
+    }
     Logger::Log(Info) << "FPS unlock hooks installed successfully.";
     return true;
 

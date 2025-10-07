@@ -2,8 +2,6 @@
 #include <Minhook.h>
 #include <chrono> 
 
-extern std::chrono::high_resolution_clock::time_point g_startTime;
-
 template <typename T>
 inline MH_STATUS MH_CreateHookEx(LPVOID pTarget, LPVOID pDetour, T** ppOriginal) {
     return MH_CreateHook(pTarget, pDetour, reinterpret_cast<LPVOID*>(ppOriginal));
@@ -16,5 +14,5 @@ bool InstallTableHooks();
 bool InstallDebugHooks();
 bool InstallVFSHooks();
 bool InstallFPSUnlockHooks();
-
+bool InstallEnumDevicesHooks();
 

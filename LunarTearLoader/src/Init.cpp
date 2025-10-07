@@ -74,10 +74,10 @@ DWORD WINAPI Initialize(LPVOID) {
         hooks_ok &= InstallDebugHooks();
         hooks_ok &= InstallScriptUpdateHooks();
 
-        // Swapchain is not initialised until after VFS is initialised
+        // Swapchain and input objects are not initialised until after VFS is initialised
         // Avoid deadlock with VFS hook
         std::jthread fpsunlockthread(InstallFPSUnlockHooks);
-        
+        std::jthread enumdevicesthread(InstallEnumDevicesHooks);
 
 
         if (!hooks_ok) {
