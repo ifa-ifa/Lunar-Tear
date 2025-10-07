@@ -2,36 +2,14 @@
 
 Tool repository for Nier Replicant
 
-- UnsealesVerses - .arc patcher and repacker
-- SETTBLLEditor - STBL editor
+- libreplicant - File type utility
+- UnsealesVerses - .arc patcher and repacker (command line)
+- SETTBLLEditor - STBL editor (GUI)
 - Lunar Tear Loader - Script tool / modding api / loose loader
 
 For modding instructions see the [Wiki](https://github.com/ifa-ifa/Lunar-Tear/wiki)
 
-## Install Lunar Tear Loader
-
-#### With SpecialK 
-
-Place LunarTearLoader.dll in the game directory. You can use SpecialK to automatically load the dll by adding:
-
-```
-[Import.LunarTear]
-Architecture=x64
-Role=ThirdParty
-When=PlugIn
-Filename=LunarTearLoader.dll 
-```	
-
-To the end of the Special K config file (e.g dxgi.ini or d3d11.ini). Change the filepath to point to your LunarTearLoader if you havnt put it in the same directory.
-
-#### Without Special K
-
-Place both LunarTearLoader.dll and LunarTearLauncher.exe into the game directory. Load with that exe whenever you want the loader to activate.
-
-## Install Mods
-
-Install mods by dropping the folder with the files in `LunarTear/mods/`. For conflicting files, the alphabeticaly last file is loaded. If a mod requires a plugin, you will have to enable plugins in LunarTear/LunarTear.ini
-
+For installation and usage of the loader see the [Nexus page](https://www.nexusmods.com/nierreplicant/mods/87)
 
 ## Build
 
