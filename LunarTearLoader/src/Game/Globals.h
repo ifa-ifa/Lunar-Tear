@@ -19,4 +19,6 @@ extern tpRhiSwapchain** rhiSwapchainPtr;
 
 extern uint8_t* inLoadingScreen; // 0 = false, !0 = true
 
+extern void* iDirectInput8Ptr;
+
 void InitialiseGlobals();

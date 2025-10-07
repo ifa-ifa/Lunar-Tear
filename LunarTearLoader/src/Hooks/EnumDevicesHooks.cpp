@@ -117,39 +117,52 @@ HRESULT WINAPI EnumDevices_detoured(IDirectInput8W* pThis, DWORD dwDevType, LPDI
         return DefWindowProc(hWnd, message, wParam, lParam);
     }
 
-    void CreateDeviceNotificationWindow() {
-        const wchar_t* CLASS_NAME = L"LTDeviceNotif";
+void DeviceNotificationThread() {
+    const wchar_t* CLASS_NAME = L"LunarTearDeviceNotifier";
 
-        WNDCLASSW wc = {};
-        wc.lpfnWndProc = DeviceNotificationWndProc;
-        wc.hInstance = GetModuleHandle(NULL);
-        wc.lpszClassName = CLASS_NAME;
-
-        RegisterClassW(&wc);
-
-        HWND hWnd = CreateWindowExW(0, CLASS_NAME, L"Device Notifier", 0, 0, 0, 0, 0, HWND_MESSAGE, NULL, NULL, NULL);
-        if (hWnd == NULL) {
-            Logger::Log(Error) << "Failed to create device notification window.";
-            return;
+    WNDCLASSW wc = {};
+    wc.lpfnWndProc = [](HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) -> LRESULT {
+        if (message == WM_DEVICECHANGE) {
+            if (wParam == DBT_DEVICEARRIVAL || wParam == DBT_DEVICEREMOVECOMPLETE) {
+                Logger::Log(Info) << "DirectInput: Device change detected. Invalidating device cache.";
+                std::lock_guard<std::mutex> lock(g_deviceCacheMutex);
+                g_deviceListDirty = true;
+            }
         }
+        return DefWindowProc(hWnd, message, wParam, lParam);
+    };
+    wc.hInstance = GetModuleHandle(NULL);
+    wc.lpszClassName = CLASS_NAME;
 
-        DEV_BROADCAST_DEVICEINTERFACE_W filter = {};
-        filter.dbcc_size = sizeof(filter);
-        filter.dbcc_devicetype = DBT_DEVTYP_DEVICEINTERFACE;
-        // GUID_DEVINTERFACE_HID is the class for HIDs
-        filter.dbcc_classguid = { 0x4d1e55b2, 0xf16f, 0x11cf, { 0x88, 0xcb, 0x00, 0x11, 0x11, 0x00, 0x00, 0x30 } };
-
-        HDEVNOTIFY hNotify = RegisterDeviceNotificationW(hWnd, &filter, DEVICE_NOTIFY_WINDOW_HANDLE);
-        if (hNotify == NULL) {
-            Logger::Log(Error) << "Failed to register for device notifications.";
-        }
-
-        MSG msg;
-        while (GetMessage(&msg, NULL, 0, 0) > 0) {
-            TranslateMessage(&msg);
-            DispatchMessage(&msg);
-        }
+    if (!RegisterClassW(&wc)) {
+        Logger::Log(Error) << "Failed to register window class for device notifications. Error: " << GetLastError();
+        return;
     }
+
+    HWND hWnd = CreateWindowExW(0, CLASS_NAME, L"Device Notifier", 0, 0, 0, 0, 0, HWND_MESSAGE, NULL, NULL, NULL);
+    if (hWnd == NULL) {
+        Logger::Log(Error) << "Failed to create device notification window. Error: " << GetLastError();
+        return;
+    }
+
+    DEV_BROADCAST_DEVICEINTERFACE_W filter = {};
+    filter.dbcc_size = sizeof(filter);
+    filter.dbcc_devicetype = DBT_DEVTYP_DEVICEINTERFACE;
+    filter.dbcc_classguid = { 0x4d1e55b2, 0xf16f, 0x11cf, { 0x88, 0xcb, 0x00, 0x11, 0x11, 0x00, 0x00, 0x30 } };
+
+    HDEVNOTIFY hNotify = RegisterDeviceNotificationW(hWnd, &filter, DEVICE_NOTIFY_WINDOW_HANDLE);
+    if (hNotify == NULL) {
+        Logger::Log(Error) << "Failed to register for device notifications. Error: " << GetLastError();
+    } else {
+        Logger::Log(Info) << "Successfully registered for device notifications.";
+    }
+
+    MSG msg;
+    while (GetMessage(&msg, NULL, 0, 0) > 0) {
+        TranslateMessage(&msg);
+        DispatchMessage(&msg);
+    }
+}
 
 
 bool InstallEnumDevicesHooks() {
@@ -158,6 +171,8 @@ bool InstallEnumDevicesHooks() {
     if (!Settings::Instance().FixDeviceEnumeration) {
         return true;
     }
+
+    std::thread(DeviceNotificationThread).detach();
 
     void* pEnumDevices = nullptr;
     int timewaited = 0;
@@ -179,6 +194,7 @@ bool InstallEnumDevicesHooks() {
         Logger::Log(Error) << "Could not enable device enumeration hook";
         return false;
     }
+
     Logger::Log(Info) << "Enum Devices hooks installed successfully.";
     return true;
 

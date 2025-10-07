@@ -17,6 +17,7 @@ tpRhiSwapchain** rhiSwapchainPtr;
 
 uint8_t* inLoadingScreen;
 
+void* iDirectInput8Ptr;
 
 void InitialiseGlobals() {
 
@@ -34,5 +35,6 @@ void InitialiseGlobals() {
 
 	inLoadingScreen = (uint8_t*)(g_processBaseAddress + 0x4B1C9B4);
 
+	iDirectInput8Ptr = (void*)(g_processBaseAddress + 0x5146e98);
 
 }

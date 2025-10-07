@@ -92,6 +92,7 @@ public:
     bool AllowColourSpaceMismatch;
 
     int FPS_Cap;
+    int LightSleepThreshold;
     bool FixDeviceEnumeration;
 
     static Settings& Instance() {
@@ -126,7 +127,9 @@ public:
         registerSetting("AllowColourSpaceMismatch", true, &Settings::AllowColourSpaceMismatch, "Many texture mods incorrectly use RGB when sRGB is expected and vice versa");
 
         registerSetting("FPSCap", -1, &Settings::FPS_Cap, "-1 = default game behaviour, 0 = unlimited. Do not change this to anything other than -1 if you are also using special k.");
-        registerSetting("FixDeviceEnumeration", false, &Settings::FixDeviceEnumeration, "Improves performance. Do not enable this if you are using specialk");
+        registerSetting("LightSleepThreshold", 0, &Settings::LightSleepThreshold, "(Integral) Uses a more precise timing method for the framerate limiter. This can improve framerate but will increase CPU load. Do not set to anything other than 0 if you are also using specialk");
+
+        registerSetting("FixDeviceEnumeration", false, &Settings::FixDeviceEnumeration, "Fixes the massive stuttering that occurs when pluggin in input devices. Do not enable this if you are using specialk");
 
     }
 
