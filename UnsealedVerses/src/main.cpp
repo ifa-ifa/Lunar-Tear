@@ -421,6 +421,107 @@ public:
     }
 };
 
+class UnpackCommand : public Command {
+public:
+    UnpackCommand(std::vector<std::string> args) : Command(std::move(args)) {}
+    int execute() override {
+        if (m_args.size() != 2) {
+            std::cerr << "Error: unpack mode requires <input.xap> <output_folder>\n";
+            return 1;
+        }
+        const std::filesystem::path input_path(m_args[0]);
+        const std::filesystem::path output_folder_path(m_args[1]);
+
+        std::cout << "Unpacking PACK file\n";
+        std::cout << "Input PACK:  " << input_path << "\n";
+        std::cout << "Output Folder: " << output_folder_path << "\n\n";
+
+        if (!std::filesystem::exists(input_path)) {
+            std::cerr << "Error: Input file not found: " << input_path << "\n";
+            return 1;
+        }
+
+        std::filesystem::create_directories(output_folder_path);
+
+        auto pack_data = util::readFile(input_path);
+        if (!pack_data) {
+            std::cerr << "Error: " << pack_data.error() << "\n";
+            return 1;
+        }
+
+        replicant::pack::PackFile pack_file;
+        if (auto res = pack_file.loadFromMemory(pack_data->data(), pack_data->size()); !res) {
+            std::cerr << "Error parsing PACK file: " << res.error().message << "\n";
+            return 1;
+        }
+
+        for (const auto& entry : pack_file.getFileEntries()) {
+            std::filesystem::path out_path = output_folder_path / entry.name;
+            std::filesystem::create_directories(out_path.parent_path());
+            std::ofstream out_file(out_path, std::ios::binary);
+            if (!out_file) {
+                std::cerr << "Error: Could not open output file for writing: " << out_path << "\n";
+                continue;
+            }
+            out_file.write(entry.serialized_data.data(), entry.serialized_data.size());
+            std::cout << "Extracted: " << entry.name << "\n";
+        }
+
+        return 0;
+    }
+};
+
+class RtexToDdsCommand : public Command {
+public:
+    RtexToDdsCommand(std::vector<std::string> args) : Command(std::move(args)) {}
+    int execute() override {
+        if (m_args.size() != 2) {
+            std::cerr << "Error: rtex-to-dds mode requires <output.dds> <input.rtex>\n";
+            return 1;
+        }
+        const std::filesystem::path output_path(m_args[0]);
+        const std::filesystem::path input_path(m_args[1]);
+
+        std::cout << "Converting BXON Texture to DDS\n";
+        std::cout << "Input:  " << input_path << "\n";
+        std::cout << "Output: " << output_path << "\n";
+
+        auto rtex_data = util::readFile(input_path);
+        if (!rtex_data) {
+            std::cerr << "Error: " << rtex_data.error() << "\n";
+            return 1;
+        }
+
+        replicant::bxon::File bxon_file;
+        if (!bxon_file.loadFromMemory(rtex_data->data(), rtex_data->size())) {
+            std::cerr << "Error parsing BXON file.\n";
+            return 1;
+        }
+
+        auto* tex = std::get_if<replicant::bxon::Texture>(&bxon_file.getAsset());
+        if (!tex) {
+            std::cerr << "Error: BXON file is not a texture.\n";
+            return 1;
+        }
+
+        auto dds_result = replicant::dds::DDSFile::FromGameTexture(*tex);
+        if (!dds_result) {
+            std::cerr << "Error creating DDS from game texture: " << dds_result.error().message << "\n";
+            return 1;
+        }
+
+        auto save_result = dds_result->saveToFile(output_path);
+        if (!save_result) {
+            std::cerr << "Error saving DDS file: " << save_result.error().message << "\n";
+            return 1;
+        }
+
+        std::cout << "Successfully converted to " << output_path << "\n";
+
+        return 0;
+    }
+};
+
 void printUsage() {
     std::cout << "UnsealedVerses Refactored - A tool for manipulating game archives and assets.\n\n";
     std::cout << "Usage: UnsealedVerses <command> [options] <args...>\n\n";
@@ -435,6 +536,10 @@ void printUsage() {
     std::cout << "      --load-type <0|1|2> Set load type (0: Preload, 1: Stream, 2: StreamSpecial).\n\n";
     std::cout << "  texture <output.rtex> <input.dds>\n";
     std::cout << "    Converts a standard DDS texture into a game-ready BXON texture (.rtex).\n\n";
+    std::cout << "  unpack <input.xap> <output_folder>\n";
+    std::cout << "    Extracts all files from a PACK file (.xap) into a specified folder.\n\n";
+    std::cout << "  rtex-to-dds <output.dds> <input.rtex>\n";
+    std::cout << "    Converts a game-ready BXON texture (.rtex) back into a standard DDS file.\n\n";
     std::cout << "  pack-patch <out.xap> <in.xap> <dds_folder>\n";
     std::cout << "    Patches textures within a PACK file (.xap) using DDS files from a folder.\n";
     std::cout << "    DDS filenames (without extension) must match the entry names in the PACK file.\n";
@@ -465,6 +570,12 @@ int main(int argc, char* argv[]) {
     }
     else if (command_name == "find-entry") {
         command = std::make_unique<FindEntryCommand>(command_args);
+    }
+    else if (command_name == "unpack") {
+        command = std::make_unique<UnpackCommand>(command_args);
+    }
+    else if (command_name == "rtex-to-dds") {
+        command = std::make_unique<RtexToDdsCommand>(command_args);
     }
     else {
         std::cerr << "Error: Unknown command '" << command_name << "'\n\n";
