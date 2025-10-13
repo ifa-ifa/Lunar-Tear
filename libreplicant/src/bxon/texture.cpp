@@ -92,7 +92,7 @@ namespace replicant::bxon {
     bool Texture::parse(const char* buffer, size_t size, const char* asset_base) {
         const auto* header = reinterpret_cast<const RawGxTexHeader*>(asset_base);
         if (reinterpret_cast<const char*>(header + 1) > buffer + size) {
-            return false; 
+            return false;
         }
 
         m_width = header->texWidth;
@@ -111,9 +111,25 @@ namespace replicant::bxon {
         const auto* raw_mips = reinterpret_cast<const mipSurface*>(mip_array_start);
         m_mipSurfaces.assign(raw_mips, raw_mips + header->numMipSurfaces);
 
-        // The actual texture pixel data is NOT in this buffer
-        // It is loaded separately by the PackFile loader This function
-        // only parses the metadata from the BXON
+        // --- REVISED FIX STARTS HERE ---
+
+        // Calculate where the texture's pixel data SHOULD begin in the file buffer.
+        const char* texture_data_start = mip_array_start + (header->numMipSurfaces * sizeof(mipSurface));
+
+        // This is the crucial change. We now check if the pixel data actually fits in the provided buffer.
+        // If it doesn't, we assume we are only parsing a header (like from a .xap) and return true without reading pixels.
+        // If it DOES fit, we assume we are parsing a complete .rtex file and read the pixels.
+        if ((texture_data_start + m_totalTextureSize) > (buffer + size)) {
+            // Pixel data is not present in this buffer. This is OK when called from the PackFile loader.
+            // The metadata has been successfully parsed, so we return true.
+            return true;
+        }
+
+        // If we get here, the pixel data is present in the buffer, so we load it.
+        m_textureData.assign(texture_data_start, texture_data_start + m_totalTextureSize);
+
+        // --- REVISED FIX ENDS HERE ---
+
         return true;
     }
 

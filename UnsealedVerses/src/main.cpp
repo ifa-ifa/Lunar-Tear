@@ -464,6 +464,10 @@ public:
                 continue;
             }
             out_file.write(entry.serialized_data.data(), entry.serialized_data.size());
+            // If there's texture pixel data, append it to the same file
+            if (entry.has_resource_data && !entry.resource_data.empty()) {
+                out_file.write(entry.resource_data.data(), entry.resource_data.size());
+            }
             std::cout << "Extracted: " << entry.name << "\n";
         }
 
