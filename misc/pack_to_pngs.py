@@ -2,7 +2,6 @@ import os
 import subprocess
 import shutil
 
-# --- Configuration ---
 UNSEALED_VERSES_PATH = "UnsealedVerses.exe"
 TEXCONV_PATH = "texconv.exe"
 TEXDIAG_PATH = "texdiag.exe"
@@ -12,7 +11,6 @@ EXTRACTED_DDS_DIR = "extracted_dds"
 OUTPUT_PNG_DIR = "output_png"
 
 def main():
-    print("--- Starting Deconstruction Process ---")
 
     for tool in [UNSEALED_VERSES_PATH, TEXCONV_PATH, TEXDIAG_PATH]:
         if not shutil.which(tool):
@@ -20,9 +18,7 @@ def main():
             return
 
     os.makedirs(OUTPUT_PNG_DIR, exist_ok=True)
-    # ... (rest of setup code is the same)
 
-    # --- (Steps 1 & 2 are the same as before) ---
     print("\nConverting .dds to .png and creating metadata sidecar files...")
     for dds_filename in os.listdir(EXTRACTED_DDS_DIR):
         if dds_filename.endswith(".dds"):
@@ -55,18 +51,13 @@ def main():
                 print(f"    - FAILED: texconv.exe error on {dds_filename}: {e.stderr.decode('utf-8', errors='ignore').strip()}")
                 continue
 
-            # --- NEW SIDECAR LOGIC ---
             with open(meta_path, 'w') as f:
                 f.write(dds_format)
             print(f"    - Converted to {png_filename} and saved metadata to {os.path.basename(meta_path)}.")
-            # --- END NEW LOGIC ---
 
-    print("\n--- Deconstruction Complete ---")
     print(f"PNG files and .meta.txt files are in the '{OUTPUT_PNG_DIR}' directory.")
 
-# Boilerplate main call
 if __name__ == "__main__":
-    # Re-add the other parts of main if they were removed
     os.makedirs(INPUT_PACK_DIR, exist_ok=True)
     os.makedirs(EXTRACTED_RTEX_DIR, exist_ok=True)
     os.makedirs(EXTRACTED_DDS_DIR, exist_ok=True)

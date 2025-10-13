@@ -2,7 +2,6 @@ import os
 import subprocess
 import shutil
 
-# --- Configuration ---
 UNSEALED_VERSES_PATH = "UnsealedVerses.exe"
 TEXCONV_PATH = "texconv.exe"
 INPUT_PNG_DIR = "input_png"
@@ -11,7 +10,6 @@ OUTPUT_PACK_DIR = "output_pack"
 ORIGINAL_PACK_DIR = "input_pack"
 
 def main():
-    print("--- Starting Reconstruction Process ---")
 
     for tool in [UNSEALED_VERSES_PATH, TEXCONV_PATH]:
         if not shutil.which(tool):
@@ -46,8 +44,6 @@ def main():
 
         print(f"  - {png_filename} requires format: {dds_format}")
 
-        # --- THIS IS THE FINAL FIX ---
-        # Base command for texconv
         command = [
             TEXCONV_PATH,
             "-f", dds_format,
@@ -61,7 +57,6 @@ def main():
         if "_SRGB" in dds_format.upper():
             print("    - sRGB format detected. Applying gamma correction.")
             command.append("-srgbi")
-        # --- END OF FIX ---
 
         try:
             subprocess.run(command, check=True, capture_output=True, text=True)
@@ -70,7 +65,6 @@ def main():
             continue
         print(f"    - Successfully converted to {os.path.splitext(png_filename)[0] + '.dds'}")
 
-    # --- (Patching process is unchanged) ---
     print("\nPatching the original PACK file...")
     pack_files = [f for f in os.listdir(ORIGINAL_PACK_DIR) if f.endswith(".xap")]
     if not pack_files:
@@ -91,8 +85,7 @@ def main():
         print(f"  - FAILED to patch the PACK file.")
         return
 
-    print("\n--- Reconstruction Complete ---")
-    print(f"Your modded PACK file has been created at: '{output_pack_path}'")
+    print(f"PACK file has been created at: '{output_pack_path}'")
 
 if __name__ == "__main__":
     main()
