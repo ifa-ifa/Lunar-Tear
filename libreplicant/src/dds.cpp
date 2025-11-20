@@ -83,8 +83,11 @@ namespace replicant::dds {
 
     std::expected<DDSFile, DDSError> DDSFile::FromGameTexture(const bxon::Texture& tex) {
         DXGI_FORMAT dxgi_format = XonToDXGI(tex.getFormat());
+
         if (dxgi_format == DXGI_FORMAT_UNKNOWN) {
-            return std::unexpected(DDSError{ DDSErrorCode::UnsupportedFormat, "Cannot create DDS from an unsupported game texture format." });
+
+            std::string errstr = "Cannot create DDS from an unsupported game texture format: " + std::to_string(tex.getFormat());
+            return std::unexpected(DDSError{ DDSErrorCode::UnsupportedFormat, errstr});
         }
 
         const auto& all_mip_data = tex.getTextureData();
