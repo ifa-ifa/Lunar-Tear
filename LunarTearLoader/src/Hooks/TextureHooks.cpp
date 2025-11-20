@@ -28,6 +28,13 @@ namespace {
         return false;
     }
 
+    // TODO: idk if this is worth it or if i should just ignore the volumetric flag altogether for the whole progam...
+    bool AreFormatsVolumetricCompatible(replicant::bxon::XonSurfaceDXGIFormat a, replicant::bxon::XonSurfaceDXGIFormat b) {
+        using namespace replicant::bxon;
+        if ((a == BC7_UNORM_SRGB_VOLUMETRIC && b == BC7_UNORM) || (a == BC7_UNORM && b == BC7_UNORM_SRGB_VOLUMETRIC)) return true;
+        return false;
+    }
+
 
 }
 
@@ -96,12 +103,15 @@ uint64_t TexHook_detoured(tpgxResTexture* tex, void* param_2, void* param_3) {
 
     bool format_ok = (original_format == mod_format);
 
+    // TODO: Improve logging here to display volumetric compatibility
     if (!format_ok && Settings::Instance().AllowColourSpaceMismatch) {
-        if (AreFormatsSRGBCompatible(original_format, mod_format)) {
+        if (AreFormatsSRGBCompatible(original_format, mod_format) || AreFormatsVolumetricCompatible(original_format, mod_format)) {
             Logger::Log(Warning) << " | Allowing sRGB/non-sRGB format mismatch for compatibility.";
             format_ok = true;
         }
     }
+
+    // This form of texture replacment requires identical texture size and mipmap layout. Check this and do not load a texture that does not match.
 
     if (!format_ok) {
         Logger::Log(Error) << " | Format mismatch. Original is " << XonFormatToString(original_format)
