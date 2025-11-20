@@ -16,7 +16,7 @@ namespace {
         case DXGI_FORMAT_BC4_UNORM:            return replicant::bxon::XonSurfaceDXGIFormat::BC4_UNORM;
         case DXGI_FORMAT_BC5_UNORM:            return replicant::bxon::XonSurfaceDXGIFormat::BC5_UNORM;
         case DXGI_FORMAT_BC7_UNORM:            return replicant::bxon::XonSurfaceDXGIFormat::BC7_UNORM;
-        case DXGI_FORMAT_BC7_UNORM_SRGB:       return replicant::bxon::XonSurfaceDXGIFormat::BC7_UNORM; // Todo: add srgb version? Also, probably will be issue with volumetric varients here...
+        case DXGI_FORMAT_BC7_UNORM_SRGB:       return replicant::bxon::XonSurfaceDXGIFormat::BC7_UNORM; // TODO: add srgb version? Also, probably will be issue with volumetric varients here...
         case DXGI_FORMAT_A8_UNORM:             return replicant::bxon::XonSurfaceDXGIFormat::UNKN_A8_UNORM;
         case DXGI_FORMAT_R32G32B32A32_FLOAT:   return replicant::bxon::XonSurfaceDXGIFormat::R32G32B32A32_FLOAT;
         default:                               return replicant::bxon::XonSurfaceDXGIFormat::UNKNOWN;
@@ -127,7 +127,7 @@ namespace replicant::dds {
 
         for (size_t i = 0; i < mip_levels; ++i) {
             const auto& mip_info = mip_surfaces[i];
-            const DirectX::Image* dest_image = &scratch_image->GetImages()[i];
+            const DirectX::Image* dest_image = scratch_image->GetImage(i, 0, 0);
 
             if (!dest_image) {
                 return std::unexpected(DDSError{ DDSErrorCode::LibraryError, "Could not get destination image pointer for mip level " + std::to_string(i) });
@@ -142,7 +142,7 @@ namespace replicant::dds {
                 return std::unexpected(DDSError{ DDSErrorCode::BuildError, "Mismatch between DirectXTex calculated mip size (" + std::to_string(dest_image->slicePitch) + ") and game metadata size (" + std::to_string(mip_info.size) + ") for mip " + std::to_string(i) });
             }
 
-            memcpy(dest_image->pixels, all_mip_data.data() + mip_info.offset, mip_info.size);
+            memcpy(dest_image->pixels, all_mip_data.data() + mip_info.offset, total_mip_data_size);
         }
 
         DDSFile ddsFile;
