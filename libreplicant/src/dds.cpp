@@ -100,13 +100,26 @@ namespace replicant::dds {
         }
 
         auto scratch_image = std::make_unique<DirectX::ScratchImage>();
-        HRESULT hr = scratch_image->Initialize2D(
-            dxgi_format,
-            tex.getWidth(),
-            tex.getHeight(),
-            1, 
-            mip_levels
-        );
+        HRESULT hr;
+
+        if (tex.getDepth() > 1) {
+            hr = scratch_image->Initialize3D(
+                dxgi_format,
+                tex.getWidth(),
+                tex.getHeight(),
+                tex.getDepth(),
+                mip_levels
+            );
+        }
+        else {
+            hr = scratch_image->Initialize2D(
+                dxgi_format,
+                tex.getWidth(),
+                tex.getHeight(),
+                1,
+                mip_levels
+            );
+        }
 
         if (FAILED(hr)) {
             return std::unexpected(DDSError{ DDSErrorCode::LibraryError, "DirectXTex failed to initialize a blank ScratchImage for the game texture." });
@@ -120,7 +133,8 @@ namespace replicant::dds {
                 return std::unexpected(DDSError{ DDSErrorCode::LibraryError, "Could not get destination image pointer for mip level " + std::to_string(i) });
             }
 
-            if (mip_info.offset + mip_info.size > all_mip_data.size()) {
+            size_t total_mip_data_size = mip_info.size * mip_info.currentDepth;
+            if (mip_info.offset + total_mip_data_size > all_mip_data.size()) {
                 return std::unexpected(DDSError{ DDSErrorCode::BufferTooSmall, "Game's mip surface data extends beyond its texture data buffer for mip " + std::to_string(i) });
             }
 
