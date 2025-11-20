@@ -28,6 +28,7 @@ namespace replicant::bxon {
         BC4_UNORM = 0x00011500,
         BC5_UNORM = 0x00011600,
         BC7_UNORM = 0x00011900,
+        BC7_UNORM_SRGB_VOLUMETRIC = 0x00021A00,
         R32G32B32A32_FLOAT = 0x00030000,
         UNKN_A8_UNORM = 0x00031700,
     };

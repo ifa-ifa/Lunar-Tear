@@ -40,6 +40,7 @@ namespace {
         case replicant::bxon::XonSurfaceDXGIFormat::BC3_UNORM_SRGB:
         case replicant::bxon::XonSurfaceDXGIFormat::BC5_UNORM:
         case replicant::bxon::XonSurfaceDXGIFormat::BC7_UNORM:
+        case replicant::bxon::XonSurfaceDXGIFormat::BC7_UNORM_SRGB_VOLUMETRIC:
             return std::max(1u, (width + 3) / 4) * std::max(1u, (height + 3) / 4) * 16;
         case replicant::bxon::XonSurfaceDXGIFormat::R8G8B8A8_UNORM:
         case replicant::bxon::XonSurfaceDXGIFormat::R8G8B8A8_UNORM_SRGB:
@@ -69,7 +70,8 @@ namespace {
         case replicant::bxon::XonSurfaceDXGIFormat::BC3_UNORM:
         case replicant::bxon::XonSurfaceDXGIFormat::BC3_UNORM_SRGB:
         case replicant::bxon::XonSurfaceDXGIFormat::BC5_UNORM:
-        case replicant::bxon::XonSurfaceDXGIFormat::BC7_UNORM: {
+        case replicant::bxon::XonSurfaceDXGIFormat::BC7_UNORM:
+        case replicant::bxon::XonSurfaceDXGIFormat::BC7_UNORM_SRGB_VOLUMETRIC: {
             out_pitch = std::max(1u, (width + 3) / 4) * 16;
             out_rows = std::max(1u, (height + 3) / 4);
             break;
@@ -111,24 +113,21 @@ namespace replicant::bxon {
         const auto* raw_mips = reinterpret_cast<const mipSurface*>(mip_array_start);
         m_mipSurfaces.assign(raw_mips, raw_mips + header->numMipSurfaces);
 
-        // --- REVISED FIX STARTS HERE ---
 
-        // Calculate where the texture's pixel data SHOULD begin in the file buffer.
+        // Calculate where the textures pixel data SHOULD begin in the file buffer
         const char* texture_data_start = mip_array_start + (header->numMipSurfaces * sizeof(mipSurface));
 
-        // This is the crucial change. We now check if the pixel data actually fits in the provided buffer.
-        // If it doesn't, we assume we are only parsing a header (like from a .xap) and return true without reading pixels.
-        // If it DOES fit, we assume we are parsing a complete .rtex file and read the pixels.
+        // We now check if the pixel data actually fits in the provided buffer
+        // If it doesnt, we assume we are only parsing a header and return true without reading pixels
+        // Probably a shitty solution, need to keep in mind
+  
         if ((texture_data_start + m_totalTextureSize) > (buffer + size)) {
-            // Pixel data is not present in this buffer. This is OK when called from the PackFile loader.
-            // The metadata has been successfully parsed, so we return true.
+    
             return true;
         }
 
-        // If we get here, the pixel data is present in the buffer, so we load it.
         m_textureData.assign(texture_data_start, texture_data_start + m_totalTextureSize);
 
-        // --- REVISED FIX ENDS HERE ---
 
         return true;
     }

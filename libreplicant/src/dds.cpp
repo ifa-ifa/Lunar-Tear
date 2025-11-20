@@ -16,7 +16,7 @@ namespace {
         case DXGI_FORMAT_BC4_UNORM:            return replicant::bxon::XonSurfaceDXGIFormat::BC4_UNORM;
         case DXGI_FORMAT_BC5_UNORM:            return replicant::bxon::XonSurfaceDXGIFormat::BC5_UNORM;
         case DXGI_FORMAT_BC7_UNORM:            return replicant::bxon::XonSurfaceDXGIFormat::BC7_UNORM;
-        case DXGI_FORMAT_BC7_UNORM_SRGB:       return replicant::bxon::XonSurfaceDXGIFormat::BC7_UNORM; // Note: Game might not distinguish SRGB version?
+        case DXGI_FORMAT_BC7_UNORM_SRGB:       return replicant::bxon::XonSurfaceDXGIFormat::BC7_UNORM; // Todo: add srgb version? Also, probably will be issue with volumetric varients here...
         case DXGI_FORMAT_A8_UNORM:             return replicant::bxon::XonSurfaceDXGIFormat::UNKN_A8_UNORM;
         case DXGI_FORMAT_R32G32B32A32_FLOAT:   return replicant::bxon::XonSurfaceDXGIFormat::R32G32B32A32_FLOAT;
         default:                               return replicant::bxon::XonSurfaceDXGIFormat::UNKNOWN;
@@ -26,20 +26,21 @@ namespace {
     DXGI_FORMAT XonToDXGI(replicant::bxon::XonSurfaceDXGIFormat format) {
         switch (format) {
         case replicant::bxon::XonSurfaceDXGIFormat::R8G8B8A8_UNORM:
-        case replicant::bxon::XonSurfaceDXGIFormat::R8G8B8A8_UNORM_STRAIGHT: return DXGI_FORMAT_R8G8B8A8_UNORM;
-        case replicant::bxon::XonSurfaceDXGIFormat::R8G8B8A8_UNORM_SRGB:     return DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
-        case replicant::bxon::XonSurfaceDXGIFormat::BC1_UNORM:               return DXGI_FORMAT_BC1_UNORM;
-        case replicant::bxon::XonSurfaceDXGIFormat::BC1_UNORM_SRGB:          return DXGI_FORMAT_BC1_UNORM_SRGB;
-        case replicant::bxon::XonSurfaceDXGIFormat::BC2_UNORM:               return DXGI_FORMAT_BC2_UNORM;
-        case replicant::bxon::XonSurfaceDXGIFormat::BC2_UNORM_SRGB:          return DXGI_FORMAT_BC2_UNORM_SRGB;
-        case replicant::bxon::XonSurfaceDXGIFormat::BC3_UNORM:               return DXGI_FORMAT_BC3_UNORM;
-        case replicant::bxon::XonSurfaceDXGIFormat::BC3_UNORM_SRGB:          return DXGI_FORMAT_BC3_UNORM_SRGB;
-        case replicant::bxon::XonSurfaceDXGIFormat::BC4_UNORM:               return DXGI_FORMAT_BC4_UNORM;
-        case replicant::bxon::XonSurfaceDXGIFormat::BC5_UNORM:               return DXGI_FORMAT_BC5_UNORM;
-        case replicant::bxon::XonSurfaceDXGIFormat::BC7_UNORM:               return DXGI_FORMAT_BC7_UNORM;
-        case replicant::bxon::XonSurfaceDXGIFormat::UNKN_A8_UNORM:           return DXGI_FORMAT_A8_UNORM;
-        case replicant::bxon::XonSurfaceDXGIFormat::R32G32B32A32_FLOAT:      return DXGI_FORMAT_R32G32B32A32_FLOAT;
-        default:                                                             return DXGI_FORMAT_UNKNOWN;
+        case replicant::bxon::XonSurfaceDXGIFormat::R8G8B8A8_UNORM_STRAIGHT:   return DXGI_FORMAT_R8G8B8A8_UNORM;
+        case replicant::bxon::XonSurfaceDXGIFormat::R8G8B8A8_UNORM_SRGB:       return DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
+        case replicant::bxon::XonSurfaceDXGIFormat::BC1_UNORM:                 return DXGI_FORMAT_BC1_UNORM;
+        case replicant::bxon::XonSurfaceDXGIFormat::BC1_UNORM_SRGB:            return DXGI_FORMAT_BC1_UNORM_SRGB;
+        case replicant::bxon::XonSurfaceDXGIFormat::BC2_UNORM:                 return DXGI_FORMAT_BC2_UNORM;
+        case replicant::bxon::XonSurfaceDXGIFormat::BC2_UNORM_SRGB:            return DXGI_FORMAT_BC2_UNORM_SRGB;
+        case replicant::bxon::XonSurfaceDXGIFormat::BC3_UNORM:                 return DXGI_FORMAT_BC3_UNORM;
+        case replicant::bxon::XonSurfaceDXGIFormat::BC3_UNORM_SRGB:            return DXGI_FORMAT_BC3_UNORM_SRGB;
+        case replicant::bxon::XonSurfaceDXGIFormat::BC4_UNORM:                 return DXGI_FORMAT_BC4_UNORM;
+        case replicant::bxon::XonSurfaceDXGIFormat::BC5_UNORM:                 return DXGI_FORMAT_BC5_UNORM;
+        case replicant::bxon::XonSurfaceDXGIFormat::BC7_UNORM:                 return DXGI_FORMAT_BC7_UNORM;
+        case replicant::bxon::XonSurfaceDXGIFormat::BC7_UNORM_SRGB_VOLUMETRIC: return DXGI_FORMAT_BC7_UNORM_SRGB;
+        case replicant::bxon::XonSurfaceDXGIFormat::UNKN_A8_UNORM:             return DXGI_FORMAT_A8_UNORM;
+        case replicant::bxon::XonSurfaceDXGIFormat::R32G32B32A32_FLOAT:        return DXGI_FORMAT_R32G32B32A32_FLOAT;
+        default:                                                               return DXGI_FORMAT_UNKNOWN;
         }
     }
 }
