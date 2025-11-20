@@ -124,6 +124,11 @@ uint64_t TexHook_detoured(tpgxResTexture* tex, void* param_2, void* param_3) {
             << ", but mod is " << dds_file.getWidth() << "x" << dds_file.getHeight() << ". Texture not replaced.";
         return TexHook_original(tex, param_2, param_3);
     }
+    if (tex->bxonAssetHeader->texDepth != dds_file.getDepth()) {
+        Logger::Log(Error) << " | Depth mismatch (Volumetric). Original is " << tex->bxonAssetHeader->texDepth
+            << ", but mod is " << dds_file.getDepth() << ". Texture not replaced.";
+        return TexHook_original(tex, param_2, param_3);
+    }
     if (tex->bxonAssetHeader->numMipSurfaces != dds_file.getMipLevels()) {
         Logger::Log(Error) << " | Mipmap count mismatch. Original has " << tex->bxonAssetHeader->numMipSurfaces
             << " mips, but mod has " << dds_file.getMipLevels() << ". Texture not replaced.";
