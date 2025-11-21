@@ -40,6 +40,7 @@ namespace {
         case replicant::bxon::XonSurfaceDXGIFormat::BC3_UNORM_SRGB:
         case replicant::bxon::XonSurfaceDXGIFormat::BC5_UNORM:
         case replicant::bxon::XonSurfaceDXGIFormat::BC7_UNORM:
+        case replicant::bxon::XonSurfaceDXGIFormat::BC7_UNORM_SRGB:
         case replicant::bxon::XonSurfaceDXGIFormat::BC7_UNORM_SRGB_VOLUMETRIC:
             return std::max(1u, (width + 3) / 4) * std::max(1u, (height + 3) / 4) * 16;
         case replicant::bxon::XonSurfaceDXGIFormat::R8G8B8A8_UNORM:
@@ -71,6 +72,7 @@ namespace {
         case replicant::bxon::XonSurfaceDXGIFormat::BC3_UNORM_SRGB:
         case replicant::bxon::XonSurfaceDXGIFormat::BC5_UNORM:
         case replicant::bxon::XonSurfaceDXGIFormat::BC7_UNORM:
+        case replicant::bxon::XonSurfaceDXGIFormat::BC7_UNORM_SRGB:
         case replicant::bxon::XonSurfaceDXGIFormat::BC7_UNORM_SRGB_VOLUMETRIC: {
             out_pitch = std::max(1u, (width + 3) / 4) * 16;
             out_rows = std::max(1u, (height + 3) / 4);

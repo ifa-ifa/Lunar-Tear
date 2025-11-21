@@ -28,11 +28,13 @@ namespace {
         return false;
     }
 
-    // TODO: idk if this is worth it or if i should just ignore the volumetric flag altogether for the whole progam...
-    bool AreFormatsVolumetricCompatible(replicant::bxon::XonSurfaceDXGIFormat a, replicant::bxon::XonSurfaceDXGIFormat b) {
+    // Helper to strip Game Specific flags and return the raw pixel format
+    replicant::bxon::XonSurfaceDXGIFormat NormalizeFormat(replicant::bxon::XonSurfaceDXGIFormat fmt) {
         using namespace replicant::bxon;
-        if ((a == BC7_UNORM_SRGB_VOLUMETRIC && b == BC7_UNORM) || (a == BC7_UNORM && b == BC7_UNORM_SRGB_VOLUMETRIC)) return true;
-        return false;
+        if (fmt == BC7_UNORM_SRGB_VOLUMETRIC) {
+            return BC7_UNORM_SRGB;
+        }
+        return fmt;
     }
 
 
@@ -98,14 +100,16 @@ uint64_t TexHook_detoured(tpgxResTexture* tex, void* param_2, void* param_3) {
     }
     const auto& dds_file = *dds_result;
 
-    auto original_format = (replicant::bxon::XonSurfaceDXGIFormat)tex->bxonAssetHeader->XonSurfaceFormat;
-    auto mod_format = dds_file.getFormat();
+    auto raw_original_format = (replicant::bxon::XonSurfaceDXGIFormat)tex->bxonAssetHeader->XonSurfaceFormat;
+    auto raw_mod_format = dds_file.getFormat();
 
-    bool format_ok = (original_format == mod_format);
+    auto normalized_original = NormalizeFormat(raw_original_format);
+    auto normalized_mod = NormalizeFormat(raw_mod_format);
 
-    // TODO: Improve logging here to display volumetric compatibility
+    bool format_ok = (normalized_original == normalized_mod);
+
     if (!format_ok && Settings::Instance().AllowColourSpaceMismatch) {
-        if (AreFormatsSRGBCompatible(original_format, mod_format) || AreFormatsVolumetricCompatible(original_format, mod_format)) {
+        if (AreFormatsSRGBCompatible(normalized_original, normalized_mod)) {
             Logger::Log(Warning) << " | Allowing sRGB/non-sRGB format mismatch for compatibility.";
             format_ok = true;
         }
@@ -114,8 +118,8 @@ uint64_t TexHook_detoured(tpgxResTexture* tex, void* param_2, void* param_3) {
     // This form of texture replacment requires identical texture size and mipmap layout. Check this and do not load a texture that does not match.
 
     if (!format_ok) {
-        Logger::Log(Error) << " | Format mismatch. Original is " << XonFormatToString(original_format)
-            << ", but mod is " << XonFormatToString(mod_format) << ". Texture not replaced.";
+        Logger::Log(Error) << " | Format mismatch. Original is " << XonFormatToString(raw_original_format)
+            << ", but mod is " << XonFormatToString(raw_mod_format) << ". Texture not replaced. Note that game specific flags like volumetric are not relevant here.";
         return TexHook_original(tex, param_2, param_3);
     }
 

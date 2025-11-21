@@ -16,7 +16,7 @@ namespace {
         case DXGI_FORMAT_BC4_UNORM:            return replicant::bxon::XonSurfaceDXGIFormat::BC4_UNORM;
         case DXGI_FORMAT_BC5_UNORM:            return replicant::bxon::XonSurfaceDXGIFormat::BC5_UNORM;
         case DXGI_FORMAT_BC7_UNORM:            return replicant::bxon::XonSurfaceDXGIFormat::BC7_UNORM;
-        case DXGI_FORMAT_BC7_UNORM_SRGB:       return replicant::bxon::XonSurfaceDXGIFormat::BC7_UNORM; // TODO: add srgb version? Also, probably will be issue with volumetric varients here...
+        case DXGI_FORMAT_BC7_UNORM_SRGB:       return replicant::bxon::XonSurfaceDXGIFormat::BC7_UNORM_SRGB;
         case DXGI_FORMAT_A8_UNORM:             return replicant::bxon::XonSurfaceDXGIFormat::UNKN_A8_UNORM;
         case DXGI_FORMAT_R32G32B32A32_FLOAT:   return replicant::bxon::XonSurfaceDXGIFormat::R32G32B32A32_FLOAT;
         default:                               return replicant::bxon::XonSurfaceDXGIFormat::UNKNOWN;
@@ -37,6 +37,7 @@ namespace {
         case replicant::bxon::XonSurfaceDXGIFormat::BC4_UNORM:                 return DXGI_FORMAT_BC4_UNORM;
         case replicant::bxon::XonSurfaceDXGIFormat::BC5_UNORM:                 return DXGI_FORMAT_BC5_UNORM;
         case replicant::bxon::XonSurfaceDXGIFormat::BC7_UNORM:                 return DXGI_FORMAT_BC7_UNORM;
+        case replicant::bxon::XonSurfaceDXGIFormat::BC7_UNORM_SRGB:            return DXGI_FORMAT_BC7_UNORM_SRGB;
         case replicant::bxon::XonSurfaceDXGIFormat::BC7_UNORM_SRGB_VOLUMETRIC: return DXGI_FORMAT_BC7_UNORM_SRGB;
         case replicant::bxon::XonSurfaceDXGIFormat::UNKN_A8_UNORM:             return DXGI_FORMAT_A8_UNORM;
         case replicant::bxon::XonSurfaceDXGIFormat::R32G32B32A32_FLOAT:        return DXGI_FORMAT_R32G32B32A32_FLOAT;

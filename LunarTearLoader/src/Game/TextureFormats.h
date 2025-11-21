@@ -65,6 +65,7 @@ inline const char* XonFormatToString(replicant::bxon::XonSurfaceDXGIFormat forma
 	case replicant::bxon::BC4_UNORM:                 return "BC4_UNORM (ATI1)";
 	case replicant::bxon::BC5_UNORM:                 return "BC5_UNORM (ATI2)";
 	case replicant::bxon::BC7_UNORM:                 return "BC7_UNORM";
+	case replicant::bxon::BC7_UNORM_SRGB: return "BC7_UNORM_SRGB";
 	case replicant::bxon::BC7_UNORM_SRGB_VOLUMETRIC: return "BC7_UNORM_SRGB (VOLUMETRIC)";
 	case replicant::bxon::R32G32B32A32_FLOAT:        return "R32G32B32A32_FLOAT";
 	case replicant::bxon::UNKN_A8_UNORM:             return "UNKN_A8_UNORM";
