@@ -94,6 +94,9 @@ public:
     int FPS_Cap;
     bool FixDeviceEnumeration;
 
+    bool autoBackups;
+    int maxBackups;
+
     static Settings& Instance() {
         static std::unique_ptr<Settings> instance = [] {
             auto s = std::make_unique<Settings>();
@@ -126,8 +129,10 @@ public:
         registerSetting("AllowColourSpaceMismatch", true, &Settings::AllowColourSpaceMismatch, "Many texture mods incorrectly use RGB when sRGB is expected and vice versa");
 
         registerSetting("FPSCap", -1, &Settings::FPS_Cap, "-1 = default game behaviour, 0 = unlimited. Do not change this to anything other than -1 if you are also using special k.");
-
         registerSetting("FixDeviceEnumeration", false, &Settings::FixDeviceEnumeration, "Fixes the massive stuttering that occurs when pluggin in input devices. Do not enable this if you are using specialk");
+
+        registerSetting("SaveBackups", true, &Settings::autoBackups, "Automatically make save backups on launch");
+        registerSetting("MaxBackups", 100, &Settings::maxBackups, "Eliminate old backups if there are more than this (per steam id)");
 
     }
 

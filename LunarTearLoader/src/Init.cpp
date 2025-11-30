@@ -11,6 +11,7 @@
 #include "Hooks/Hooks.h"
 #include "VFS/ArchivePatcher.h"
 #include "Init.h"
+#include "Common/Backup.h"
 
 using enum Logger::LogCategory;
 
@@ -102,9 +103,18 @@ DWORD WINAPI Initialize(LPVOID) {
         }
 
         Logger::Log(Info) << "Lunar Tear initialization complete.";
+
+
+        if (Settings::Instance().autoBackups) {
+            try {
+                CreateSaveBackups();
+            }
+            catch (const std::exception& e) {
+                Logger::Log(Error) << "Failed to create save backups: " << e.what();
+			}
+        }
     }
-
-
+    
     catch (const std::exception& e) {
         MessageBoxA(NULL, e.what(), "Lunar Tear", MB_OK | MB_ICONERROR);
     }

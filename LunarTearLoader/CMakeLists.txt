@@ -47,7 +47,7 @@ add_library(LunarTearLoader SHARED
     "src/Lua/CoreBindings.h"
     "src/Lua/CoreBindings.cpp"
 
- "src/Hooks/VFSHooks.cpp" "include/tether/tether.h" "src/VFS/ArchivePatcher.cpp" "src/VFS/ArchivePatcher.h"   "src/Lua/CallbackQueue.cpp" "src/Init.cpp" "src/Game/d3d11.h" "src/Hooks/FPSUnlockHooks.cpp"  "src/Common/Patch.h" "src/Common/Patch.cpp"  "src/Game/d3d11.cpp" "src/Game/dinput8.h" "src/Hooks/EnumDevicesHooks.cpp")
+ "src/Hooks/VFSHooks.cpp" "include/tether/tether.h" "src/VFS/ArchivePatcher.cpp" "src/VFS/ArchivePatcher.h"   "src/Lua/CallbackQueue.cpp" "src/Init.cpp" "src/Game/d3d11.h" "src/Hooks/FPSUnlockHooks.cpp"  "src/Common/Patch.h" "src/Common/Patch.cpp"  "src/Game/d3d11.cpp" "src/Game/dinput8.h" "src/Hooks/EnumDevicesHooks.cpp" "src/Common/Backup.h")
 
 add_executable(LunarTearLauncher "src/Launcher.cpp")
 
