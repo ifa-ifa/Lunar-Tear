@@ -1,6 +1,7 @@
 #include "Game/Globals.h"
 #include <Windows.h>
 
+// TODO: pattern scan these addresses instead of hardcoding them. But this game is not receiving any more updates, so the risk of them changing is low.
 
 uintptr_t g_processBaseAddress;
 PhaseScriptManager* phaseScriptManager;

@@ -13,6 +13,8 @@ std::vector<ModArchive> g_patched_archive_mods;
 
 namespace {
 
+
+	// TODO: This loads the entire file at once. Only suitable for small files like indexes
     std::expected<std::vector<char>, std::string> ReadFile(const std::filesystem::path& path) {
         std::ifstream file(path, std::ios::binary | std::ios::ate);
         if (!file) {

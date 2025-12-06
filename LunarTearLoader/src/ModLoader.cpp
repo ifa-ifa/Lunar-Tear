@@ -46,7 +46,7 @@ namespace {
     static std::thread s_cleanupThread;
     static std::atomic<bool> s_stopCleanup(false);
 
-
+	// Evicting textures seems to be fine, as the game copies them into its own memory. Its still marked as experimental though.
     void CacheCleanupRoutine() {
         Logger::Log(Verbose) << "Texture cache cleanup thread started.";
         while (!s_stopCleanup) {

@@ -16,6 +16,7 @@ EXTERN PostLibTrampoline
 EXTERN PostGameTrampoline
 EXTERN PostRootTrampoline
 
+; TODO: None of these asm files preserve xmm registers (but none of the injected scripts use them either)
 
 SECTION .text
 
