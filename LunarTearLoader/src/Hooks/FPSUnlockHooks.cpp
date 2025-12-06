@@ -98,8 +98,8 @@ HRESULT WINAPI Present_detoured(void* pSwapChain, uint32_t SyncInterval, uint32_
 
     // busy-wait/yield until target - presentEstimate 
     while (Clock::now() < (target - wakeBeforePresent)) {
-        // yield for a short time instead of pure spin
-        std::this_thread::yield();
+		// tell the cpu were in a spin-wait loop
+        _mm_pause();
     }
 
     auto presStart = Clock::now();
@@ -121,8 +121,8 @@ HRESULT WINAPI Present_detoured(void* pSwapChain, uint32_t SyncInterval, uint32_
 
     // If we're already behind (maybe a hitch), resync to now + one frame to avoid cumulative catch-up debt
     now = Clock::now();
-    if (now > nextFrameTime) {
-        nextFrameTime = now + targetFrameDuration;
+    if (now > nextFrameTime) [[unlikely]] {
+        nextFrameTime = presEnd + targetFrameDuration;
     }
 
     return hr;
