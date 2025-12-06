@@ -92,7 +92,11 @@ namespace replicant::pack {
             files_start_ptr < buffer || files_start_ptr > buffer_end) {
             return std::unexpected(PackError{ PackErrorCode::ParseError, "Header contains offsets pointing outside the file." });
         }
-        if (paths_start_ptr > asset_packs_start_ptr || asset_packs_start_ptr > files_start_ptr) {
+        
+        bool paths_invalid = (header->pathCount > 0 && header->assetPackCount > 0 && paths_start_ptr > asset_packs_start_ptr);
+        bool assets_invalid = (header->assetPackCount > 0 && header->fileCount > 0 && asset_packs_start_ptr > files_start_ptr);
+
+        if (paths_invalid || assets_invalid) {
             return std::unexpected(PackError{ PackErrorCode::ParseError, "Header offsets are not sequential." });
         }
 
@@ -106,11 +110,23 @@ namespace replicant::pack {
         }
 
         m_original_asset_pack_count = header->assetPackCount;
-        // ONLY read the data block if there are entries to read.
+
         if (header->assetPackCount > 0) {
             const char* asset_packs_start = get_ptr_from_field(buffer, &header->offsetToAssetPacks, header->offsetToAssetPacks);
-            const char* files_start = get_ptr_from_field(buffer, &header->offsetToFiles, header->offsetToFiles);
-            size_t asset_packs_size = files_start - asset_packs_start;
+            const char* asset_packs_end = nullptr;
+
+            if (header->fileCount > 0) {
+                asset_packs_end = get_ptr_from_field(buffer, &header->offsetToFiles, header->offsetToFiles);
+            }
+            else {
+                asset_packs_end = buffer + header->serializedSize;
+            }
+
+            if (asset_packs_end < asset_packs_start) {
+                return std::unexpected(PackError{ PackErrorCode::ParseError, "Asset Pack offset logic failed (End pointer < Start pointer)" });
+            }
+
+            size_t asset_packs_size = asset_packs_end - asset_packs_start;
             m_asset_packs_data.assign(asset_packs_start, asset_packs_start + asset_packs_size);
         }
 
