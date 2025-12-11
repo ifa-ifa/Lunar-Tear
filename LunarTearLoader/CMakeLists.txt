@@ -6,7 +6,6 @@ project ("LunarTearLoader" LANGUAGES C CXX ASM_NASM)
 find_package(minhook REQUIRED CONFIG)
 find_package(unofficial-inih REQUIRED CONFIG)
 find_package(crc32c REQUIRED CONFIG)
-find_package(zstd REQUIRED CONFIG)
 find_package(nlohmann_json REQUIRED CONFIG)
 
 
@@ -47,7 +46,7 @@ add_library(LunarTearLoader SHARED
     "src/Lua/CoreBindings.h"
     "src/Lua/CoreBindings.cpp"
 
- "src/Hooks/VFSHooks.cpp" "include/tether/tether.h" "src/VFS/ArchivePatcher.cpp" "src/VFS/ArchivePatcher.h"   "src/Lua/CallbackQueue.cpp" "src/Init.cpp" "src/Game/d3d11.h" "src/Hooks/FPSUnlockHooks.cpp"  "src/Common/Patch.h" "src/Common/Patch.cpp"  "src/Game/d3d11.cpp" "src/Game/dinput8.h" "src/Hooks/EnumDevicesHooks.cpp" "src/Common/Backup.h")
+ "src/Hooks/VFSHooks.cpp" "include/tether/tether.h" "src/VFS/ArchivePatcher.cpp" "src/VFS/ArchivePatcher.h"   "src/Lua/CallbackQueue.cpp" "src/Init.cpp" "src/Game/d3d11.h" "src/Hooks/FPSUnlockHooks.cpp"  "src/Common/Patch.h" "src/Common/Patch.cpp"  "src/Game/d3d11.cpp" "src/Game/dinput8.h" "src/Hooks/EnumDevicesHooks.cpp" "src/Common/Backup.h" "src/version.rc" "src/Common/SHA256.cpp" "src/Common/SHA256.h")
 
 add_executable(LunarTearLauncher "src/Launcher.cpp")
 
@@ -58,5 +57,3 @@ target_include_directories(LunarTearLoader PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/i
 
 target_link_libraries(LunarTearLoader PRIVATE minhook::minhook unofficial::inih::inireader libreplicant 
                                               Crc32c::crc32c nlohmann_json::nlohmann_json)
-
-target_link_libraries(LunarTearLauncher PRIVATE ) 

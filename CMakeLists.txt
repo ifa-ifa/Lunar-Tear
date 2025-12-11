@@ -2,6 +2,8 @@
 
 project(LunarTear)
 
+add_link_options("/PDBALTPATH:%_PDB%")
+
 if(NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
     include(CheckIPOSupported)
     check_ipo_supported(RESULT ipo_supported)
