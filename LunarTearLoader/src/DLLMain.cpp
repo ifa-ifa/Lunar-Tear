@@ -46,7 +46,6 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
         if (hThread) CloseHandle(hThread);
     }
     else if (ul_reason_for_call == DLL_PROCESS_DETACH) {
-        StopCacheCleanupThread();
 
         //MH_Uninitialize(); // Causes deadlock
     }

@@ -16,7 +16,4 @@ void* LoadLooseFile(const char* filename, size_t& out_size);
 std::optional<std::string> GetModPath(const std::string& mod_id);
 std::vector<std::vector<char>> GetInjectionScripts(const std::string& injectionPoint);
 
-void StartCacheCleanupThread();
-void StopCacheCleanupThread();
-
 void LoadPlugins();

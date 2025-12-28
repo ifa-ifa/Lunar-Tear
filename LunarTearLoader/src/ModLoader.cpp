@@ -42,48 +42,6 @@ namespace {
     static std::map<std::string, std::vector<std::string>> s_injectionScripts;
     static std::mutex s_injectionMutex;
 
-
-    static std::thread s_cleanupThread;
-    static std::atomic<bool> s_stopCleanup(false);
-
-	// Evicting textures seems to be fine, as the game copies them into its own memory. Its still marked as experimental though.
-    void CacheCleanupRoutine() {
-        Logger::Log(Verbose) << "Texture cache cleanup thread started.";
-        while (!s_stopCleanup) {
-            std::this_thread::sleep_for(std::chrono::seconds(3));
-
-            const auto now = std::chrono::steady_clock::now();
-            const auto unload_delay = std::chrono::seconds(Settings::Instance().TextureUnloadDelaySeconds);
-
-            std::lock_guard<std::mutex> lock(s_cacheMutex);
-
-            float size = 0;
-
-            for (auto it = s_fileCache.begin(); it != s_fileCache.end();) {
-
-                size += it->second.data.size();
-
-                // Only evict textures
-                std::filesystem::path p(it->first);
-                if (p.extension() == ".dds") {
-                    auto elapsed = now - it->second.lastAccessTime;
-                    if (elapsed > unload_delay) {
-                        Logger::Log(Verbose) << "Unloading texture from cache: " << it->first;
-                        it = s_fileCache.erase(it);
-                    }
-                    else {
-                        ++it;
-                    }
-                }
-                else {
-                    ++it;
-                }
-            }
-
-            Logger::Log(Verbose) << "Cache usage: " << size / 1e6 << "MB";
-        }
-        Logger::Log(Verbose) << "Texture cache cleanup thread stopped.";
-    }
 }
 
 std::optional<std::string> GetModPath(const std::string& mod_id) {
@@ -356,20 +314,6 @@ void* LoadLooseFile(const char* filename, size_t& out_size) {
         auto& newEntry = inserted_it->second;
         out_size = newEntry.data.size();
         return newEntry.data.data();
-    }
-}
-
-void StartCacheCleanupThread() {
-    if (Settings::Instance().TextureUnloading) {
-        s_stopCleanup = false;
-        s_cleanupThread = std::thread(CacheCleanupRoutine);
-    }
-}
-
-void StopCacheCleanupThread() {
-    if (s_cleanupThread.joinable()) {
-        s_stopCleanup = true;
-        s_cleanupThread.join();
     }
 }
 

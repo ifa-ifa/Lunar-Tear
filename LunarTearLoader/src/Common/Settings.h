@@ -86,9 +86,6 @@ public:
     bool DumpScripts;
     bool DumpTables;
 
-    bool TextureUnloading;
-    int TextureUnloadDelaySeconds;
-
     bool AllowColourSpaceMismatch;
 
     int FPS_Cap;
@@ -122,9 +119,6 @@ public:
         registerSetting("DumpTextures", false, &Settings::DumpTextures, "");
         registerSetting("DumpScripts", false, &Settings::DumpScripts, "");
         registerSetting("DumpTables", false, &Settings::DumpTables, "");
-
-        registerSetting("TextureUnloading", false, &Settings::TextureUnloading, "EXPERIMENTAL - Reduce memory usage when using lots of mods, may cause crashes (only for loose dds textures, archived textures do not suffer from this problem in the first place)");
-        registerSetting("TextureUnloadDelaySeconds", 3, &Settings::TextureUnloadDelaySeconds, "");
 
         registerSetting("AllowColourSpaceMismatch", true, &Settings::AllowColourSpaceMismatch, "Many texture mods incorrectly use RGB when sRGB is expected and vice versa");
 

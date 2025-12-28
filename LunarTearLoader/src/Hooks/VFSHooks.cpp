@@ -23,8 +23,6 @@ static bool patching_succeeded = false;
 
 void decompressArchive_detoured(tpFndTextFormat256* basePath, const char* archiveName, void** outbuffer, void* allocator) {
 
-
-
     std::string archiveNameStr(archiveName);
     std::string basePathStr(basePath->buffer);
 

@@ -8,7 +8,6 @@
 #include <chrono>
 #include "Game/d3d11.h"
 #include "ModLoader.h"
-#include "Hooks/Weapons.h"
 #include "Hooks/Hooks.h"
 #include "VFS/ArchivePatcher.h"
 #include "Init.h"
@@ -101,9 +100,6 @@ DWORD WINAPI Initialize(LPVOID) {
         API::Init();
 
         ScanModsAndResolveConflicts();
-
-        StartCacheCleanupThread();
-
 
         if (Settings::Instance().EnablePlugins) {
             LoadPlugins();
