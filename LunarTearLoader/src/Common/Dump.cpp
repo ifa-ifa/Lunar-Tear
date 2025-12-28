@@ -24,39 +24,41 @@ void dumpScript(const std::string& name, const std::vector<char>& data) {
 
 }
 
-void dumpTexture(const tpgxResTexture* tex) {
+void dumpTexture(const tpGxResTexture* tex) {
     if (!tex || !tex->name || !tex->bxonAssetHeader || !tex->texData) {
         Logger::Log(Error) << "Attempted to dump an invalid texture";
         return;
     }
 
-    tpGxTex_Header* header = tex->bxonAssetHeader;
-    mipSurface* game_mips_ptr = (mipSurface*)((uintptr_t)&header->offsetToMipSurfaces + header->offsetToMipSurfaces);
-
-    // Cast to libraries identical type to keep libreplicant out of API headers (hope this is safe?)
-    const replicant::bxon::mipSurface* libreplicant_mips_ptr =
-        reinterpret_cast<const replicant::bxon::mipSurface*>(game_mips_ptr);
-
-    std::span<const replicant::bxon::mipSurface> mip_surfaces_span(libreplicant_mips_ptr, header->numMipSurfaces);
-    std::span<const char> texture_data_span(static_cast<const char*>(tex->texData), tex->texDataSize);
-
-    auto game_tex_result = replicant::bxon::Texture::FromGameData(
-        header->texWidth,
-        header->texHeight,
-        header->texDepth,
-        header->numSurfaces,
-        (replicant::bxon::XonSurfaceDXGIFormat)header->XonSurfaceFormat,
-        header->texSize,
-        mip_surfaces_span,
-        texture_data_span
+    std::vector<std::byte> pixel_data = std::vector<std::byte>(
+        static_cast<std::byte*>(tex->texData),
+        static_cast<std::byte*>(tex->texData) + tex->texDataSize
     );
 
-    if (!game_tex_result) {
-        Logger::Log(Error) << "Failed to create replicant::Texture from game data for '" << tex->name << "': " << game_tex_result.error().message;
-        return;
-    }
+    auto rawHeader = reinterpret_cast<replicant::raw::RawTexHeader*>(tex->bxonAssetHeader);
 
-    auto dds_file_result = replicant::dds::DDSFile::FromGameTexture(*game_tex_result);
+
+    uintptr_t headerBaseAddr = reinterpret_cast<uintptr_t>(tex->bxonAssetHeader);
+
+    uintptr_t offsetFieldAddr = headerBaseAddr + offsetof(replicant::raw::RawTexHeader, offsetToSubresources);
+
+    uintptr_t mipTableStartAddr = offsetFieldAddr + rawHeader->offsetToSubresources;
+
+    size_t mipTableSize = rawHeader->subresourcesCount * sizeof(replicant::raw::RawMipSurface);
+    uintptr_t mipTableEndAddr = mipTableStartAddr + mipTableSize;
+
+    size_t totalHeaderSize = mipTableEndAddr - headerBaseAddr;
+    std::span<const std::byte> headerSpan(
+        reinterpret_cast<const std::byte*>(tex->bxonAssetHeader),
+        totalHeaderSize
+    );
+
+    auto game_tex = replicant::Texture::DeserializeHeader(headerSpan);    if (!game_tex) {
+        Logger::Log(Error) << "Failed to deserialize game texture header for texture '" << tex->name << "': " << game_tex.error().message;
+        return;
+	}
+
+    auto dds_file_result = replicant::dds::DDSFile::CreateFromGameData(*game_tex, pixel_data);
     if (!dds_file_result) {
         Logger::Log(Error) << "Failed to create DDS from game texture '" << tex->name << "': " << dds_file_result.error().message;
         return;
@@ -70,7 +72,7 @@ void dumpTexture(const tpgxResTexture* tex) {
         std::filesystem::create_directories(out_path.parent_path());
     }
 
-    auto save_result = dds_file_result->saveToFile(out_path);
+    auto save_result = dds_file_result->Save(out_path);
     if (!save_result) {
         Logger::Log(Error) << "Failed to save dumped texture '" << tex->name << "' to '" << out_path.string() << "': " << save_result.error().message;
         return;

@@ -1,9 +1,13 @@
 set(LIBREPLICANT_SOURCES
-    src/stbl/stbl.cpp
-    src/bxon/bxon.cpp
-    "src/bxon/archive_param.cpp"
- "src/arc/arc.cpp" "src/pack/pack.cpp"  "src/patcher.cpp" "src/dds.cpp"  "src/bxon/texture.cpp" )
-
+    "src/stbl.cpp" 
+    "src/bxon.cpp"
+    "src/tpArchiveFileParam.cpp"
+    "src/arc.cpp"
+    "src/pack.cpp"
+    "src/dds.cpp"
+    "src/tpGxTexHead.cpp"
+    "src/weapon.cpp"
+)
 
 find_package(zstd CONFIG REQUIRED)
 find_package(DirectXTex CONFIG REQUIRED)

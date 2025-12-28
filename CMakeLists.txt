@@ -22,7 +22,7 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
 # Clear cache for these option changed to take effect
 option(BUILD_libreplicant "Build libreplicant" ON)
-option(BUILD_UNSEALED_VERSES "Build Unsealed Verses" ON)
+option(BUILD_UNSEALED_VERSES "Build Unsealed Verses" OFF)
 option(BUILD_SETTBLLEDITOR "Build SETTBLLEditor" ON)
 option(BUILD_LunarTearLoader "Build LunarTearLoader" ON)
 

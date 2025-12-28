@@ -2,6 +2,9 @@
 #include "Common/Logger.h"
 #include "replicant/arc.h"
 #include "replicant/bxon.h"
+
+#include "replicant/core/io.h"
+#include "replicant/tpArchiveFileParam.h"
 #include <filesystem>
 #include <fstream>
 #include <algorithm>
@@ -9,40 +12,19 @@
 
 using enum Logger::LogCategory;
 
-std::vector<ModArchive> g_patched_archive_mods;
-
 namespace {
 
-
-	// TODO: This loads the entire file at once. Only suitable for small files like indexes
-    std::expected<std::vector<char>, std::string> ReadFile(const std::filesystem::path& path) {
-        std::ifstream file(path, std::ios::binary | std::ios::ate);
-        if (!file) {
-            return std::unexpected("Could not open file: " + path.string());
+    uint32_t CalculateHash(std::string_view s) {
+        uint32_t hash = 0x811c9dc5;
+        for (char c : s) {
+            hash *= 0x01000193;              
+            hash ^= static_cast<uint8_t>(c); 
         }
-        std::streamsize size = file.tellg();
-        file.seekg(0, std::ios::beg);
-        if (size <= 0) {
-            return std::unexpected("File is empty or invalid: " + path.string());
-        }
-        std::vector<char> buffer(static_cast<size_t>(size));
-        if (!file.read(buffer.data(), size)) {
-            return std::unexpected("Failed to read all data from file: " + path.string());
-        }
-        return buffer;
+        return hash;
     }
+}
 
-    bool WriteFile(const std::filesystem::path& path, const std::vector<char>& data) {
-        std::ofstream out_file(path, std::ios::binary);
-        if (!out_file) {
-            Logger::Log(Error) << "Could not open output file for writing: " << path;
-            return false;
-        }
-        out_file.write(data.data(), data.size());
-        return true;
-    }
-
-} 
+std::vector<ModArchive> g_patched_archive_mods;
 
 bool GeneratePatchedIndex() {
     try {
@@ -51,34 +33,36 @@ bool GeneratePatchedIndex() {
             return true; 
         }
 
-        auto original_index_data = ReadFile("data/info.arc");
+        auto original_index_data = replicant::ReadFile("data/info.arc");
         if (!original_index_data) {
-            Logger::Log(Error) << "Failed to read original info.arc: " << original_index_data.error();
+            Logger::Log(Error) << "Failed to read original info.arc: " << original_index_data.error().message;
             return false;
         }
 
 
-        auto decompressed_size = replicant::archive::get_decompressed_size_zstd(*original_index_data);
+        auto decompressed_size = replicant::archive::GetDecompressedSize(*original_index_data);
         if (!decompressed_size) {
             Logger::Log(Error) << "Failed to decompress original info.arc: " << decompressed_size.error().code << " - " << decompressed_size.error().message;
             return false;
         }
 
-        auto decompressed_result = replicant::archive::decompress_zstd(original_index_data->data(), original_index_data->size(), *decompressed_size);
+        auto decompressed_result = replicant::archive::Decompress(*original_index_data, *decompressed_size);
         if (!decompressed_result) {
             Logger::Log(Error) << "Failed to decompress original info.arc: " << decompressed_result.error().message;
             return false;
         }
 
-        replicant::bxon::File base_bxon_file;
-        if (!base_bxon_file.loadFromMemory(decompressed_result->data(), decompressed_result->size())) {
-            Logger::Log(Error) << "Failed to parse original info.arc as BXON.";
+        auto bxonRes = replicant::Bxon::Parse(*decompressed_result);
+        if (!bxonRes) {
+            Logger::Log(Error) << "Failed to parse info.arc BXON", bxonRes.error();
             return false;
         }
 
-        auto* main_param = std::get_if<replicant::bxon::ArchiveParameters>(&base_bxon_file.getAsset());
+        auto& [headerInfo, payload] = *bxonRes;
+
+		auto main_param = replicant::TpArchiveFileParam::Deserialize(payload);
         if (!main_param) {
-            Logger::Log(Error) << "Original info.arc is not a tpArchiveFileParam BXON.";
+            Logger::Log(Error) << "Failed to parse original info.arc as BXON: " << main_param.error().message;
             return false;
         }
 
@@ -90,38 +74,44 @@ bool GeneratePatchedIndex() {
         std::filesystem::path game_root_path = std::filesystem::current_path();
 
         for (auto& mod : g_patched_archive_mods) {
-            auto mod_index_data = ReadFile(mod.indexPath);
+            auto mod_index_data = replicant::ReadFile(mod.indexPath);
             if (!mod_index_data) {
-                Logger::Log(Warning) << "Could not read mod index '" << mod.indexPath << "'. Skipping.";
+                Logger::Log(Warning) << "Could not read mod index '" 
+                    << mod.indexPath << "'. Skipping: " << mod_index_data.error().message;
                 continue;
             }
 
-            auto mod_decompressed_size = replicant::archive::get_decompressed_size_zstd(*mod_index_data);
+            auto mod_decompressed_size = replicant::archive::GetDecompressedSize(*mod_index_data);
             if (!mod_decompressed_size) {
-                Logger::Log(Error) << "Failed to decompress mod index '" << mod.indexPath << "'. Skipping:" << mod_decompressed_size.error().code << " - "
-                                   << mod_decompressed_size.error().message;
+                Logger::Log(Error) << "Failed to decompress mod index '" << mod.indexPath 
+                    << "'. Skipping:" << mod_decompressed_size.error().code << " - "
+                    << mod_decompressed_size.error().message;
                 continue;
             }
-            auto mod_decompressed_result = replicant::archive::decompress_zstd(mod_index_data->data(), mod_index_data->size(), *mod_decompressed_size);
+            auto mod_decompressed_result = replicant::archive::Decompress(*mod_index_data, *mod_decompressed_size);
             if (!mod_decompressed_result) {
-                Logger::Log(Warning) << "Failed to decompress mod index '" << mod.indexPath << "'. Skipping:" << mod_decompressed_result.error().code 
-                                     << " - " << mod_decompressed_result.error().message;
+                Logger::Log(Warning) << "Failed to decompress mod index '" << mod.indexPath << "'. Skipping:" 
+                    << mod_decompressed_result.error().code 
+                    << " - " << mod_decompressed_result.error().message;
                 continue;
             }
 
-            replicant::bxon::File mod_bxon_file;
-            if (!mod_bxon_file.loadFromMemory(mod_decompressed_result->data(), mod_decompressed_result->size())) {
-                Logger::Log(Warning) << "Failed to parse mod index '" << mod.indexPath << "' as BXON. Skipping.";
+            auto mod_bxonRes = replicant::Bxon::Parse(*mod_decompressed_result);
+            if (!mod_bxonRes) {
+                Logger::Log(Warning) << "Failed to parse mod index '" << mod.indexPath
+                    << "' as BXON. Skipping: " << mod_bxonRes.error().message;
                 continue;
             }
+            auto& [modHeader, modPayload] = *mod_bxonRes;
 
-            auto* mod_param = std::get_if<replicant::bxon::ArchiveParameters>(&mod_bxon_file.getAsset());
-            if (!mod_param || mod_param->getArchiveEntries().empty()) {
-                Logger::Log(Warning) << "Mod index for '" << mod.id << "' is invalid or contains no archive entries. Skipping.";
+            auto mod_param = replicant::TpArchiveFileParam::Deserialize(modPayload);
+            if (!mod_param) {
+                Logger::Log(Warning) << "Failed to parse mod index '" << mod.indexPath 
+                    << "' as BXON. Skipping: " << mod_param.error().message;
                 continue;
             }
-
-            const std::string mod_archive_name = mod_param->getArchiveEntries()[0].filename;
+  
+            const std::string mod_archive_name = mod_param->archiveEntries[0].filename;
             std::filesystem::path mod_dir = std::filesystem::path(mod.indexPath).parent_path();
             std::filesystem::path full_archive_path = mod_dir / mod_archive_name;
 
@@ -132,55 +122,62 @@ bool GeneratePatchedIndex() {
 
             any_mod_was_valid = true;
             std::string final_path_for_index = std::filesystem::relative(full_archive_path, game_root_path / "data").generic_string();
-            uint8_t new_archive_index = main_param->addArchive(final_path_for_index, mod_param->getArchiveEntries()[0].loadType);
+            uint8_t new_archive_index = main_param->addArchiveEntry(final_path_for_index, mod_param->archiveEntries[0].loadType);
+            main_param->archiveEntries[new_archive_index].arcOffsetScale = mod_param->archiveEntries[0].arcOffsetScale;
 
-            for (const auto& mod_file_entry : mod_param->getFileEntries()) {
-                auto* game_entry = main_param->findFile(mod_file_entry.filePath);
+            for (const auto& mod_file_entry : mod_param->fileEntries) {
+                auto* game_entry = main_param->findFile(mod_file_entry.name);
                 if (game_entry) { 
-                    Logger::Log(Verbose) << "Overwriting entry: " << mod_file_entry.filePath;
+                    Logger::Log(Verbose) << "Overwriting entry: " << mod_file_entry.name;
                     game_entry->archiveIndex = new_archive_index;
-                    game_entry->arcOffset = mod_file_entry.arcOffset;
-                    game_entry->compressedSize = mod_file_entry.compressedSize;
-                    game_entry->PackSerialisedSize = mod_file_entry.PackSerialisedSize;
-                    game_entry->assetsDataSize = mod_file_entry.assetsDataSize;
+                    game_entry->rawOffset = mod_file_entry.rawOffset;
+                    game_entry->size = mod_file_entry.size;
+                    game_entry->packFileSerializedSize = mod_file_entry.packFileSerializedSize;
+                    game_entry->packFileResourceSize = mod_file_entry.packFileResourceSize;
                 }
                 else {
-                    Logger::Log(Verbose) << "Adding new entry: " << mod_file_entry.filePath;
-                    replicant::bxon::FileEntry new_fe = mod_file_entry;
+                    Logger::Log(Verbose) << "Adding new entry: " << mod_file_entry.name;
+                    replicant::FileEntry new_fe = mod_file_entry;
                     new_fe.archiveIndex = new_archive_index;
-                    main_param->getFileEntries().push_back(new_fe);
+                    main_param->fileEntries.push_back(new_fe);
                 }
             }
         }
 
         if (!any_mod_was_valid) {
             Logger::Log(Verbose) << "No valid VFS mods were found after scanning. Skipping patch generation.";
-            return true;
-        }
-
-        auto& all_file_entries = main_param->getFileEntries();
-        std::sort(all_file_entries.begin(), all_file_entries.end(),
-            [](const replicant::bxon::FileEntry& a, const replicant::bxon::FileEntry& b) {
-                return a.pathHash < b.pathHash;
-            }
-        );
-
-        auto patched_data_result = main_param->build(base_bxon_file.getVersion(), base_bxon_file.getProjectID());
-        if (!patched_data_result) {
-            Logger::Log(Error) << "Failed to build patched index BXON: " << patched_data_result.error().message;
             return false;
         }
 
-        auto compressed_index_result = replicant::archive::compress_zstd(patched_data_result->data(), patched_data_result->size());
+        auto& all_file_entries = main_param->fileEntries;
+        std::sort(all_file_entries.begin(), all_file_entries.end(),
+            [](const replicant::FileEntry& a, const replicant::FileEntry& b) {
+                return CalculateHash(a.name) < CalculateHash(b.name);
+            }
+        );
+
+        std::vector<std::byte> newPayload = (*main_param).Serialize();
+
+        std::vector<std::byte> newBxon = replicant::Bxon::Build(
+            headerInfo.assetType,
+            headerInfo.version,
+            headerInfo.projectId,
+            newPayload
+        );
+
+        auto compressed_index_result = replicant::archive::Compress(newBxon);
         if (!compressed_index_result) {
             Logger::Log(Error) << "Failed to compress patched index: " << compressed_index_result.error().message;
             return false;
         }
 
         std::filesystem::create_directories("LunarTear");
-        if (!WriteFile("LunarTear/LunarTear.arc", *compressed_index_result)) {
+        auto writeRes = replicant::WriteFile("LunarTear/LunarTear.arc", *compressed_index_result);
+        if (!writeRes) {
+            Logger::Log(Error) << "Failed to write output file" << writeRes.error().message;
             return false;
         }
+
 
         Logger::Log(Verbose) << "Successfully built sorted and patched LunarTear.arc.";
         return true;

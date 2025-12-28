@@ -1,5 +1,5 @@
-#include "replicant/reader.h"
-#include "replicant/writer.h"
+#include "replicant/core/reader.h"
+#include "replicant/core/writer.h"
 #include "replicant/weapon.h"
 #include <fstream>
 #include <cstring>

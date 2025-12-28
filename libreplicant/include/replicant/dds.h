@@ -1,72 +1,49 @@
 #pragma once
-
-#include <replicant/bxon/texture.h>
-#include <expected>
-#include <string>
+#include "replicant/tpGxTexHead.h"
+#include <memory>
 #include <filesystem>
+#include <vector>
+#include <expected>
 #include <span>
-#include <memory> 
 
-namespace DirectX {
-    struct ScratchImage;
-}
-
-namespace replicant::bxon {
-    class Texture;
-    
+namespace DirectX { 
+    class ScratchImage; 
 }
 
 namespace replicant::dds {
 
-
-    enum class DDSErrorCode {
-        Success,
-        FileReadError,
-        FileWriteError,
-        InvalidMagic,
-        InvalidHeader,
-        UnsupportedFormat,
-        BufferTooSmall,
-        BuildError,
-        LibraryError 
-    };
-
     struct DDSError {
-        DDSErrorCode code;
         std::string message;
-
     };
 
     class DDSFile {
-        std::unique_ptr<DirectX::ScratchImage> m_image;
-
-        DDSFile();
+        std::unique_ptr<DirectX::ScratchImage> image_;
 
     public:
+        DDSFile();
         ~DDSFile();
-        DDSFile(DDSFile&& other) noexcept;
-        DDSFile& operator=(DDSFile&& other) noexcept;
+        DDSFile(DDSFile&&) noexcept;
+        DDSFile& operator=(DDSFile&&) noexcept;
 
-        DDSFile(const DDSFile& other) = delete; 
-        DDSFile& operator=(const DDSFile& other) = delete;
+        static std::expected<DDSFile, DDSError> Load(const std::filesystem::path& path);
+        static std::expected<DDSFile, DDSError> LoadFromMemory(std::span<const std::byte> data);
 
-        static std::expected<DDSFile, DDSError> FromFile(const std::filesystem::path& path);
-        static std::expected<DDSFile, DDSError> FromMemory(std::span<const char> data);
-        static std::expected<DDSFile, DDSError> FromGameTexture(const replicant::bxon::Texture& tex);
+        static std::expected<DDSFile, DDSError> CreateFromGameData(
+            const TextureHeader& header,
+            std::span<const std::byte> pixelData
+        );
 
-        std::expected<void, DDSError> saveToFile(const std::filesystem::path& path) const;
-        std::expected<std::vector<char>, DDSError> saveToMemory() const;
+        std::expected<void, DDSError> Save(const std::filesystem::path& path);
+        std::expected<std::vector<std::byte>, DDSError> SaveToMemory();
 
-        uint32_t getWidth() const noexcept;
-        uint32_t getHeight() const noexcept;
-        uint32_t getDepth() const noexcept;
+        uint32_t getWidth() const;
+        uint32_t getHeight() const;
+        uint32_t getDepth() const;
+        uint32_t getMipLevels() const;
+        TextureFormat getFormat() const;
 
-        uint32_t getMipLevels() const noexcept;
-        replicant::bxon::XonSurfaceDXGIFormat getFormat() const noexcept;
+        std::span<const std::byte> getPixelData() const;
 
-        // @warning only valid for the lifetime of this DDSFile object.
-        std::span<const char> getPixelData() const noexcept;
-
-
+        std::pair<TextureHeader, std::vector<std::byte>> ToGameFormat() const;
     };
 }

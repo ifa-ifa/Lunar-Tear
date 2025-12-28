@@ -7,7 +7,6 @@
 #include <filesystem>
 #include <memory>
 #include <algorithm>
-#include "replicant/patcher.h"
 #include "replicant/arc.h"
 #include "replicant/bxon.h"
 #include "replicant/pack.h"

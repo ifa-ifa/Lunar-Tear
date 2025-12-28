@@ -1,206 +1,251 @@
+#define NOMINMAX
 #include "replicant/dds.h"
 #include <DirectXTex.h>
-#include <fstream>
+#include <unordered_map>
+#include <algorithm>
 
 namespace {
-    replicant::bxon::XonSurfaceDXGIFormat DXGIToXon(DXGI_FORMAT format) {
+    using namespace replicant;
+
+    DXGI_FORMAT XonToDXGI(TextureFormat format) {
         switch (format) {
-        case DXGI_FORMAT_R8G8B8A8_UNORM:       return replicant::bxon::XonSurfaceDXGIFormat::R8G8B8A8_UNORM;
-        case DXGI_FORMAT_R8G8B8A8_UNORM_SRGB:  return replicant::bxon::XonSurfaceDXGIFormat::R8G8B8A8_UNORM_SRGB;
-        case DXGI_FORMAT_BC1_UNORM:            return replicant::bxon::XonSurfaceDXGIFormat::BC1_UNORM;
-        case DXGI_FORMAT_BC1_UNORM_SRGB:       return replicant::bxon::XonSurfaceDXGIFormat::BC1_UNORM_SRGB;
-        case DXGI_FORMAT_BC2_UNORM:            return replicant::bxon::XonSurfaceDXGIFormat::BC2_UNORM;
-        case DXGI_FORMAT_BC2_UNORM_SRGB:       return replicant::bxon::XonSurfaceDXGIFormat::BC2_UNORM_SRGB;
-        case DXGI_FORMAT_BC3_UNORM:            return replicant::bxon::XonSurfaceDXGIFormat::BC3_UNORM;
-        case DXGI_FORMAT_BC3_UNORM_SRGB:       return replicant::bxon::XonSurfaceDXGIFormat::BC3_UNORM_SRGB;
-        case DXGI_FORMAT_BC4_UNORM:            return replicant::bxon::XonSurfaceDXGIFormat::BC4_UNORM;
-        case DXGI_FORMAT_BC5_UNORM:            return replicant::bxon::XonSurfaceDXGIFormat::BC5_UNORM;
-        case DXGI_FORMAT_BC7_UNORM:            return replicant::bxon::XonSurfaceDXGIFormat::BC7_UNORM;
-        case DXGI_FORMAT_BC7_UNORM_SRGB:       return replicant::bxon::XonSurfaceDXGIFormat::BC7_UNORM_SRGB;
-        case DXGI_FORMAT_A8_UNORM:             return replicant::bxon::XonSurfaceDXGIFormat::UNKN_A8_UNORM;
-        case DXGI_FORMAT_R32G32B32A32_FLOAT:   return replicant::bxon::XonSurfaceDXGIFormat::R32G32B32A32_FLOAT;
-        default:                               return replicant::bxon::XonSurfaceDXGIFormat::UNKNOWN;
+        case TextureFormat::R32G32B32A32_FLOAT:  return DXGI_FORMAT_R32G32B32A32_FLOAT;
+        case TextureFormat::R32G32B32_FLOAT:     return DXGI_FORMAT_R32G32B32_FLOAT;
+        case TextureFormat::R32G32_FLOAT:        return DXGI_FORMAT_R32G32_FLOAT;
+        case TextureFormat::R32_FLOAT:           return DXGI_FORMAT_R32_FLOAT;
+        case TextureFormat::R16G16B16A16_FLOAT:  return DXGI_FORMAT_R16G16B16A16_FLOAT;
+        case TextureFormat::R16G16_FLOAT:        return DXGI_FORMAT_R16G16_FLOAT;
+        case TextureFormat::R16_FLOAT:           return DXGI_FORMAT_R16_FLOAT;
+        case TextureFormat::R8G8B8A8_UNORM:      return DXGI_FORMAT_R8G8B8A8_UNORM;
+        case TextureFormat::R8G8B8A8_UNORM_SRGB: return DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
+        case TextureFormat::R8G8_UNORM:          return DXGI_FORMAT_R8G8_UNORM;
+        case TextureFormat::R8_UNORM:            return DXGI_FORMAT_R8_UNORM;
+        case TextureFormat::B8G8R8A8_UNORM:      return DXGI_FORMAT_B8G8R8A8_UNORM;
+        case TextureFormat::B8G8R8A8_UNORM_SRGB: return DXGI_FORMAT_B8G8R8A8_UNORM_SRGB;
+        case TextureFormat::B8G8R8X8_UNORM:      return DXGI_FORMAT_B8G8R8X8_UNORM;
+        case TextureFormat::B8G8R8X8_UNORM_SRGB: return DXGI_FORMAT_B8G8R8X8_UNORM_SRGB;
+        case TextureFormat::BC1_UNORM:           return DXGI_FORMAT_BC1_UNORM;
+        case TextureFormat::BC1_UNORM_SRGB:      return DXGI_FORMAT_BC1_UNORM_SRGB;
+        case TextureFormat::BC2_UNORM:           return DXGI_FORMAT_BC2_UNORM;
+        case TextureFormat::BC2_UNORM_SRGB:      return DXGI_FORMAT_BC2_UNORM_SRGB;
+        case TextureFormat::BC3_UNORM:           return DXGI_FORMAT_BC3_UNORM;
+        case TextureFormat::BC3_UNORM_SRGB:      return DXGI_FORMAT_BC3_UNORM_SRGB;
+        case TextureFormat::BC4_UNORM:           return DXGI_FORMAT_BC4_UNORM;
+        case TextureFormat::BC5_UNORM:           return DXGI_FORMAT_BC5_UNORM;
+        case TextureFormat::BC6H_UF16:           return DXGI_FORMAT_BC6H_UF16;
+        case TextureFormat::BC6H_SF16:           return DXGI_FORMAT_BC6H_SF16;
+        case TextureFormat::BC7_UNORM:           return DXGI_FORMAT_BC7_UNORM;
+        case TextureFormat::BC7_UNORM_SRGB:      return DXGI_FORMAT_BC7_UNORM_SRGB;
+        default:                                 return DXGI_FORMAT_UNKNOWN;
         }
     }
 
-    DXGI_FORMAT XonToDXGI(replicant::bxon::XonSurfaceDXGIFormat format) {
+    TextureFormat DXGIToXon(DXGI_FORMAT format) {
         switch (format) {
-        case replicant::bxon::XonSurfaceDXGIFormat::R8G8B8A8_UNORM:
-        case replicant::bxon::XonSurfaceDXGIFormat::R8G8B8A8_UNORM_STRAIGHT:   return DXGI_FORMAT_R8G8B8A8_UNORM;
-        case replicant::bxon::XonSurfaceDXGIFormat::R8G8B8A8_UNORM_SRGB:       return DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
-        case replicant::bxon::XonSurfaceDXGIFormat::BC1_UNORM:                 return DXGI_FORMAT_BC1_UNORM;
-        case replicant::bxon::XonSurfaceDXGIFormat::BC1_UNORM_SRGB:            return DXGI_FORMAT_BC1_UNORM_SRGB;
-        case replicant::bxon::XonSurfaceDXGIFormat::BC2_UNORM:                 return DXGI_FORMAT_BC2_UNORM;
-        case replicant::bxon::XonSurfaceDXGIFormat::BC2_UNORM_SRGB:            return DXGI_FORMAT_BC2_UNORM_SRGB;
-        case replicant::bxon::XonSurfaceDXGIFormat::BC3_UNORM:                 return DXGI_FORMAT_BC3_UNORM;
-        case replicant::bxon::XonSurfaceDXGIFormat::BC3_UNORM_SRGB:            return DXGI_FORMAT_BC3_UNORM_SRGB;
-        case replicant::bxon::XonSurfaceDXGIFormat::BC4_UNORM:                 return DXGI_FORMAT_BC4_UNORM;
-        case replicant::bxon::XonSurfaceDXGIFormat::BC5_UNORM:                 return DXGI_FORMAT_BC5_UNORM;
-        case replicant::bxon::XonSurfaceDXGIFormat::BC7_UNORM:                 return DXGI_FORMAT_BC7_UNORM;
-        case replicant::bxon::XonSurfaceDXGIFormat::BC7_UNORM_SRGB:            return DXGI_FORMAT_BC7_UNORM_SRGB;
-        case replicant::bxon::XonSurfaceDXGIFormat::BC7_UNORM_SRGB_VOLUMETRIC: return DXGI_FORMAT_BC7_UNORM_SRGB;
-        case replicant::bxon::XonSurfaceDXGIFormat::UNKN_A8_UNORM:             return DXGI_FORMAT_A8_UNORM;
-        case replicant::bxon::XonSurfaceDXGIFormat::R32G32B32A32_FLOAT:        return DXGI_FORMAT_R32G32B32A32_FLOAT;
-        default:                                                               return DXGI_FORMAT_UNKNOWN;
+        case DXGI_FORMAT_R32G32B32A32_FLOAT:  return TextureFormat::R32G32B32A32_FLOAT;
+        case DXGI_FORMAT_R32G32B32_FLOAT:     return TextureFormat::R32G32B32_FLOAT;
+        case DXGI_FORMAT_R32G32_FLOAT:        return TextureFormat::R32G32_FLOAT;
+        case DXGI_FORMAT_R32_FLOAT:           return TextureFormat::R32_FLOAT;
+        case DXGI_FORMAT_R16G16B16A16_FLOAT:  return TextureFormat::R16G16B16A16_FLOAT;
+        case DXGI_FORMAT_R16G16_FLOAT:        return TextureFormat::R16G16_FLOAT;
+        case DXGI_FORMAT_R16_FLOAT:           return TextureFormat::R16_FLOAT;
+        case DXGI_FORMAT_R8G8B8A8_UNORM:      return TextureFormat::R8G8B8A8_UNORM;
+        case DXGI_FORMAT_R8G8B8A8_UNORM_SRGB: return TextureFormat::R8G8B8A8_UNORM_SRGB;
+        case DXGI_FORMAT_R8G8_UNORM:          return TextureFormat::R8G8_UNORM;
+        case DXGI_FORMAT_R8_UNORM:            return TextureFormat::R8_UNORM;
+        case DXGI_FORMAT_B8G8R8A8_UNORM:      return TextureFormat::B8G8R8A8_UNORM;
+        case DXGI_FORMAT_B8G8R8A8_UNORM_SRGB: return TextureFormat::B8G8R8A8_UNORM_SRGB;
+        case DXGI_FORMAT_B8G8R8X8_UNORM:      return TextureFormat::B8G8R8X8_UNORM;
+        case DXGI_FORMAT_B8G8R8X8_UNORM_SRGB: return TextureFormat::B8G8R8X8_UNORM_SRGB;
+        case DXGI_FORMAT_BC1_UNORM:           return TextureFormat::BC1_UNORM;
+        case DXGI_FORMAT_BC1_UNORM_SRGB:      return TextureFormat::BC1_UNORM_SRGB;
+        case DXGI_FORMAT_BC2_UNORM:           return TextureFormat::BC2_UNORM;
+        case DXGI_FORMAT_BC2_UNORM_SRGB:      return TextureFormat::BC2_UNORM_SRGB;
+        case DXGI_FORMAT_BC3_UNORM:           return TextureFormat::BC3_UNORM;
+        case DXGI_FORMAT_BC3_UNORM_SRGB:      return TextureFormat::BC3_UNORM_SRGB;
+        case DXGI_FORMAT_BC4_UNORM:           return TextureFormat::BC4_UNORM;
+        case DXGI_FORMAT_BC5_UNORM:           return TextureFormat::BC5_UNORM;
+        case DXGI_FORMAT_BC6H_UF16:           return TextureFormat::BC6H_UF16;
+        case DXGI_FORMAT_BC6H_SF16:           return TextureFormat::BC6H_SF16;
+        case DXGI_FORMAT_BC7_UNORM:           return TextureFormat::BC7_UNORM;
+        case DXGI_FORMAT_BC7_UNORM_SRGB:      return TextureFormat::BC7_UNORM_SRGB;
+        default:                              return TextureFormat::UNKNOWN;
         }
     }
 }
 
 namespace replicant::dds {
 
-    DDSFile::DDSFile() : m_image(std::make_unique<DirectX::ScratchImage>()) {}
+    DDSFile::DDSFile() : image_(std::make_unique<DirectX::ScratchImage>()) {}
     DDSFile::~DDSFile() = default;
-    DDSFile::DDSFile(DDSFile&& other) noexcept = default;
-    DDSFile& DDSFile::operator=(DDSFile&& other) noexcept = default;
+    DDSFile::DDSFile(DDSFile&&) noexcept = default;
+    DDSFile& DDSFile::operator=(DDSFile&&) noexcept = default;
 
-
-    std::expected<DDSFile, DDSError> DDSFile::FromFile(const std::filesystem::path& path) {
-        if (!std::filesystem::exists(path)) {
-            return std::unexpected(DDSError{ DDSErrorCode::FileReadError, "File not found: " + path.string() });
-        }
-
-        DDSFile ddsFile;
+    std::expected<DDSFile, DDSError> DDSFile::Load(const std::filesystem::path& path) {
+        DDSFile file;
         DirectX::TexMetadata metadata;
-        HRESULT hr = DirectX::LoadFromDDSFile(path.c_str(), DirectX::DDS_FLAGS_NONE, &metadata, *ddsFile.m_image);
-
+        HRESULT hr = DirectX::LoadFromDDSFile(path.c_str(), DirectX::DDS_FLAGS_NONE, &metadata, *file.image_);
         if (FAILED(hr)) {
-            return std::unexpected(DDSError{ DDSErrorCode::LibraryError, "DirectXTex failed to load DDS from file." });
+            return std::unexpected(DDSError{ "DirectXTex LoadFromDDSFile failed" });
         }
-        return ddsFile;
+        return file;
     }
 
-    std::expected<DDSFile, DDSError> DDSFile::FromMemory(std::span<const char> data) {
-        DDSFile ddsFile;
+    std::expected<DDSFile, DDSError> DDSFile::LoadFromMemory(std::span<const std::byte> data) {
+        DDSFile file;
         DirectX::TexMetadata metadata;
-        HRESULT hr = DirectX::LoadFromDDSMemory(
-            reinterpret_cast<const std::byte*>(data.data()), data.size(),
-            DirectX::DDS_FLAGS_NONE, &metadata, *ddsFile.m_image
-        );
-
+        HRESULT hr = DirectX::LoadFromDDSMemory(data.data(), data.size(), DirectX::DDS_FLAGS_NONE, &metadata, *file.image_);
         if (FAILED(hr)) {
-            return std::unexpected(DDSError{ DDSErrorCode::LibraryError, "DirectXTex failed to load DDS from memory." });
+            return std::unexpected(DDSError{ "DirectXTex LoadFromDDSMemory failed" });
         }
-        return ddsFile;
+        return file;
     }
 
-    std::expected<DDSFile, DDSError> DDSFile::FromGameTexture(const bxon::Texture& tex) {
-        DXGI_FORMAT dxgi_format = XonToDXGI(tex.getFormat());
+    std::expected<DDSFile, DDSError> DDSFile::CreateFromGameData(
+        const TextureHeader& header,
+        std::span<const std::byte> pixelData
+    ) {
+        if (header.mipCount == 0) return std::unexpected(DDSError{ "Invalid mip count (0)" });
 
-        if (dxgi_format == DXGI_FORMAT_UNKNOWN) {
+        DXGI_FORMAT dxgiFmt = XonToDXGI(header.format);
+        if (dxgiFmt == DXGI_FORMAT_UNKNOWN) return std::unexpected(DDSError{ "Unsupported Texture Format" });
 
-            std::string errstr = "Cannot create DDS from an unsupported game texture format: " + std::to_string(tex.getFormat());
-            return std::unexpected(DDSError{ DDSErrorCode::UnsupportedFormat, errstr});
-        }
-
-        const auto& all_mip_data = tex.getTextureData();
-        const auto& mip_surfaces = tex.getMipSurfaces();
-        const size_t mip_levels = tex.getMipSurfaces().size();
-
-        if (mip_surfaces.size() != mip_levels) {
-            return std::unexpected(DDSError{ DDSErrorCode::InvalidHeader, "Mismatch between mip level count (" + std::to_string(mip_levels) + ") and mip surface metadata count (" + std::to_string(mip_surfaces.size()) + ")." });
-        }
-
-        auto scratch_image = std::make_unique<DirectX::ScratchImage>();
+        DDSFile file;
         HRESULT hr;
 
-        if (tex.getDepth() > 1) {
-            hr = scratch_image->Initialize3D(
-                dxgi_format,
-                tex.getWidth(),
-                tex.getHeight(),
-                tex.getDepth(),
-                mip_levels
-            );
+        size_t arraySize = header.calculateArraySize();
+
+        if (header.dimension == TextureDimension::Texture3D) {
+            hr = file.image_->Initialize3D(dxgiFmt, header.width, header.height, header.depth, header.mipCount);
         }
         else {
-            hr = scratch_image->Initialize2D(
-                dxgi_format,
-                tex.getWidth(),
-                tex.getHeight(),
-                1,
-                mip_levels
-            );
+            hr = file.image_->Initialize2D(dxgiFmt, header.width, header.height, arraySize, header.mipCount);
         }
 
-        if (FAILED(hr)) {
-            return std::unexpected(DDSError{ DDSErrorCode::LibraryError, "DirectXTex failed to initialize a blank ScratchImage for the game texture." });
+        if (FAILED(hr)) return std::unexpected(DDSError{ "Failed to initialize ScratchImage" });
+
+        for (size_t item = 0; item < arraySize; ++item) {
+            for (size_t mip = 0; mip < header.mipCount; ++mip) {
+
+                size_t flatIndex = item * header.mipCount + mip;
+                if (flatIndex >= header.mips.size()) break;
+
+                const auto& mipInfo = header.mips[flatIndex];
+
+                const DirectX::Image* img = file.image_->GetImage(mip, item, 0);
+                if (!img) continue;
+
+                size_t dataSizeToCopy = mipInfo.sliceSize * mipInfo.depth;
+                if (mipInfo.offset + dataSizeToCopy > pixelData.size()) {
+                    return std::unexpected(DDSError{ "Mip data out of bounds" });
+                }
+
+                const uint8_t* src = reinterpret_cast<const uint8_t*>(pixelData.data()) + mipInfo.offset;
+                uint8_t* dst = img->pixels;
+
+                if (img->slicePitch == mipInfo.sliceSize && img->slicePitch * mipInfo.depth == dataSizeToCopy) {
+                    memcpy(dst, src, dataSizeToCopy);
+                }
+                else {
+                    // for cases where pitch alignment differs like 1px textures
+                    size_t copySize = std::min((size_t)img->slicePitch * mipInfo.depth, (size_t)dataSizeToCopy);
+                    memcpy(dst, src, copySize);
+                }
+            }
         }
-
-        for (size_t i = 0; i < mip_levels; ++i) {
-            const auto& mip_info = mip_surfaces[i];
-            const DirectX::Image* dest_image = scratch_image->GetImage(i, 0, 0);
-
-            if (!dest_image) {
-                return std::unexpected(DDSError{ DDSErrorCode::LibraryError, "Could not get destination image pointer for mip level " + std::to_string(i) });
-            }
-
-            size_t total_mip_data_size = mip_info.size * mip_info.currentDepth;
-            if (mip_info.offset + total_mip_data_size > all_mip_data.size()) {
-                return std::unexpected(DDSError{ DDSErrorCode::BufferTooSmall, "Game's mip surface data extends beyond its texture data buffer for mip " + std::to_string(i) });
-            }
-
-            if (dest_image->slicePitch != mip_info.size) {
-                return std::unexpected(DDSError{ DDSErrorCode::BuildError, "Mismatch between DirectXTex calculated mip size (" + std::to_string(dest_image->slicePitch) + ") and game metadata size (" + std::to_string(mip_info.size) + ") for mip " + std::to_string(i) });
-            }
-
-            memcpy(dest_image->pixels, all_mip_data.data() + mip_info.offset, total_mip_data_size);
-        }
-
-        DDSFile ddsFile;
-        ddsFile.m_image = std::move(scratch_image);
-        return ddsFile;
+        return file;
     }
 
+    std::pair<TextureHeader, std::vector<std::byte>> DDSFile::ToGameFormat() const {
+        const auto& meta = image_->GetMetadata();
+        TextureHeader header;
 
-    std::expected<void, DDSError> DDSFile::saveToFile(const std::filesystem::path& path) const {
-        if (!m_image || m_image->GetImageCount() == 0) {
-            return std::unexpected(DDSError{ DDSErrorCode::BuildError, "Cannot save an empty DDSFile." });
+        header.width = static_cast<uint32_t>(meta.width);
+        header.height = static_cast<uint32_t>(meta.height);
+        header.depth = static_cast<uint32_t>(meta.depth);
+        header.mipCount = static_cast<uint32_t>(meta.mipLevels);
+        header.format = DXGIToXon(meta.format);
+
+        if (meta.dimension == DirectX::TEX_DIMENSION_TEXTURE3D) {
+            header.dimension = TextureDimension::Texture3D;
+        }
+        else if (meta.miscFlags & DirectX::TEX_MISC_TEXTURECUBE) {
+            header.dimension = TextureDimension::CubeMap;
+        }
+        else {
+            header.dimension = TextureDimension::Texture2D;
         }
 
-        HRESULT hr = DirectX::SaveToDDSFile(
-            m_image->GetImages(), m_image->GetImageCount(), m_image->GetMetadata(),
-            DirectX::DDS_FLAGS_NONE, path.c_str()
-        );
+        std::vector<std::byte> pixelBlob;
+        uint32_t currentOffset = 0;
 
-        if (FAILED(hr)) {
-            return std::unexpected(DDSError{ DDSErrorCode::FileWriteError, "DirectXTex failed to save DDS to file." });
+        for (size_t item = 0; item < meta.arraySize; ++item) {
+            for (size_t mip = 0; mip < meta.mipLevels; ++mip) {
+
+                const DirectX::Image* img = image_->GetImage(mip, item, 0);
+                if (!img) continue;
+
+                MipSurface surface;
+                surface.offset = currentOffset;
+
+                size_t rowBytes, numRows, numBytes;
+                DirectX::ComputePitch(meta.format, img->width, img->height, rowBytes, numRows, DirectX::CP_FLAGS_NONE);
+
+                surface.rowPitch = static_cast<uint32_t>(rowBytes);
+                surface.rowCount = static_cast<uint32_t>(numRows);
+                surface.sliceSize = static_cast<uint32_t>(img->slicePitch);
+
+                surface.width = static_cast<uint32_t>(img->width);
+                surface.height = static_cast<uint32_t>(img->height);
+
+                if (meta.dimension == DirectX::TEX_DIMENSION_TEXTURE3D) {
+                    size_t mipDepth = meta.depth >> mip;
+                    if (mipDepth < 1) mipDepth = 1;
+                    surface.depth = static_cast<uint32_t>(mipDepth);
+                }
+                else {
+                    surface.depth = 1;
+                }
+
+                header.mips.push_back(surface);
+
+                size_t totalBytesForSubresource = img->slicePitch * surface.depth;
+                const std::byte* srcBytes = reinterpret_cast<const std::byte*>(img->pixels);
+
+                pixelBlob.insert(pixelBlob.end(), srcBytes, srcBytes + totalBytesForSubresource);
+                currentOffset += static_cast<uint32_t>(totalBytesForSubresource);
+            }
         }
+
+        header.totalPixelSize = static_cast<uint32_t>(pixelBlob.size());
+        return { header, pixelBlob };
+    }
+
+    uint32_t DDSFile::getWidth() const { return static_cast<uint32_t>(image_->GetMetadata().width); }
+    uint32_t DDSFile::getHeight() const { return static_cast<uint32_t>(image_->GetMetadata().height); }
+    uint32_t DDSFile::getDepth() const { return static_cast<uint32_t>(image_->GetMetadata().depth); }
+    uint32_t DDSFile::getMipLevels() const { return static_cast<uint32_t>(image_->GetMetadata().mipLevels); }
+    TextureFormat DDSFile::getFormat() const { return DXGIToXon(image_->GetMetadata().format); }
+
+    std::expected<void, DDSError> DDSFile::Save(const std::filesystem::path& path) {
+        if (image_->GetImageCount() == 0) return std::unexpected(DDSError{ "Empty image" });
+        HRESULT hr = DirectX::SaveToDDSFile(image_->GetImages(), image_->GetImageCount(), image_->GetMetadata(), DirectX::DDS_FLAGS_NONE, path.c_str());
+        if (FAILED(hr)) return std::unexpected(DDSError{ "SaveToDDSFile failed" });
         return {};
     }
 
-    std::expected<std::vector<char>, DDSError> DDSFile::saveToMemory() const {
-        if (!m_image || m_image->GetImageCount() == 0) {
-            return std::unexpected(DDSError{ DDSErrorCode::BuildError, "Cannot save an empty DDSFile." });
-        }
-
+    std::expected<std::vector<std::byte>, DDSError> DDSFile::SaveToMemory() {
+        if (image_->GetImageCount() == 0) return std::unexpected(DDSError{ "Empty image" });
         DirectX::Blob blob;
-        HRESULT hr = DirectX::SaveToDDSMemory(
-            m_image->GetImages(), m_image->GetImageCount(), m_image->GetMetadata(),
-            DirectX::DDS_FLAGS_NONE, blob
-        );
+        HRESULT hr = DirectX::SaveToDDSMemory(image_->GetImages(), image_->GetImageCount(), image_->GetMetadata(), DirectX::DDS_FLAGS_NONE, blob);
+        if (FAILED(hr)) return std::unexpected(DDSError{ "SaveToDDSMemory failed" });
 
-        if (FAILED(hr)) {
-            return std::unexpected(DDSError{ DDSErrorCode::LibraryError, "DirectXTex failed to save DDS to memory blob." });
-        }
-
-        const char* buffer_start = reinterpret_cast<char*>(blob.GetBufferPointer());
-        return std::vector<char>(buffer_start, buffer_start + blob.GetBufferSize());
+        const std::byte* ptr = reinterpret_cast<const std::byte*>(blob.GetBufferPointer());
+        return std::vector<std::byte>(ptr, ptr + blob.GetBufferSize());
     }
 
-    uint32_t DDSFile::getWidth() const noexcept { return m_image ? m_image->GetMetadata().width : 0; }
-    uint32_t DDSFile::getHeight() const noexcept { return m_image ? m_image->GetMetadata().height : 0; }
-    uint32_t DDSFile::getDepth() const noexcept { return m_image ? m_image->GetMetadata().depth : 0; }
-
-    uint32_t DDSFile::getMipLevels() const noexcept { return m_image ? m_image->GetMetadata().mipLevels : 0; }
-
-    replicant::bxon::XonSurfaceDXGIFormat DDSFile::getFormat() const noexcept {
-        return m_image ? DXGIToXon(m_image->GetMetadata().format) : replicant::bxon::XonSurfaceDXGIFormat::UNKNOWN;
-    }
-
-    std::span<const char> DDSFile::getPixelData() const noexcept {
-        if (!m_image || m_image->GetPixelsSize() == 0) {
-            return {};
-        }
-        return { reinterpret_cast<const char*>(m_image->GetPixels()), m_image->GetPixelsSize() };
+    std::span<const std::byte> DDSFile::getPixelData() const {
+        if (!image_ || image_->GetPixelsSize() == 0) return {};
+        return std::span<const std::byte>(reinterpret_cast<const std::byte*>(image_->GetPixels()), image_->GetPixelsSize());
     }
 }

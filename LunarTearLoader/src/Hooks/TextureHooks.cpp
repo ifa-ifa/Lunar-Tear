@@ -10,41 +10,36 @@
 #include <MinHook.h>
 #include <filesystem>
 #include <replicant/dds.h>
-#include <replicant/bxon/texture.h>
+#include <replicant/tpGxTexHead.h>
 
 
 using enum Logger::LogCategory;
 
 namespace {
-    typedef uint64_t(__fastcall* TexHook_t)(tpgxResTexture*, void*, void*);
+    typedef uint64_t(__fastcall* TexHook_t)(tpGxResTexture*, void*, void*);
     TexHook_t TexHook_original = nullptr;
 
-    bool AreFormatsSRGBCompatible(replicant::bxon::XonSurfaceDXGIFormat a, replicant::bxon::XonSurfaceDXGIFormat b) {
-        using namespace replicant::bxon;
-        if ((a == R8G8B8A8_UNORM && b == R8G8B8A8_UNORM_SRGB) || (a == R8G8B8A8_UNORM_SRGB && b == R8G8B8A8_UNORM)) return true;
-        if ((a == BC1_UNORM && b == BC1_UNORM_SRGB) || (a == BC1_UNORM_SRGB && b == BC1_UNORM)) return true;
-        if ((a == BC2_UNORM && b == BC2_UNORM_SRGB) || (a == BC2_UNORM_SRGB && b == BC2_UNORM)) return true;
-        if ((a == BC3_UNORM && b == BC3_UNORM_SRGB) || (a == BC3_UNORM_SRGB && b == BC3_UNORM)) return true;
-        return false;
-    }
-
-    // Helper to strip Game Specific flags and return the raw pixel format
-    replicant::bxon::XonSurfaceDXGIFormat NormalizeFormat(replicant::bxon::XonSurfaceDXGIFormat fmt) {
-        using namespace replicant::bxon;
-        if (fmt == BC7_UNORM_SRGB_VOLUMETRIC) {
-            return BC7_UNORM_SRGB;
+    replicant::TextureFormat ToLinear(replicant::TextureFormat f) {
+        using enum replicant::TextureFormat;
+        switch (f) {
+        case R8G8B8A8_UNORM_SRGB: return R8G8B8A8_UNORM;
+        case B8G8R8A8_UNORM_SRGB: return B8G8R8A8_UNORM;
+        case B8G8R8X8_UNORM_SRGB: return B8G8R8X8_UNORM;
+        case BC1_UNORM_SRGB: return BC1_UNORM;
+        case BC2_UNORM_SRGB: return BC2_UNORM;
+        case BC3_UNORM_SRGB: return BC3_UNORM;
+        case BC7_UNORM_SRGB: return BC7_UNORM;
+        default: return f;
         }
-        return fmt;
     }
-
 
 }
 
-uint64_t TexHook_detoured(tpgxResTexture* tex, void* param_2, void* param_3) {
+uint64_t TexHook_detoured(tpGxResTexture* tex, void* param_2, void* param_3) {
 
     if (Logger::IsActive(FileInfo)) Logger::Log(FileInfo) << "Hooked texture: " << std::string(tex->name)
-        << " | Original Format: " << XonFormatToString(tex->bxonAssetHeader->XonSurfaceFormat)
-        << " | Original Mipmap Count: " << tex->bxonAssetHeader->numMipSurfaces;
+        << " | Original Format: " << XonFormatToString(tex->bxonAssetHeader->format)
+        << " | Original Mipmap Count: " << tex->bxonAssetHeader->mipCount;
 
     if (Settings::Instance().DumpTextures) {
         dumpTexture(tex);
@@ -62,9 +57,13 @@ uint64_t TexHook_detoured(tpgxResTexture* tex, void* param_2, void* param_3) {
 
     // If not found, try loading by CRC32c hash (older mods based on SpecialK injection use this)
     if (!ddsFileData) {
-        mipSurface* pMipSurfaces = (mipSurface*)((uintptr_t)&tex->bxonAssetHeader->offsetToMipSurfaces + tex->bxonAssetHeader->offsetToMipSurfaces);
-        if (tex->bxonAssetHeader->numMipSurfaces > 0 && pMipSurfaces) {
-            size_t lod0_size = pMipSurfaces[0].size;
+        uintptr_t offsetFieldAddr = reinterpret_cast<uintptr_t>(&tex->bxonAssetHeader->offsetToSubresources);
+        uintptr_t mipTableAddr = offsetFieldAddr + tex->bxonAssetHeader->offsetToSubresources;
+
+        auto* pMipSurfaces = reinterpret_cast<replicant::raw::RawMipSurface*>(mipTableAddr);
+
+        if (tex->bxonAssetHeader->mipCount > 0) {
+            size_t lod0_size = pMipSurfaces[0].sliceSize;
 
             uint32_t hash = crc32c::Crc32c((char*)tex->texData, lod0_size);
 
@@ -92,24 +91,23 @@ uint64_t TexHook_detoured(tpgxResTexture* tex, void* param_2, void* param_3) {
         Logger::Log(Info) << "Found loose texture file: " << tex_path.string();
     }
 
-
-    auto dds_result = replicant::dds::DDSFile::FromMemory({ static_cast<char*>(ddsFileData), ddsFileSize });
+    std::span<const std::byte> ddsSpan(reinterpret_cast<const std::byte*>(ddsFileData), ddsFileSize);
+    auto dds_result = replicant::dds::DDSFile::LoadFromMemory(ddsSpan);
     if (!dds_result) {
         Logger::Log(Error) << " | Failed to parse loose DDS file with libreplicant: " << dds_result.error().message;
         return TexHook_original(tex, param_2, param_3);
-    }
+	}
+
     const auto& dds_file = *dds_result;
 
-    auto raw_original_format = (replicant::bxon::XonSurfaceDXGIFormat)tex->bxonAssetHeader->XonSurfaceFormat;
+    auto raw_original_format = (replicant::raw::RawSurfaceFormat)tex->bxonAssetHeader->format;
     auto raw_mod_format = dds_file.getFormat();
 
-    auto normalized_original = NormalizeFormat(raw_original_format);
-    auto normalized_mod = NormalizeFormat(raw_mod_format);
 
-    bool format_ok = (normalized_original == normalized_mod);
+    bool format_ok = (raw_original_format.resourceFormat == raw_mod_format);
 
     if (!format_ok && Settings::Instance().AllowColourSpaceMismatch) {
-        if (AreFormatsSRGBCompatible(normalized_original, normalized_mod)) {
+        if (ToLinear(raw_mod_format) == ToLinear(raw_original_format.resourceFormat)) {
             Logger::Log(Warning) << " | Allowing sRGB/non-sRGB format mismatch for compatibility.";
             format_ok = true;
         }
@@ -119,31 +117,37 @@ uint64_t TexHook_detoured(tpgxResTexture* tex, void* param_2, void* param_3) {
 
     if (!format_ok) {
         Logger::Log(Error) << " | Format mismatch. Original is " << XonFormatToString(raw_original_format)
-            << ", but mod is " << XonFormatToString(raw_mod_format) << ". Texture not replaced. Note that game specific flags like volumetric are not relevant here.";
+            << ", but mod is " << TextureFormatToString(raw_mod_format) << ". Texture not replaced. Note that game specific flags like volumetric are not relevant here.";
         return TexHook_original(tex, param_2, param_3);
     }
 
-    if (tex->bxonAssetHeader->texWidth != dds_file.getWidth() || tex->bxonAssetHeader->texHeight != dds_file.getHeight()) {
-        Logger::Log(Error) << " | Resolution mismatch. Original is " << tex->bxonAssetHeader->texWidth << "x" << tex->bxonAssetHeader->texHeight
+    if (tex->bxonAssetHeader->width != dds_file.getWidth() || tex->bxonAssetHeader->width != dds_file.getHeight()) {
+        Logger::Log(Error) << " | Resolution mismatch. Original is " << tex->bxonAssetHeader->width << "x" << tex->bxonAssetHeader->height
             << ", but mod is " << dds_file.getWidth() << "x" << dds_file.getHeight() << ". Texture not replaced.";
         return TexHook_original(tex, param_2, param_3);
     }
-    if (tex->bxonAssetHeader->texDepth != dds_file.getDepth()) {
-        Logger::Log(Error) << " | Depth mismatch (Volumetric). Original is " << tex->bxonAssetHeader->texDepth
+    if (tex->bxonAssetHeader->depth != dds_file.getDepth()) {
+        Logger::Log(Error) << " | Depth mismatch (Volumetric). Original is " << tex->bxonAssetHeader->depth
             << ", but mod is " << dds_file.getDepth() << ". Texture not replaced.";
         return TexHook_original(tex, param_2, param_3);
     }
-    if (tex->bxonAssetHeader->numMipSurfaces != dds_file.getMipLevels()) {
-        Logger::Log(Error) << " | Mipmap count mismatch. Original has " << tex->bxonAssetHeader->numMipSurfaces
+    if (tex->bxonAssetHeader->mipCount != dds_file.getMipLevels()) {
+        Logger::Log(Error) << " | Mipmap count mismatch. Original has " << tex->bxonAssetHeader->mipCount
             << " mips, but mod has " << dds_file.getMipLevels() << ". Texture not replaced.";
         return TexHook_original(tex, param_2, param_3);
     }
 
 
-    auto pixel_data = dds_file.getPixelData();
-    tex->texData = (void*)pixel_data.data();
-    tex->texDataSize = pixel_data.size();
-    tex->bxonAssetHeader->texSize = pixel_data.size();
+    size_t headerSize = 128;
+    const uint32_t* raw_uints = static_cast<const uint32_t*>(ddsFileData);
+    if (raw_uints[21] == 0x30315844) { // "DX10"
+        headerSize = 148;
+    }
+    
+
+    tex->texData = static_cast<char*>(ddsFileData) + headerSize;
+    tex->texDataSize = ddsFileSize - headerSize;
+    tex->bxonAssetHeader->size = tex->texDataSize;
 
     Logger::Log(Verbose) << " | Successfully replaced texture data for " << tex->name;
 

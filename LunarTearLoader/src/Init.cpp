@@ -8,10 +8,16 @@
 #include <chrono>
 #include "Game/d3d11.h"
 #include "ModLoader.h"
+#include "Hooks/Weapons.h"
 #include "Hooks/Hooks.h"
 #include "VFS/ArchivePatcher.h"
 #include "Init.h"
 #include "Common/Backup.h"
+
+#include <replicant/pack.h>
+#include <replicant/bxon.h>
+
+#include <replicant/weapon.h>
 
 using enum Logger::LogCategory;
 
@@ -98,6 +104,7 @@ DWORD WINAPI Initialize(LPVOID) {
 
         StartCacheCleanupThread();
 
+
         if (Settings::Instance().EnablePlugins) {
             LoadPlugins();
         }
@@ -121,8 +128,6 @@ DWORD WINAPI Initialize(LPVOID) {
     catch (...) {
         MessageBoxA(NULL, "An unknown exception occurred during initialization.", "Lunar Tear", MB_OK | MB_ICONERROR);
     }
-
-
 
     return TRUE;
 
