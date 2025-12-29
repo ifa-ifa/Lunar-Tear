@@ -36,7 +36,7 @@ DWORD WINAPI Initialize(LPVOID) {
         InstallVFSHooks(); // Enable this hook ASAP
 
         try {
-            std::filesystem::create_directories("LunarTear/mods",);
+            std::filesystem::create_directories("LunarTear/mods");
         }
         catch (const std::filesystem::filesystem_error& e) {
             std::string error_message = std::format("Failed to create mod directories. Please check permissions.\n\nError: {}", e.what());
