@@ -62,5 +62,16 @@ bool InstallTableHooks() {
         Logger::Log(Error) << "Could not create game table hook";
         return false;
     }
+
+    bool hooks_ok = true;
+    hooks_ok &= MH_EnableHook(PhaseTableTarget);
+    hooks_ok &= MH_EnableHook(DroptableTableTarget);
+    hooks_ok &= MH_EnableHook(GameTableTarget);
+    if (!hooks_ok) {
+        Logger::Log(Error) << "Could not enable table inject hooks";
+        return false;
+
+    }
+
     return true;
 }

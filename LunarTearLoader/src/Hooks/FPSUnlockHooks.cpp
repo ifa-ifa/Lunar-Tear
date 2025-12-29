@@ -173,7 +173,7 @@ bool InstallFPSUnlockHooks() {
         Logger::Log(Error) << "Could not create hook for IDXGISwapChain::Present.";
         return false;
     }
-    if (MH_EnableHook(pPresent) != MH_OK) { // This runs on another thread so we enable it here 
+    if (MH_EnableHook(pPresent) != MH_OK) {
         Logger::Log(Error) << "Could not enable present hook";
         return false;
     }

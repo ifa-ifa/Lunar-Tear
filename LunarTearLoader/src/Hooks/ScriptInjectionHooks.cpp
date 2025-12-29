@@ -206,5 +206,17 @@ bool InstallScriptInjectHooks() {
         return false;
     }
 
+    bool hooks_ok = true;
+    hooks_ok &= MH_EnableHook(PostPhaseTarget);
+    hooks_ok &= MH_EnableHook(PostLibTarget);
+    hooks_ok &= MH_EnableHook(PostGameTarget);
+    hooks_ok &= MH_EnableHook(PostRootTarget);
+    if (!hooks_ok) {
+        Logger::Log(Error) << "Could not enable script inject hooks";
+        return false;
+
+    }
+
+
     return true;
 }

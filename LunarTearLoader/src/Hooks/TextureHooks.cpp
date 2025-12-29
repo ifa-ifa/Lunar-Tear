@@ -162,5 +162,13 @@ bool InstallTextureHooks() {
         Logger::Log(Error) << "Could not create texture hook";
         return false;
     }
+
+    if (MH_EnableHook(TexHook_target) != MH_OK) {
+        Logger::Log(Error) << "Could not enable texture hook";
+        return false;
+    }
+
+
+
     return true;
 }

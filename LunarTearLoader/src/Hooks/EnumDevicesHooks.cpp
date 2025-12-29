@@ -190,7 +190,7 @@ bool InstallEnumDevicesHooks() {
         Logger::Log(Error) << "Could not create hook for EnumDevices.";
         return false;
     }
-    if (MH_EnableHook(pEnumDevices) != MH_OK) { // This runs on another thread so we enable it here
+    if (MH_EnableHook(pEnumDevices) != MH_OK) { 
         Logger::Log(Error) << "Could not enable device enumeration hook";
         return false;
     }

@@ -35,10 +35,16 @@ bool InstallScriptUpdateHooks() {
 
     void* UpdatePhaseScriptManagerTarget = (void*)(g_processBaseAddress + 0x415710);
 
-
     if (MH_CreateHookEx(UpdatePhaseScriptManagerTarget, &UpdatePhaseScriptManagerDetoured, &UpdatePhaseScriptManagerOriginal) != MH_OK) {
         Logger::Log(Error) << "Could not create update pshm hook";
         return false;
     }
+
+    if (MH_EnableHook(UpdatePhaseScriptManagerTarget) != MH_OK) {
+        Logger::Log(Error) << "Could not enable update pshm hook";
+        return false;
+    }
+
+
     return true;
 }

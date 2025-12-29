@@ -69,7 +69,15 @@ void decompressArchive_detoured(tpFndTextFormat256* basePath, const char* archiv
 bool InstallVFSHooks() {
     void* decompressArchive_target = (void*)(g_processBaseAddress + 0x08ed730);
     if (MH_CreateHookEx(decompressArchive_target, &decompressArchive_detoured, &decompressArchive_original) != MH_OK) {
+        MessageBoxA(NULL, "Could not create VFS Hook", "Lunar Tear - Error", MB_OK | MB_ICONERROR);
         return false;
     }
+
+    if (MH_EnableHook(decompressArchive_target) != MH_OK) {
+        MessageBoxA(NULL, "Could not enablr VFS Hook", "Lunar Tear - Error", MB_OK | MB_ICONERROR);
+        return false;
+    }
+
+
     return true;
 }

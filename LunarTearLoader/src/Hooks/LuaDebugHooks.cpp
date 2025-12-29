@@ -57,8 +57,14 @@ bool InstallDebugHooks() {
     void* Binding_DebugPrintTarget = (void*)(g_processBaseAddress + 0x6df8f0);
 
     if (MH_CreateHookEx(Binding_DebugPrintTarget, &Binding_DebugPrintDetoured, &Binding_DebugPrintOriginal) != MH_OK) {
-        Logger::Log(Error) << "Could not create debug hook";
+        Logger::Log(Error) << "Could not create lua debug hook";
         return false;
     }
+
+    if (MH_EnableHook(Binding_DebugPrintTarget) != MH_OK) {
+        Logger::Log(Error) << "Could not enable lua debug hook";
+        return false;
+    }
+
     return true;
 }
