@@ -26,6 +26,7 @@ private:
             return false;
         }
 
+
         m_output_archive_path = m_args[0];
 
         for (size_t i = 1; i < m_args.size(); ++i) {
@@ -56,7 +57,7 @@ private:
             std::cerr << "Error: Cannot use --index and --patch together.\n"; return false;
         }
         if (m_file_inputs.empty()) {
-            std::cerr << "Error: No input files or folder provided for archive.\n"; return false;
+            std::cerr << "Error: No input folder provided for archive.\n"; return false;
         }
         if (m_index_patch_path && !m_index_patch_out_path) {
             std::cout << "Warning: --out not specified. The original patch file '" << m_index_patch_path->string() << "' will be overwritten.\n";
@@ -110,70 +111,23 @@ public:
             return 1;
         }
 
+
         std::vector<replicant::archive::ArchiveInput> inputs;
         std::cout << "Preparing files for archive: " << m_output_archive_path.string() << " \n";
 
         for (const auto& input_arg : m_file_inputs) {
             std::filesystem::path input_path(input_arg);
 
-            // Helper lambda to process a single file
-            auto processFile = [&](const std::filesystem::path& path, const std::string& key) {
-                std::cout << "Adding '" << key << "' from '" << path.string() << "'...\n";
-
-                auto fileData = unwrap(replicant::ReadFile(path), "Failed to read file " + path.string());
-
-                uint32_t serSize = 0;
-                uint32_t resSize = 0;
-
-
-                if (fileData.size() >= 20 &&
-                    fileData[0] == std::byte{ 'P' } && fileData[1] == std::byte{ 'A' } &&
-                    fileData[2] == std::byte{ 'C' } && fileData[3] == std::byte{ 'K' })
-                {
-                    std::memcpy(&serSize, &fileData[12], 4);
-                    std::memcpy(&resSize, &fileData[16], 4);
-                }
-                else
-                {
-                    // Warn the user if they are packing something that isn't a PACK file
-                    std::cerr << "WARNING: File '" << key << "' does not appear to be a PACK file.\n";
-
-                    // Fallback - Treat entire file as serialized data
-                    serSize = static_cast<uint32_t>(fileData.size());
-                }
-
-                inputs.push_back({
-                    .name = key,
-                    .data = std::move(fileData),
-                    .packSerializedSize = serSize,
-                    .packResourceSize = resSize
+            std::cout << "Scanning directory '" << input_path.string() << "'...\n";
+            for (const auto& entry : std::filesystem::recursive_directory_iterator(input_path)) {
+                if (entry.is_regular_file()) {
+                    std::string key = std::filesystem::relative(entry.path(), input_path).generic_string();
+                    std::replace(key.begin(), key.end(), '\\', '/'); 
+                    inputs.push_back({
+                        .name = key,
+                        .fullPath = entry.path(),
                     });
-                };
-
-            if (std::filesystem::is_directory(input_path)) {
-                std::cout << "Scanning directory '" << input_path.string() << "'...\n";
-                for (const auto& entry : std::filesystem::recursive_directory_iterator(input_path)) {
-                    if (entry.is_regular_file()) {
-                        std::string key = std::filesystem::relative(entry.path(), input_path).generic_string();
-                        std::replace(key.begin(), key.end(), '\\', '/'); // Standardize paths
-                        processFile(entry.path(), key);
-                    }
                 }
-            }
-            else {
-                // Handle single file argument (potentially with key=path syntax) 
-                //TODO: Maybe just remove this
-                size_t sep = input_arg.find('=');
-                std::string key, path_str;
-                if (sep == std::string::npos) {
-                    key = std::filesystem::path(input_arg).filename().string();
-                    path_str = input_arg;
-                }
-                else {
-                    key = input_arg.substr(0, sep);
-                    path_str = input_arg.substr(sep + 1);
-                }
-                processFile(path_str, key);
             }
         }
 
@@ -186,10 +140,11 @@ public:
             ? replicant::archive::BuildMode::SingleStream
             : replicant::archive::BuildMode::SeparateFrames;
 
-        auto build_result = unwrap(replicant::archive::Build(inputs, build_mode), "Failed to build archive");
+        std::cout << "Building archive with " << inputs.size() << " files...\n";
 
-        unwrap(replicant::WriteFile(m_output_archive_path, build_result.arcData), "Failed to write archive file");
-        std::cout << "Successfully wrote " << build_result.arcData.size() << " bytes to " << m_output_archive_path << ".\n";
+        auto build_result = unwrap(replicant::archive::Build(m_output_archive_path, inputs, build_mode), "Failed to build archive");
+
+		std::cout << "Built archive: " << m_output_archive_path.string() << "\n";
 
         std::string arc_filename = m_output_archive_path.filename().string();
         if (m_index_new_path) {

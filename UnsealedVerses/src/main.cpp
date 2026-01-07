@@ -15,9 +15,8 @@ void printUsage() {
     std::cout << "UnsealedVerses - A tool for editing Nier Replicant files.\n\n";
     std::cout << "Usage: UnsealedVerses <command> [options] <args...>\n\n";
     std::cout << "COMMANDS:\n\n";
-    std::cout << "  archive <output.arc> <inputs...> [options]\n";
-    std::cout << "    Builds a game archive from specified files or a directory.\n";
-    std::cout << "    Inputs can be individual files ('key=path/to/file') or a single folder path.\n";
+    std::cout << "  archive <output.arc> <assets_path> [options]\n";
+    std::cout << "    Builds a game archive from specified directory.\n";
     std::cout << "    Options:\n";
     std::cout << "      --index <path>      Generate a new compressed index file (e.g., info.arc).\n";
     std::cout << "      --patch <path>      Patch an existing compressed index file.\n";
