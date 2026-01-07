@@ -18,7 +18,6 @@ using json = nlohmann::json;
 
 using enum Logger::LogCategory;
 
-bool VFS_ready =  false;
 
 
 namespace {
@@ -119,8 +118,6 @@ void ScanModsAndResolveConflicts() {
         }
     }
     Logger::Log(Verbose) << "VFS archive scan complete. Found " << g_patched_archive_mods.size() << " VFS mod(s).";
-
-    VFS_ready = true;
 
     // Maps a relative file path to a list of pairs {mod_id, full_file_path}
     std::map<std::string, std::vector<std::pair<std::string, std::string>>> file_to_mods_map;

@@ -8,7 +8,6 @@
 #include <chrono>
 
 
-extern bool VFS_ready;
 
 void ScanModsAndResolveConflicts();
 void* LoadLooseFile(const char* filename, size_t& out_size);

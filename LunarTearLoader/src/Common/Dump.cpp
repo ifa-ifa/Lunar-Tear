@@ -53,7 +53,7 @@ void dumpTexture(const tpGxResTexture* tex) {
         totalHeaderSize
     );
 
-    auto game_tex = replicant::Texture::DeserializeHeader(headerSpan);    if (!game_tex) {
+    auto game_tex = replicant::DeserializeTexHead(headerSpan);    if (!game_tex) {
         Logger::Log(Error) << "Failed to deserialize game texture header for texture '" << tex->name << "': " << game_tex.error().message;
         return;
 	}

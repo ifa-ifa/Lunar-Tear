@@ -206,15 +206,26 @@ bool InstallScriptInjectHooks() {
         return false;
     }
 
-    bool hooks_ok = true;
-    hooks_ok &= MH_EnableHook(PostPhaseTarget);
-    hooks_ok &= MH_EnableHook(PostLibTarget);
-    hooks_ok &= MH_EnableHook(PostGameTarget);
-    hooks_ok &= MH_EnableHook(PostRootTarget);
-    if (!hooks_ok) {
-        Logger::Log(Error) << "Could not enable script inject hooks";
+	MH_STATUS status;
+    status = MH_EnableHook(PostPhaseTarget);
+    if (status != MH_OK) {
+        Logger::Log(Error) << "Could not enable post phase hook: " << (int)status;
         return false;
-
+	}
+    status = MH_EnableHook(PostLibTarget);
+    if (status != MH_OK) {
+        Logger::Log(Error) << "Could not enable post lib hook: " << (int)status;
+        return false;
+	}
+    status = MH_EnableHook(PostGameTarget);
+    if (status != MH_OK) {
+        Logger::Log(Error) << "Could not enable post game hook: " << (int)status;
+        return false;
+    }
+    status = MH_EnableHook(PostRootTarget);
+    if (status != MH_OK) {
+        Logger::Log(Error) << "Could not enable post root hook: " << (int)status;
+        return false;
     }
 
 

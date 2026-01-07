@@ -63,15 +63,23 @@ bool InstallTableHooks() {
         return false;
     }
 
-    bool hooks_ok = true;
-    hooks_ok &= MH_EnableHook(PhaseTableTarget);
-    hooks_ok &= MH_EnableHook(DroptableTableTarget);
-    hooks_ok &= MH_EnableHook(GameTableTarget);
-    if (!hooks_ok) {
-        Logger::Log(Error) << "Could not enable table inject hooks";
+	MH_STATUS status;
+    status = MH_EnableHook(PhaseTableTarget);
+    if (!status == MH_OK) {
+        Logger::Log(Error) << "Could not enable phase table hook: " << (int)status;
         return false;
-
+	}
+    status = MH_EnableHook(DroptableTableTarget);
+    if (!status == MH_OK) {
+        Logger::Log(Error) << "Could not enable droptable table hook: " << (int)status;
+        return false;
     }
+    status = MH_EnableHook(GameTableTarget);
+    if (!status == MH_OK) {
+        Logger::Log(Error) << "Could not enable game table hook: " << (int)status;
+        return false;
+	}
+
 
     return true;
 }

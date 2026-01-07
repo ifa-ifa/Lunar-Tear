@@ -177,7 +177,7 @@ bool InstallFPSUnlockHooks() {
         Logger::Log(Error) << "Could not enable present hook";
         return false;
     }
-    Logger::Log(Info) << "FPS unlock hooks installed successfully.";
+    Logger::Log(Verbose) << "FPS unlock hooks installed successfully.";
     return true;
 
 }

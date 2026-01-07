@@ -154,7 +154,7 @@ void DeviceNotificationThread() {
     if (hNotify == NULL) {
         Logger::Log(Error) << "Failed to register for device notifications. Error: " << GetLastError();
     } else {
-        Logger::Log(Info) << "Successfully registered for device notifications.";
+        Logger::Log(Verbose) << "Successfully registered for device notifications.";
     }
 
     MSG msg;
@@ -195,7 +195,7 @@ bool InstallEnumDevicesHooks() {
         return false;
     }
 
-    Logger::Log(Info) << "Enum Devices hooks installed successfully.";
+    Logger::Log(Verbose) << "Enum Devices hooks installed successfully.";
     return true;
 
 }

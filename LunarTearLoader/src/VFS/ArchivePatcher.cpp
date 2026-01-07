@@ -52,7 +52,7 @@ bool GeneratePatchedIndex() {
             return false;
         }
 
-        auto bxonRes = replicant::Bxon::Parse(*decompressed_result);
+        auto bxonRes = replicant::ParseBxon(*decompressed_result);
         if (!bxonRes) {
             Logger::Log(Error) << "Failed to parse info.arc BXON", bxonRes.error();
             return false;
@@ -96,7 +96,7 @@ bool GeneratePatchedIndex() {
                 continue;
             }
 
-            auto mod_bxonRes = replicant::Bxon::Parse(*mod_decompressed_result);
+            auto mod_bxonRes = replicant::ParseBxon(*mod_decompressed_result);
             if (!mod_bxonRes) {
                 Logger::Log(Warning) << "Failed to parse mod index '" << mod.indexPath
                     << "' as BXON. Skipping: " << mod_bxonRes.error().message;
@@ -156,14 +156,25 @@ bool GeneratePatchedIndex() {
             }
         );
 
-        std::vector<std::byte> newPayload = (*main_param).Serialize();
+        auto newPayloadRes = (*main_param).Serialize();
+        if (!newPayloadRes) {
+            Logger::Log(Error) << "Failed to serialize patched index: " << newPayloadRes.error().message;
+            return false;
+		}
+		std::vector<std::byte> newPayload = *newPayloadRes;
 
-        std::vector<std::byte> newBxon = replicant::Bxon::Build(
+        auto newBxonRes = replicant::BuildBxon(
             headerInfo.assetType,
             headerInfo.version,
             headerInfo.projectId,
             newPayload
         );
+        if (!newBxonRes) {
+            Logger::Log(Error) << "Failed to build patched index BXON: " << newBxonRes.error().message;
+            return false;
+		}
+
+		std::vector<std::byte> newBxon = *newBxonRes;
 
         auto compressed_index_result = replicant::archive::Compress(newBxon);
         if (!compressed_index_result) {

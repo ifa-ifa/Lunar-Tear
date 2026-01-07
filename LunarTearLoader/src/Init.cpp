@@ -9,31 +9,24 @@
 #include "VFS/ArchivePatcher.h"
 #include "Init.h"
 #include "Common/Backup.h"
-
 #include <chrono>
-
 #include <MinHook.h>
 #include <tether/tether.h>
-#include <replicant/pack.h>
-#include <replicant/bxon.h>
+
 #include <replicant/weapon.h>
 
+
 using enum Logger::LogCategory;
+
+bool g_lunarTearInitialised = false;
 
 DWORD WINAPI Initialize(LPVOID) {
 
     try {
-
-        int ret = MH_Initialize();
-        if (ret != MH_OK) {
-            std::string error_message = std::format("Failed to Initialse Minhook.\n\nError: {}", ret);
-            MessageBoxA(NULL, error_message.c_str(), "Lunar Tear", MB_OK | MB_ICONERROR);
-            return FALSE;
-        }
-
+        int ret;
+      
         InitialiseGlobals();
-
-        InstallVFSHooks(); // Enable this hook ASAP
+        InitialiseGameFunctions();
 
         try {
             std::filesystem::create_directories("LunarTear/mods");
@@ -43,8 +36,6 @@ DWORD WINAPI Initialize(LPVOID) {
             MessageBoxA(NULL, error_message.c_str(), "Lunar Tear", MB_OK | MB_ICONERROR);
             return FALSE;
         }
-
-        InitialiseGameFunctions();
 
         ret = Settings::Instance().LoadFromFile();
 
@@ -72,6 +63,7 @@ DWORD WINAPI Initialize(LPVOID) {
         InstallTableHooks();
         InstallDebugHooks();
         InstallScriptUpdateHooks();
+        InstallVFSHooks();
 
         // Swapchain and input objects are not initialised until after VFS is initialised
         // Avoid deadlock with VFS hook
@@ -88,9 +80,6 @@ DWORD WINAPI Initialize(LPVOID) {
             LoadPlugins();
         }
 
-        Logger::Log(Info) << "Lunar Tear initialization complete.";
-
-
         if (Settings::Instance().autoBackups) {
             try {
                 CreateSaveBackups();
@@ -99,6 +88,15 @@ DWORD WINAPI Initialize(LPVOID) {
                 Logger::Log(Error) << "Failed to create save backups: " << e.what();
 			}
         }
+        Logger::Log(Info) << "Lunar Tear initialization complete.";
+        g_lunarTearInitialised = true;
+
+        Sleep(5000);
+
+        replicant::raw::RawWeaponBody** weapSpecs = (replicant::raw::RawWeaponBody**)(g_processBaseAddress + 0x47c2670);
+
+        char* internName = (char*)(&(weapSpecs[20]->offsetToInternalWeaponName)) + (weapSpecs[20]->offsetToInternalWeaponName);
+		memcpy(internName, "bustersword0", strlen("bustersword0") + 1);
     }
     
     catch (const std::exception& e) {
