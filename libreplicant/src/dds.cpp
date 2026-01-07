@@ -143,13 +143,28 @@ namespace replicant::dds {
                 const uint8_t* src = reinterpret_cast<const uint8_t*>(pixelData.data()) + mipInfo.offset;
                 uint8_t* dst = img->pixels;
 
-                if (img->slicePitch == mipInfo.sliceSize && img->slicePitch * mipInfo.depth == dataSizeToCopy) {
+                bool strictMatch = (img->slicePitch == mipInfo.sliceSize) &&
+                    (img->rowPitch == mipInfo.rowPitch);
+
+                if (strictMatch) {
                     memcpy(dst, src, dataSizeToCopy);
                 }
+
                 else {
-                    // for cases where pitch alignment differs like 1px textures
-                    size_t copySize = std::min((size_t)img->slicePitch * mipInfo.depth, (size_t)dataSizeToCopy);
-                    memcpy(dst, src, copySize);
+                    const uint8_t* sRow = src;
+                    uint8_t* dRow = dst;
+
+                    size_t copyPitch = std::min<size_t>(img->rowPitch, mipInfo.rowPitch);
+
+                    // Handle specific depth/slice logic if needed, but for 2D/Basic 3D:
+                    for (size_t z = 0; z < mipInfo.depth; ++z) {
+                        for (size_t y = 0; y < mipInfo.height; ++y) {
+                            memcpy(dRow, sRow, copyPitch);
+                            sRow += mipInfo.rowPitch;
+                            dRow += img->rowPitch;
+                        }
+
+                    }
                 }
             }
         }

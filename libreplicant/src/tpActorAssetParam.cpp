@@ -34,23 +34,23 @@ namespace replicant {
 
         reader.seek(reader.getOffsetPtr(header->offsetToDataStart));
 
-        std::vector<RawEntry> RawEntries;
 		std::span<const uint32_t> offsetsToEntries = reader.viewArray<uint32_t>(header->entryCount);
 
-        for (uint32_t offset : offsetsToEntries) {
+        std::vector<ActorAssetEntry> entries;
+        entries.reserve(header->entryCount);
+
+        for (const uint32_t& offset : offsetsToEntries) {
             reader.seek(reader.getOffsetPtr(offset));
-            RawEntries.push_back(*reader.view<RawEntry>());
-		}
 
-        std::vector<ActorAssetEntry> entries(header->entryCount);
+            const RawEntry* rawEntry = reader.view<RawEntry>();
+            ActorAssetEntry entry;
 
-        for (size_t i = 0; i < header->entryCount; i++) {
-            RawEntry const& rawEntry = RawEntries[i];
-            ActorAssetEntry& entry = entries[i];
-            entry.u32_00 = rawEntry.u32_00;
-            entry.assetPath = reader.readStringRelative(rawEntry.offsetToAssetPath);
-            entry.u32_0c = rawEntry.u32_0c;
-            entry.u32_10 = rawEntry.u32_10;
+            entry.u32_00 = rawEntry->u32_00;
+            entry.assetPath = reader.readStringRelative(rawEntry->offsetToAssetPath);
+            entry.u32_0c = rawEntry->u32_0c;
+            entry.u32_10 = rawEntry->u32_10;
+
+            entries.push_back(std::move(entry));
         }
 
         return entries;

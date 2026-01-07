@@ -1,18 +1,25 @@
-#include "replicant/arc.h"
 #define ZSTD_STATIC_LINKING_ONLY
 #include <zstd.h>
 #include <iostream>
 #include <algorithm>
-#include <cstring>
+#include <filesystem>
+#include <fstream>
+#include "replicant/arc.h"
+#include "replicant/pack.h"
+
+#include "replicant/core/io.h"
+
 
 namespace replicant::archive {
 
     namespace {
         constexpr size_t SECTOR_ALIGNMENT = 16;
+        constexpr size_t STREAM_BUFFER_SIZE = 128 * 1024;
 
         size_t align_to(size_t value, size_t alignment) {
             return (value + alignment - 1) & ~(alignment - 1);
         }
+
     }
 
     std::expected<std::vector<std::byte>, Error> Compress(std::span<const std::byte> data, CompressionConfig config) {
@@ -66,6 +73,7 @@ namespace replicant::archive {
     }
 
     std::expected<ArchiveResult, Error> Build(
+        const std::filesystem::path& outputPath,
         const std::vector<ArchiveInput>& inputs,
         BuildMode mode,
         CompressionConfig config
@@ -73,56 +81,105 @@ namespace replicant::archive {
         ArchiveResult result;
         result.entries.reserve(inputs.size());
 
+        std::ofstream outArc(outputPath, std::ios::binary | std::ios::trunc);
+        if (!outArc) return std::unexpected(Error{ ErrorCode::IoError, "Failed to open output archive: " + outputPath.string() });
+
         if (mode == BuildMode::SingleStream) {
             // PRELOAD_DECOMPRESS (Type 0)
             // Concatenate uncompressed -> Record Offsets -> Compress Whole
 
-            size_t totalUncompressed = 0;
-            for (const auto& input : inputs) totalUncompressed += input.data.size();
+            ZSTD_CStream* cstream = ZSTD_createCStream();
+            if (!cstream) return std::unexpected(Error{ ErrorCode::SystemError, "Failed to create ZSTD Stream" });
 
-            std::vector<std::byte> hugeBuffer;
-            hugeBuffer.reserve(totalUncompressed);
+            ZSTD_CCtx_setParameter(cstream, ZSTD_c_compressionLevel, config.level);
+            ZSTD_CCtx_setParameter(cstream, ZSTD_c_windowLog, config.windowLog);
 
-            size_t currentOffset = 0;
+            std::vector<char> inBuf(STREAM_BUFFER_SIZE);
+            std::vector<char> outBuf(ZSTD_CStreamOutSize());
+
+            size_t currentUncompressedOffset = 0;
+
             for (const auto& input : inputs) {
+                auto sizesRes = replicant::Pack::getFileSizes(input.fullPath);
+                if (!sizesRes) { ZSTD_freeCStream(cstream); return std::unexpected(sizesRes.error()); }
+				auto sizes = *sizesRes;
 
-                size_t padding_needed = (16 - (currentOffset % 16)) % 16;
+                size_t padding_needed = (16 - (currentUncompressedOffset % 16)) % 16;
                 if (padding_needed > 0) {
-                    hugeBuffer.insert(hugeBuffer.end(), padding_needed, std::byte{ 0 });
-                    currentOffset += padding_needed;
-                }
+                    std::vector<char> zeros(padding_needed, 0);
+                    ZSTD_inBuffer zIn = { zeros.data(), zeros.size(), 0 };
 
-                hugeBuffer.insert(hugeBuffer.end(), input.data.begin(), input.data.end());
+                    while (zIn.pos < zIn.size) {
+                        ZSTD_outBuffer zOut = { outBuf.data(), outBuf.size(), 0 };
+                        size_t ret = ZSTD_compressStream(cstream, &zOut, &zIn);
+                        if (ZSTD_isError(ret)) { ZSTD_freeCStream(cstream); return std::unexpected(Error{ ErrorCode::SystemError, ZSTD_getErrorName(ret) }); }
+                        outArc.write(outBuf.data(), zOut.pos);
+                    }
+                    currentUncompressedOffset += padding_needed;
+                }
 
                 ArchiveEntryInfo entry;
                 entry.name = input.name;
-
-                // For Type 0, offset is the position in the DECOMPRESSED memory
-                entry.offset = currentOffset;
-
-                // For Type 0, compressedSize is the size to READ from memory (Uncompressed Size)
-                entry.compressedSize = 0;
-
-                entry.packSerializedSize = input.packSerializedSize;
-                entry.packResourceSize = input.packResourceSize;
-
+                entry.offset = currentUncompressedOffset; // Offset in DECOMPRESSED stream
+                entry.compressedSize = 0; // Type 0 uses 0 here
+                entry.packSerializedSize = sizes.serializedSize;
+                entry.packResourceSize = sizes.resourceSize;
                 result.entries.push_back(entry);
 
-                currentOffset += input.data.size();
+                // 3. Feed File Content to Compressor
+                std::ifstream inFile(input.fullPath, std::ios::binary);
+                if (!inFile) { ZSTD_freeCStream(cstream); return std::unexpected(Error{ ErrorCode::IoError, "Failed to read input: " + input.fullPath.string() }); }
+
+                while (inFile) {
+                    inFile.read(inBuf.data(), inBuf.size());
+                    std::streamsize bytesRead = inFile.gcount();
+                    if (bytesRead == 0) break;
+
+                    ZSTD_inBuffer zIn = { inBuf.data(), static_cast<size_t>(bytesRead), 0 };
+                    while (zIn.pos < zIn.size) {
+                        ZSTD_outBuffer zOut = { outBuf.data(), outBuf.size(), 0 };
+                        size_t ret = ZSTD_compressStream(cstream, &zOut, &zIn);
+                        if (ZSTD_isError(ret)) { ZSTD_freeCStream(cstream); return std::unexpected(Error{ ErrorCode::SystemError, ZSTD_getErrorName(ret) }); }
+                        outArc.write(outBuf.data(), zOut.pos);
+                    }
+                }
+                currentUncompressedOffset += sizes.fileSize;
             }
 
-            auto compressRes = Compress(hugeBuffer, config);
-            if (!compressRes) return std::unexpected(compressRes.error());
+            // 4. Finish Stream
+            ZSTD_outBuffer zOut = { outBuf.data(), outBuf.size(), 0 };
+            size_t ret;
+            do {
+                zOut.pos = 0;
+                ret = ZSTD_endStream(cstream, &zOut);
+                if (ZSTD_isError(ret)) { ZSTD_freeCStream(cstream); return std::unexpected(Error{ ErrorCode::SystemError, ZSTD_getErrorName(ret) }); }
+                outArc.write(outBuf.data(), zOut.pos);
+            } while (ret > 0);
 
-            result.arcData = std::move(*compressRes);
+            ZSTD_freeCStream(cstream);
         }
         else {
             // STREAM (Type 1/2)
             // Compress each -> Align -> Record Offsets
-
             for (const auto& input : inputs) {
-                auto compressRes = Compress(input.data, config);
+                auto infoRes = Pack::getFileSizes(input.fullPath);
+                if (!infoRes) {
+					std::cerr << "Failed to get file sizes for " << input.fullPath << ": " << infoRes.error().toString() << "\n";
+					return std::unexpected(infoRes.error());
+                };
+				auto info = *infoRes;
+
+                // Read file
+                auto fileBlob = ReadFile(input.fullPath);
+                if (!fileBlob) return std::unexpected(Error{ ErrorCode::IoError, "Failed to read " + input.fullPath.string() });
+
+                // Compress
+                auto compressRes = Compress(*fileBlob, config);
                 if (!compressRes) return std::unexpected(compressRes.error());
+
+                // Release input memory immediately
+                fileBlob->clear();
+                fileBlob->shrink_to_fit();
 
                 size_t cSize = compressRes->size();
                 size_t alignedSize = align_to(cSize, SECTOR_ALIGNMENT);
@@ -130,21 +187,19 @@ namespace replicant::archive {
 
                 ArchiveEntryInfo entry;
                 entry.name = input.name;
-
-                // For Type 1/2, offset is the position in the ARC file
-                entry.offset = result.arcData.size();
-
-                // For Type 1/2, compressedSize is the ZSTD frame size
+                entry.offset = static_cast<uint64_t>(outArc.tellp());
                 entry.compressedSize = static_cast<uint32_t>(cSize);
-
-                entry.packSerializedSize = input.packSerializedSize;
-                entry.packResourceSize = input.packResourceSize;
-
+                entry.packSerializedSize = info.serializedSize;
+                entry.packResourceSize = info.resourceSize;
                 result.entries.push_back(entry);
 
-                result.arcData.insert(result.arcData.end(), compressRes->begin(), compressRes->end());
+                // Write compressed data
+                outArc.write(reinterpret_cast<const char*>(compressRes->data()), cSize);
+
+                // Write padding
                 if (padding > 0) {
-                    result.arcData.insert(result.arcData.end(), padding, std::byte{ 0 });
+                    std::vector<char> pad(padding, 0);
+                    outArc.write(pad.data(), padding);
                 }
             }
         }

@@ -4,6 +4,8 @@
 
 #include <cstring>
 #include <algorithm>
+#include <filesystem>
+#include <fstream>
 
 namespace replicant {
 
@@ -60,7 +62,7 @@ namespace replicant {
         };
     }
 
-    Pack DeserializeInternal(std::span<const std::byte> data) {
+    Pack DeserializeInternal(std::span<const std::byte> data, bool skipResources) {
         Reader reader(data);
 
         // Header
@@ -150,7 +152,7 @@ namespace replicant {
                 }
 
                 // Resource Data
-                if (rawFiles[i].dataOffset.has_data) {
+                if (rawFiles[i].dataOffset.has_data && !skipResources) {
                     resources.push_back({ rawFiles[i].dataOffset.offset, i });
                 }
 
@@ -200,7 +202,7 @@ namespace replicant {
 
     std::expected<Pack, Error> Pack::Deserialize(std::span<const std::byte> data) {
         try {
-            return DeserializeInternal(data);
+            return DeserializeInternal(data, false);
         }
         catch (const ReaderException& ex) {
             return std::unexpected(Error{ ErrorCode::ParseError, ex.what()});
@@ -347,6 +349,78 @@ namespace replicant {
 
         return writer.buffer();
     }
+
+
+    std::expected<Pack, Error> Pack::DeserializeNoResources(const std::filesystem::path& filePath) {
+        try {
+            RawPackHeader rawHeader;
+
+            std::ifstream file(filePath, std::ios::binary);
+            if (!file) {
+                throw ReaderException("Failed to open file for reading");
+            }
+
+            file.read(reinterpret_cast<char*>(&rawHeader), sizeof(RawPackHeader));
+            if (file.gcount() != sizeof rawHeader) {
+                throw ReaderException("Failed to read RawPackHeader");
+            }
+
+            if (std::strncmp(rawHeader.magic, "PACK", 4) != 0) {
+                throw ReaderException("Invalid PACK magic");
+            }
+
+            if (rawHeader.serializedSize > std::filesystem::file_size(filePath)) {
+                throw ReaderException("Invalid serialized size");
+            }
+            file.seekg(0, std::ios::beg);
+
+            std::vector<std::byte> serializedData(rawHeader.serializedSize);
+            file.read(reinterpret_cast<char*>(serializedData.data()), rawHeader.serializedSize);
+            if (file.gcount() != static_cast<std::streamsize>(serializedData.size())) {
+                throw ReaderException("Failed to read serialized data");
+            }
+
+            return DeserializeInternal(serializedData, true);
+        }
+        catch (const ReaderException& ex) {
+            return std::unexpected(Error{ ErrorCode::ParseError, ex.what() });
+        }
+        catch (const std::exception& ex) {
+            return std::unexpected(Error{ ErrorCode::ParseError, ex.what() });
+		}
+    }
+
+    std::expected<Pack::PackFileSizes, Error> Pack::getFileSizes(const std::filesystem::path& filePath) {
+        try {
+            RawPackHeader rawHeader;
+
+            std::ifstream file(filePath, std::ios::binary);
+            if (!file) {
+                throw ReaderException("Failed to open file for reading");
+            }
+            file.read(reinterpret_cast<char*>(&rawHeader), sizeof(RawPackHeader));
+            if (file.gcount() != sizeof rawHeader) {
+                throw ReaderException("Failed to read RawPackHeader");
+            }
+
+            if (std::strncmp(rawHeader.magic, "PACK", 4) != 0) {
+                throw ReaderException("Invalid PACK magic");
+			}
+
+            return PackFileSizes{
+                .serializedSize = rawHeader.serializedSize,
+                .resourceSize = rawHeader.resourceSize,
+				.fileSize = rawHeader.totalSize
+            };
+        }
+        catch (const ReaderException& ex) {
+            return std::unexpected(Error{ ErrorCode::ParseError, ex.what() });
+        }
+        catch (const std::exception& ex) {
+            return std::unexpected(Error{ ErrorCode::ParseError, ex.what() });
+        }
+    }
+
 
     std::expected<std::vector<std::byte>, Error> Pack::Serialize() const {
         try {

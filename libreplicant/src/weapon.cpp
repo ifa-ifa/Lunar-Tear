@@ -94,14 +94,14 @@ namespace replicant::weapon {
             entry.level4Stats = raw_entry.body.level4Stats;
             entry.level4Recipe = raw_entry.body.level4Recipe;
 
-            entry.uint32_0x168 = raw_entry.body.uint32_0x168;
+            entry.excludeFromCompletion = raw_entry.body.excludeFromCompletion;
 
-            entry.uint8_0x16C = raw_entry.body.uint8_0x16C;
+            entry.weaponType = raw_entry.body.weaponType;
             entry.uint8_0x16D = raw_entry.body.uint8_0x16D;
             entry.uint8_0x16E = raw_entry.body.uint8_0x16E;
             entry.uint8_0x16F = raw_entry.body.uint8_0x16F;
 
-            entry.float_0x170 = raw_entry.body.float_0x170;
+            entry.uint8_0x170 = raw_entry.body.uint8_0x170;
         }
         return entries;
 	}
@@ -169,12 +169,15 @@ namespace replicant::weapon {
 			writer.write(entry.level3Recipe);
 			writer.write(entry.level4Stats);
 			writer.write(entry.level4Recipe);
-			writer.write(entry.uint32_0x168);
-			writer.write(entry.uint8_0x16C);
+			writer.write(entry.excludeFromCompletion);
+			writer.write(entry.weaponType);
 			writer.write(entry.uint8_0x16D);
 			writer.write(entry.uint8_0x16E);
 			writer.write(entry.uint8_0x16F);
-			writer.write(entry.float_0x170);
+            writer.write(entry.uint8_0x170);
+            writer.write(static_cast<uint8_t>(0));
+            writer.write(static_cast<uint8_t>(0));
+            writer.write(static_cast<uint8_t>(0));
         }
 		writer.align(16);
 		stringPool.flush(writer);
