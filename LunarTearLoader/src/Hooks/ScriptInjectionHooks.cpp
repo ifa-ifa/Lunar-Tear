@@ -89,9 +89,6 @@ end
 
 )";
 
-
-
-
 void ExecuteScriptsForPoint(ScriptContextManager* ctxMn, const std::string& point) {
     auto scripts = GetInjectionScripts(point);
     std::lock_guard<std::mutex> lock(API::s_lua_binding_mutex);
@@ -188,46 +185,10 @@ bool InstallScriptInjectHooks() {
     void* PostGameTarget = (void*)(g_processBaseAddress + 0x41479a);
     void* PostRootTarget = (void*)(g_processBaseAddress + 0x414202);
 
-
-    if (MH_CreateHook(PostPhaseTarget, &PostPhaseStub, &PostPhaseTrampoline) != MH_OK) {
-        Logger::Log(Error) << "Could not create post phase hook";
-        return false;
-    }
-    if (MH_CreateHook(PostLibTarget, &PostLibStub, &PostLibTrampoline) != MH_OK) {
-        Logger::Log(Error) << "Could not create post lib hook";
-        return false;
-    }
-    if (MH_CreateHook(PostGameTarget, &PostGameStub, &PostGameTrampoline) != MH_OK) {
-        Logger::Log(Error) << "Could not create post game hook";
-        return false;
-    }
-    if (MH_CreateHook(PostRootTarget, &PostRootStub, &PostRootTrampoline) != MH_OK) {
-        Logger::Log(Error) << "Could not create post root hook";
-        return false;
-    }
-
-	MH_STATUS status;
-    status = MH_EnableHook(PostPhaseTarget);
-    if (status != MH_OK) {
-        Logger::Log(Error) << "Could not enable post phase hook: " << (int)status;
-        return false;
-	}
-    status = MH_EnableHook(PostLibTarget);
-    if (status != MH_OK) {
-        Logger::Log(Error) << "Could not enable post lib hook: " << (int)status;
-        return false;
-	}
-    status = MH_EnableHook(PostGameTarget);
-    if (status != MH_OK) {
-        Logger::Log(Error) << "Could not enable post game hook: " << (int)status;
-        return false;
-    }
-    status = MH_EnableHook(PostRootTarget);
-    if (status != MH_OK) {
-        Logger::Log(Error) << "Could not enable post root hook: " << (int)status;
-        return false;
-    }
-
+    InstallHook(PostPhaseTarget, &PostPhaseStub, &PostPhaseTrampoline, "Post Phase");
+    InstallHook(PostLibTarget, &PostLibStub, &PostLibTrampoline, "Post Lib");
+    InstallHook(PostGameTarget, &PostGameStub, &PostGameTrampoline, "Post Game");
+    InstallHook(PostRootTarget, &PostRootStub, &PostRootTrampoline, "Post Root");
 
     return true;
 }

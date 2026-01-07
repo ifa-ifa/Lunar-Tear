@@ -158,17 +158,7 @@ bool InstallTextureHooks() {
 
     void* TexHook_target = (void*)(g_processBaseAddress + 0x7dc820);
 
-    if (MH_CreateHookEx(TexHook_target, &TexHook_detoured, &TexHook_original) != MH_OK) {
-        Logger::Log(Error) << "Could not create texture hook";
-        return false;
-    }
-
-    if (MH_EnableHook(TexHook_target) != MH_OK) {
-        Logger::Log(Error) << "Could not enable texture hook";
-        return false;
-    }
-
-
+    InstallHook(TexHook_target, &TexHook_detoured, &TexHook_original, "Texture hook");
 
     return true;
 }

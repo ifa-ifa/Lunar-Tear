@@ -169,15 +169,8 @@ bool InstallFPSUnlockHooks() {
         timewaited += 100;
     }
 
-    if (MH_CreateHookEx(pPresent, &Present_detoured, &Present_original) != MH_OK) {
-        Logger::Log(Error) << "Could not create hook for IDXGISwapChain::Present.";
-        return false;
-    }
-    if (MH_EnableHook(pPresent) != MH_OK) {
-        Logger::Log(Error) << "Could not enable present hook";
-        return false;
-    }
-    Logger::Log(Verbose) << "FPS unlock hooks installed successfully.";
+    InstallHook(pPresent, &Present_detoured, &Present_original, "Present");
+
     return true;
 
 }

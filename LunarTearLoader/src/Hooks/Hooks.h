@@ -6,14 +6,9 @@
 using enum Logger::LogCategory;
 
 template <typename T>
-inline MH_STATUS MH_CreateHookEx(LPVOID pTarget, LPVOID pDetour, T** ppOriginal) {
-    return MH_CreateHook(pTarget, pDetour, reinterpret_cast<LPVOID*>(ppOriginal));
-}
-
-template <typename T>
-inline bool InstallHook(LPVOID pTarget, LPVOID pDetour, T** ppOriginal, std::string& name) {
+inline bool InstallHook(LPVOID pTarget, LPVOID pDetour, T** ppOriginal, std::string name) {
     int ret;
-	ret = MH_CreateHookEx(pTarget, pDetour, ppOriginal);
+	ret = MH_CreateHook(pTarget, pDetour, reinterpret_cast<LPVOID*>(ppOriginal));
     if (ret != MH_OK) {
         Logger::Log(Error) << "Could not create hook for " << name << ": " << ret;
         return false;

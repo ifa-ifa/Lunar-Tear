@@ -59,16 +59,9 @@ void decompressArchive_detoured(tpFndTextFormat256* basePath, const char* archiv
 
 
 bool InstallVFSHooks() {
-    void* decompressArchive_target = (void*)(g_processBaseAddress + 0x08ed730);
-    if (MH_CreateHookEx(decompressArchive_target, &decompressArchive_detoured, &decompressArchive_original) != MH_OK) {
-		Logger::Log(Error) << "Could not create VFS Hook";
-        return false;
-    }
 
-    if (MH_EnableHook(decompressArchive_target) != MH_OK) {
-		Logger::Log(Error) << "Could not enable VFS Hook";
-        return false;
-    }
+    void* decompressArchive_target = (void*)(g_processBaseAddress + 0x08ed730);
+    InstallHook(decompressArchive_target, &decompressArchive_detoured, &decompressArchive_original, "VFS");
 
     return true;
 }

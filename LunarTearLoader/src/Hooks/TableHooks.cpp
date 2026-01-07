@@ -50,36 +50,9 @@ bool InstallTableHooks() {
     void* DroptableTableTarget = (void*)(g_processBaseAddress + 0x4148b3);
     void* GameTableTarget = (void*)(g_processBaseAddress + 0x414813);
 
-    if (MH_CreateHook(PhaseTableTarget, &PhaseTableStub, &PhaseTableTrampoline) != MH_OK) {
-        Logger::Log(Error) << "Could not create phase table hook";
-        return false;
-    }
-    if (MH_CreateHook(DroptableTableTarget, &DroptableTableStub, &DroptableTableTrampoline) != MH_OK) {
-        Logger::Log(Error) << "Could not create droptable table hook";
-        return false;
-    }   
-    if (MH_CreateHook(GameTableTarget, &GameTableStub, &GameTableTrampoline) != MH_OK) {
-        Logger::Log(Error) << "Could not create game table hook";
-        return false;
-    }
-
-	MH_STATUS status;
-    status = MH_EnableHook(PhaseTableTarget);
-    if (!status == MH_OK) {
-        Logger::Log(Error) << "Could not enable phase table hook: " << (int)status;
-        return false;
-	}
-    status = MH_EnableHook(DroptableTableTarget);
-    if (!status == MH_OK) {
-        Logger::Log(Error) << "Could not enable droptable table hook: " << (int)status;
-        return false;
-    }
-    status = MH_EnableHook(GameTableTarget);
-    if (!status == MH_OK) {
-        Logger::Log(Error) << "Could not enable game table hook: " << (int)status;
-        return false;
-	}
-
+    InstallHook(PhaseTableTarget, &PhaseTableStub, &PhaseTableTrampoline, "Phase Tabe Trampoline");
+    InstallHook(DroptableTableTarget, &DroptableTableStub, &DroptableTableTrampoline, "Drop Table");
+    InstallHook(GameTableTarget, &GameTableStub, &GameTableTrampoline, "Game Table");
 
     return true;
 }

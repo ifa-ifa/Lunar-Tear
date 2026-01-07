@@ -11,7 +11,6 @@ namespace {
     Binding_DebugPrint_t Binding_DebugPrintOriginal = nullptr;
 }
 
-
 std::string ShiftJISToUTF8(const char* shift_jis_str) {
     if (!shift_jis_str || shift_jis_str[0] == '\0') {
         return "";
@@ -56,15 +55,7 @@ bool InstallDebugHooks() {
     // This target is the c binding for the games internal _DebugPrint function, we hook it to feed our own logging system
     void* Binding_DebugPrintTarget = (void*)(g_processBaseAddress + 0x6df8f0);
 
-    if (MH_CreateHookEx(Binding_DebugPrintTarget, &Binding_DebugPrintDetoured, &Binding_DebugPrintOriginal) != MH_OK) {
-        Logger::Log(Error) << "Could not create lua debug hook";
-        return false;
-    }
-
-    if (MH_EnableHook(Binding_DebugPrintTarget) != MH_OK) {
-        Logger::Log(Error) << "Could not enable lua debug hook";
-        return false;
-    }
+    InstallHook(Binding_DebugPrintTarget, &Binding_DebugPrintDetoured, &Binding_DebugPrintOriginal, "DebugPrint");
 
     return true;
 }

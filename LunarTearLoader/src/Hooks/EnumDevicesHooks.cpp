@@ -186,16 +186,8 @@ bool InstallEnumDevicesHooks() {
         timewaited += 100;
     }
 
-    if (MH_CreateHookEx(pEnumDevices, &EnumDevices_detoured, &EnumDevices_original) != MH_OK) {
-        Logger::Log(Error) << "Could not create hook for EnumDevices.";
-        return false;
-    }
-    if (MH_EnableHook(pEnumDevices) != MH_OK) { 
-        Logger::Log(Error) << "Could not enable device enumeration hook";
-        return false;
-    }
+	InstallHook(pEnumDevices, &EnumDevices_detoured, &EnumDevices_original, "EnumDevices");
 
-    Logger::Log(Verbose) << "Enum Devices hooks installed successfully.";
     return true;
 
 }
