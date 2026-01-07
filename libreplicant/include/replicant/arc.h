@@ -4,6 +4,7 @@
 #include <string>
 #include <cstddef>
 #include <cstdint>
+#include <filesystem>
 #include <span>
 #include <expected>
 
@@ -21,9 +22,7 @@ namespace replicant::archive {
 
     struct ArchiveInput {
         std::string name;
-        std::vector<std::byte> data;
-        uint32_t packSerializedSize = 0;
-        uint32_t packResourceSize = 0;
+        std::filesystem::path fullPath;
     };
 
     struct ArchiveEntryInfo {
@@ -39,7 +38,6 @@ namespace replicant::archive {
     };
 
     struct ArchiveResult {
-        std::vector<std::byte> arcData;
         std::vector<ArchiveEntryInfo> entries;
     };
 
@@ -59,6 +57,7 @@ namespace replicant::archive {
 
 
     std::expected<ArchiveResult, Error> Build(
+        const std::filesystem::path& outputPath,
         const std::vector<ArchiveInput>& inputs,
         BuildMode mode,
         CompressionConfig config = {}

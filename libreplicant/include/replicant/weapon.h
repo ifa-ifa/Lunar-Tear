@@ -97,12 +97,13 @@ namespace replicant::weapon {
         WeaponStats level4Stats;
         WeaponUpgradeRecipe level4Recipe;
 
-        uint32_t uint32_0x168;
-        uint8_t  uint8_0x16C;
+        uint32_t excludeFromCompletion;
+        uint8_t  weaponType;
+
         uint8_t  uint8_0x16D;
         uint8_t  uint8_0x16E;
         uint8_t  uint8_0x16F;
-        float float_0x170;
+        uint8_t  uint8_0x170;
     };
 
     std::expected<std::vector<WeaponEntry>, Error> openWeaponSpecs(std::span<const std::byte> data);
@@ -192,13 +193,17 @@ namespace replicant::raw {
         replicant::weapon::WeaponStats level4Stats;
         replicant::weapon::WeaponUpgradeRecipe level4Recipe;
 
-        uint32_t uint32_0x168;
-        uint8_t  uint8_0x16C;
+        uint32_t excludeFromCompletion;
+        uint8_t  weaponType;
+
         uint8_t  uint8_0x16D;
         uint8_t  uint8_0x16E;
         uint8_t  uint8_0x16F;
-        float float_0x170;
+        uint8_t  uint8_0x170;
+
+        uint8_t padding[3];
     };
+
     struct RawWeaponEntry {
         uint32_t uint32_0x00;
         uint32_t offsetInternalNameHead;

@@ -6,6 +6,7 @@
 #include <expected>
 #include <optional>
 #include <span>
+#include <filesystem>
 
 namespace replicant {
 
@@ -42,6 +43,14 @@ namespace replicant {
         std::vector<PackFileEntry> files;
 
         static std::expected<Pack, Error> Deserialize(std::span<const std::byte> data);
+        static std::expected<Pack, Error> DeserializeNoResources(const std::filesystem::path& filePath);
+
+        struct PackFileSizes {
+            uint32_t serializedSize;
+            uint32_t resourceSize;
+            uint32_t fileSize;
+        };
+		static std::expected<PackFileSizes, Error> getFileSizes(const std::filesystem::path& filePath);
 
         std::expected<std::vector<std::byte>, Error> Serialize() const;
 
