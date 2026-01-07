@@ -1,5 +1,5 @@
 #pragma once
-#include "replicant/core/reader.h"
+#include "replicant/core/common.h"
 #include <vector>
 #include <string>
 #include <cstdint>
@@ -41,11 +41,15 @@ namespace replicant {
         std::vector<AssetPackageEntry> assetPackages;
         std::vector<PackFileEntry> files;
 
-        static std::expected<Pack, ReaderError> Deserialize(std::span<const std::byte> data);
+        static std::expected<Pack, Error> Deserialize(std::span<const std::byte> data);
 
-        std::vector<std::byte> Serialize() const;
+        std::expected<std::vector<std::byte>, Error> Serialize() const;
 
         PackFileEntry* findFile(const std::string& name);
         const PackFileEntry* findFile(const std::string& name) const;
+
+    private:
+        std::vector<std::byte> SerializeInternal() const;
+
     };
 }

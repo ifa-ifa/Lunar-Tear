@@ -1,5 +1,7 @@
 #include "replicant/pack.h"
 #include "replicant/core/writer.h"
+#include "replicant/core/reader.h"
+
 #include <cstring>
 #include <algorithm>
 
@@ -58,66 +60,59 @@ namespace replicant {
         };
     }
 
-    std::expected<Pack, ReaderError> Pack::Deserialize(std::span<const std::byte> data) {
+    Pack DeserializeInternal(std::span<const std::byte> data) {
         Reader reader(data);
 
         // Header
 
-        auto headerRes = reader.view<RawPackHeader>();
-        if (!headerRes) return std::unexpected(headerRes.error());
-        const auto* raw = *headerRes;
+        const RawPackHeader* rawHeader = reader.view<RawPackHeader>();
 
-        if (std::strncmp(raw->magic, "PACK", 4) != 0) {
-            return std::unexpected(ReaderError{ ReaderErrorCode::InvalidPointer, "Invalid Magic: Not a PACK file" });
+        if (std::strncmp(rawHeader->magic, "PACK", 4) != 0) {
+			throw ReaderException("Invalid PACK magic");
         }
 
         Pack pack;
-        pack.info.version = raw->version;
+        pack.info.version = rawHeader->version;
 
-        if (raw->totalSize > data.size()) {
-            return std::unexpected(ReaderError{ ReaderErrorCode::OutOfBounds, "Header TotalSize exceeds buffer" });
+        if (rawHeader->totalSize > data.size()) {
+			throw ReaderException("TotalSize exceeds file size");
         }
 
-        const std::byte* resourceBlockBase = data.data() + raw->serializedSize;
+        const std::byte* resourceBlockBase = data.data() + rawHeader->serializedSize;
         if (resourceBlockBase > data.data() + data.size()) {
-            return std::unexpected(ReaderError{ ReaderErrorCode::OutOfBounds, "SerializedSize extends beyond file" });
+            throw ReaderException("SerializedSize exceeds file size");
         }
 
         // Imports
 
-		// Still dont really know what an import is so this could be wrong
-        if (raw->importsCount > 0) {
-            auto ptrRes = reader.getOffsetPtr(raw->offsetToImports);
-            if (!ptrRes) return std::unexpected(ptrRes.error());
+        if (rawHeader->importsCount > 0) {
+            auto importsPtr = reader.getOffsetPtr(rawHeader->offsetToImports);
 
-            const RawImport* rawImports = reinterpret_cast<const RawImport*>(*ptrRes);
+            const RawImport* rawImports = reinterpret_cast<const RawImport*>(importsPtr);
             // trust getOffsetPtr puts us in valid range becuase Reader::viewArray logic is complex with getOffsetPtr
 
-            pack.imports.reserve(raw->importsCount);
-            for (uint32_t i = 0; i < raw->importsCount; i++) {
+            pack.imports.reserve(rawHeader->importsCount);
+            for (uint32_t i = 0; i < rawHeader->importsCount; i++) {
                 ImportEntry entry;
                 entry.pathHash = rawImports[i].pathHash;
 
-                auto sRes = reader.readStringRelative(rawImports[i].offsetToPath);
-                if (sRes) entry.path = *sRes;
+                entry.path = reader.readStringRelative(rawImports[i].offsetToPath);
 
                 pack.imports.push_back(entry);
             }
         }
 
-        // Asset Packages. Dont know what this is either
-        if (raw->assetPackagesCount > 0) {
-            auto ptrRes = reader.getOffsetPtr(raw->offsetToAssetPackages);
-            if (!ptrRes) return std::unexpected(ptrRes.error());
-            const RawAssetPackage* rawAP = reinterpret_cast<const RawAssetPackage*>(*ptrRes);
+        // Asset Packages
+        if (rawHeader->assetPackagesCount > 0) {
+            auto apsPtr = reader.getOffsetPtr(rawHeader->offsetToAssetPackages);
+            const RawAssetPackage* rawAP = reinterpret_cast<const RawAssetPackage*>(apsPtr);
 
-            pack.assetPackages.reserve(raw->assetPackagesCount);
-            for (uint32_t i = 0; i < raw->assetPackagesCount; i++) {
+            pack.assetPackages.reserve(rawHeader->assetPackagesCount);
+            for (uint32_t i = 0; i < rawHeader->assetPackagesCount; i++) {
                 AssetPackageEntry entry;
                 entry.nameHash = rawAP[i].nameHash;
 
-                auto sRes = reader.readStringRelative(rawAP[i].offsetToName);
-                if (sRes) entry.name = *sRes;
+                entry.name = reader.readStringRelative(rawAP[i].offsetToName);
 
                 auto contentPtrRes = reader.getOffsetPtr(rawAP[i].offsetToContentStart);
                 if (contentPtrRes) {
@@ -131,20 +126,19 @@ namespace replicant {
         }
 
         // Files
-        if (raw->filesCount > 0) {
-            auto ptrRes = reader.getOffsetPtr(raw->offsetToFiles);
-            if (!ptrRes) return std::unexpected(ptrRes.error());
-            const RawFile* rawFiles = reinterpret_cast<const RawFile*>(*ptrRes);
+        if (rawHeader->filesCount > 0) {
+            auto filesPtr = reader.getOffsetPtr(rawHeader->offsetToFiles);
+
+            const RawFile* rawFiles = reinterpret_cast<const RawFile*>(*filesPtr);
 
             std::vector<ResourceInfo> resources;
-            pack.files.reserve(raw->filesCount);
+            pack.files.reserve(rawHeader->filesCount);
 
-            for (uint32_t i = 0; i < raw->filesCount; i++) {
+            for (uint32_t i = 0; i < rawHeader->filesCount; i++) {
                 PackFileEntry entry;
                 entry.nameHash = rawFiles[i].nameHash;
 
-                auto sRes = reader.readStringRelative(rawFiles[i].offsetToName);
-                if (sRes) entry.name = *sRes;
+                entry.name = reader.readStringRelative(rawFiles[i].offsetToName);
 
                 // Serialized Data
                 auto contentPtrRes = reader.getOffsetPtr(rawFiles[i].offsetToContent);
@@ -173,7 +167,7 @@ namespace replicant {
                     return a.offset < b.offset;
                     });
 
-                size_t maxResourceSize = raw->resourceSize;
+                size_t maxResourceSize = rawHeader->resourceSize;
 
                 for (size_t i = 0; i < resources.size(); ++i) {
                     uint32_t currentOffset = resources[i].offset;
@@ -184,13 +178,13 @@ namespace replicant {
                         : static_cast<uint32_t>(maxResourceSize);
 
                     if (nextOffset < currentOffset) {
-                        return std::unexpected(ReaderError{ ReaderErrorCode::InvalidOffset, "Invalid resource offset ordering detected" });
+						throw ReaderException("Resource offsets are out of order");
                     }
 
                     size_t size = nextOffset - currentOffset;
 
                     if (resourceBlockBase + currentOffset + size > data.data() + data.size()) {
-                        return std::unexpected(ReaderError{ ReaderErrorCode::OutOfBounds, "Resource chunk extends beyond file bounds" });
+						throw ReaderException("Resource data exceeds file size");
                     }
 
                     pack.files[resources[i].fileIndex].resourceData.assign(
@@ -204,7 +198,19 @@ namespace replicant {
         return pack;
     }
 
-    std::vector<std::byte> Pack::Serialize() const {
+    std::expected<Pack, Error> Pack::Deserialize(std::span<const std::byte> data) {
+        try {
+            return DeserializeInternal(data);
+        }
+        catch (const ReaderException& ex) {
+            return std::unexpected(Error{ ErrorCode::ParseError, ex.what()});
+        }
+        catch (const std::exception& ex) {
+            return std::unexpected(Error{ ErrorCode::ParseError, ex.what() });
+        }
+    }
+
+    std::vector<std::byte> Pack::SerializeInternal() const {
         Writer writer;
         StringPool stringPool;
 
@@ -340,6 +346,15 @@ namespace replicant {
         }
 
         return writer.buffer();
+    }
+
+    std::expected<std::vector<std::byte>, Error> Pack::Serialize() const {
+        try {
+            return SerializeInternal();
+        }
+        catch (const std::exception& ex) {
+            return std::unexpected(Error{ ErrorCode::SystemError, ex.what() });
+		}
     }
 
     PackFileEntry* Pack::findFile(const std::string& name) {

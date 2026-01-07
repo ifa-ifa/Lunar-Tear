@@ -1,15 +1,16 @@
 #include "replicant/tpGxTexHead.h"
 #include "replicant/core/writer.h"
+#include "replicant/core/reader.h"
+
 using namespace replicant::raw;
 
 namespace replicant {
 
-    std::expected<TextureHeader, ReaderError> Texture::DeserializeHeader(std::span<const std::byte> data) {
+    TextureHeader DeserializeTexHeadInternal(std::span<const std::byte> data) {
+
         Reader reader(data);
 
-        auto rawRes = reader.view<RawTexHeader>();
-        if (!rawRes) return std::unexpected(rawRes.error());
-        const auto* raw = *rawRes;
+        auto raw = reader.view<RawTexHeader>();
 
         TextureHeader header;
         header.width = raw->width;
@@ -20,15 +21,14 @@ namespace replicant {
         header.format = raw->format.resourceFormat;
         header.dimension = raw->format.resourceDimension;
 
-        auto mipArrayRes = reader.getOffsetPtr(raw->offsetToSubresources);
-        if (!mipArrayRes) return std::unexpected(mipArrayRes.error());
+        auto mipArray = reader.getOffsetPtr(raw->offsetToSubresources);
 
-        const std::byte* mipStart = reinterpret_cast<const std::byte*>(*mipArrayRes);
+        const std::byte* mipStart = reinterpret_cast<const std::byte*>(mipArray);
         if (mipStart + (raw->subresourcesCount * sizeof(RawMipSurface)) > data.data() + data.size()) {
-            return std::unexpected(ReaderError{ ReaderErrorCode::OutOfBounds, "Mip table exceeds buffer" });
+			throw ReaderException("Texture header mip array exceeds buffer bounds");
         }
 
-        const RawMipSurface* rawMips = reinterpret_cast<const RawMipSurface*>(*mipArrayRes);
+        const RawMipSurface* rawMips = reinterpret_cast<const RawMipSurface*>(mipArray);
 
         header.mips.reserve(raw->subresourcesCount);
         for (uint32_t i = 0; i < raw->subresourcesCount; i++) {
@@ -46,7 +46,22 @@ namespace replicant {
         return header;
     }
 
-    std::vector<std::byte> Texture::SerializeHeader(const TextureHeader& header) {
+    std::expected<TextureHeader, Error> DeserializeTexHead(std::span<const std::byte> data) {
+
+        try {
+            return DeserializeTexHeadInternal(data);
+        }
+        catch (const ReaderException& e) {
+            return std::unexpected(Error{ ErrorCode::ParseError, e.what() });
+        }
+        catch (const std::exception& e) {
+            return std::unexpected(Error{ ErrorCode::SystemError,
+                std::string("Unexpected error while deserializing texture header: ") + e.what() });
+		}
+
+    }
+
+    std::vector<std::byte> SerializeTexHeadInternal(const TextureHeader& header) {
         Writer writer;
 
         writer.write(header.width);
@@ -83,5 +98,15 @@ namespace replicant {
         }
 
         return writer.buffer();
+    }
+
+    std::expected<std::vector<std::byte>, Error> SerializeTexHead(const TextureHeader& header) {
+        try {
+            return SerializeTexHeadInternal(header);
+        }
+        catch (const std::exception& e) {
+            return std::unexpected(Error{ ErrorCode::SystemError,
+                std::string("Unexpected error while serializing texture header: ") + e.what() });
+        }
     }
 }

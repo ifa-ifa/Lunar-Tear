@@ -12,10 +12,6 @@ namespace DirectX {
 
 namespace replicant::dds {
 
-    struct DDSError {
-        std::string message;
-    };
-
     class DDSFile {
         std::unique_ptr<DirectX::ScratchImage> image_;
 
@@ -25,16 +21,16 @@ namespace replicant::dds {
         DDSFile(DDSFile&&) noexcept;
         DDSFile& operator=(DDSFile&&) noexcept;
 
-        static std::expected<DDSFile, DDSError> Load(const std::filesystem::path& path);
-        static std::expected<DDSFile, DDSError> LoadFromMemory(std::span<const std::byte> data);
+        static std::expected<DDSFile, Error> Load(const std::filesystem::path& path);
+        static std::expected<DDSFile, Error> LoadFromMemory(std::span<const std::byte> data);
 
-        static std::expected<DDSFile, DDSError> CreateFromGameData(
+        static std::expected<DDSFile, Error> CreateFromGameData(
             const TextureHeader& header,
             std::span<const std::byte> pixelData
         );
 
-        std::expected<void, DDSError> Save(const std::filesystem::path& path);
-        std::expected<std::vector<std::byte>, DDSError> SaveToMemory();
+        std::expected<void, Error> Save(const std::filesystem::path& path);
+        std::expected<std::vector<std::byte>, Error> SaveToMemory();
 
         uint32_t getWidth() const;
         uint32_t getHeight() const;

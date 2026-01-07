@@ -81,34 +81,34 @@ namespace replicant::dds {
     DDSFile::DDSFile(DDSFile&&) noexcept = default;
     DDSFile& DDSFile::operator=(DDSFile&&) noexcept = default;
 
-    std::expected<DDSFile, DDSError> DDSFile::Load(const std::filesystem::path& path) {
+    std::expected<DDSFile, Error> DDSFile::Load(const std::filesystem::path& path) {
         DDSFile file;
         DirectX::TexMetadata metadata;
         HRESULT hr = DirectX::LoadFromDDSFile(path.c_str(), DirectX::DDS_FLAGS_NONE, &metadata, *file.image_);
         if (FAILED(hr)) {
-            return std::unexpected(DDSError{ "DirectXTex LoadFromDDSFile failed" });
+            return std::unexpected(Error{ ErrorCode::InvalidArguments, "DirectXTex LoadFromDDSFile failed" });
         }
         return file;
     }
 
-    std::expected<DDSFile, DDSError> DDSFile::LoadFromMemory(std::span<const std::byte> data) {
+    std::expected<DDSFile, Error> DDSFile::LoadFromMemory(std::span<const std::byte> data) {
         DDSFile file;
         DirectX::TexMetadata metadata;
         HRESULT hr = DirectX::LoadFromDDSMemory(data.data(), data.size(), DirectX::DDS_FLAGS_NONE, &metadata, *file.image_);
         if (FAILED(hr)) {
-            return std::unexpected(DDSError{ "DirectXTex LoadFromDDSMemory failed" });
+            return std::unexpected(Error{ ErrorCode::InvalidArguments, "DirectXTex LoadFromDDSMemory failed" });
         }
         return file;
     }
 
-    std::expected<DDSFile, DDSError> DDSFile::CreateFromGameData(
+    std::expected<DDSFile, Error> DDSFile::CreateFromGameData(
         const TextureHeader& header,
         std::span<const std::byte> pixelData
     ) {
-        if (header.mipCount == 0) return std::unexpected(DDSError{ "Invalid mip count (0)" });
+        if (header.mipCount == 0) return std::unexpected(Error{ ErrorCode::InvalidArguments,"Invalid mip count (0)" });
 
         DXGI_FORMAT dxgiFmt = XonToDXGI(header.format);
-        if (dxgiFmt == DXGI_FORMAT_UNKNOWN) return std::unexpected(DDSError{ "Unsupported Texture Format" });
+        if (dxgiFmt == DXGI_FORMAT_UNKNOWN) return std::unexpected(Error{ ErrorCode::InvalidArguments,"Unsupported Texture Format" });
 
         DDSFile file;
         HRESULT hr;
@@ -122,7 +122,7 @@ namespace replicant::dds {
             hr = file.image_->Initialize2D(dxgiFmt, header.width, header.height, arraySize, header.mipCount);
         }
 
-        if (FAILED(hr)) return std::unexpected(DDSError{ "Failed to initialize ScratchImage" });
+        if (FAILED(hr)) return std::unexpected(Error{ ErrorCode::InvalidArguments,"Failed to initialize ScratchImage" });
 
         for (size_t item = 0; item < arraySize; ++item) {
             for (size_t mip = 0; mip < header.mipCount; ++mip) {
@@ -137,7 +137,7 @@ namespace replicant::dds {
 
                 size_t dataSizeToCopy = mipInfo.sliceSize * mipInfo.depth;
                 if (mipInfo.offset + dataSizeToCopy > pixelData.size()) {
-                    return std::unexpected(DDSError{ "Mip data out of bounds" });
+                    return std::unexpected(Error{ ErrorCode::InvalidArguments, "Mip data out of bounds" });
                 }
 
                 const uint8_t* src = reinterpret_cast<const uint8_t*>(pixelData.data()) + mipInfo.offset;
@@ -227,18 +227,18 @@ namespace replicant::dds {
     uint32_t DDSFile::getMipLevels() const { return static_cast<uint32_t>(image_->GetMetadata().mipLevels); }
     TextureFormat DDSFile::getFormat() const { return DXGIToXon(image_->GetMetadata().format); }
 
-    std::expected<void, DDSError> DDSFile::Save(const std::filesystem::path& path) {
-        if (image_->GetImageCount() == 0) return std::unexpected(DDSError{ "Empty image" });
+    std::expected<void, Error> DDSFile::Save(const std::filesystem::path& path) {
+        if (image_->GetImageCount() == 0) return std::unexpected(Error{ ErrorCode::InvalidArguments,"Empty image" });
         HRESULT hr = DirectX::SaveToDDSFile(image_->GetImages(), image_->GetImageCount(), image_->GetMetadata(), DirectX::DDS_FLAGS_NONE, path.c_str());
-        if (FAILED(hr)) return std::unexpected(DDSError{ "SaveToDDSFile failed" });
+        if (FAILED(hr)) return std::unexpected(Error{ ErrorCode::InvalidArguments,"SaveToDDSFile failed" });
         return {};
     }
 
-    std::expected<std::vector<std::byte>, DDSError> DDSFile::SaveToMemory() {
-        if (image_->GetImageCount() == 0) return std::unexpected(DDSError{ "Empty image" });
+    std::expected<std::vector<std::byte>, Error> DDSFile::SaveToMemory() {
+        if (image_->GetImageCount() == 0) return std::unexpected(Error{ ErrorCode::InvalidArguments,"Empty image" });
         DirectX::Blob blob;
         HRESULT hr = DirectX::SaveToDDSMemory(image_->GetImages(), image_->GetImageCount(), image_->GetMetadata(), DirectX::DDS_FLAGS_NONE, blob);
-        if (FAILED(hr)) return std::unexpected(DDSError{ "SaveToDDSMemory failed" });
+        if (FAILED(hr)) return std::unexpected(Error{ ErrorCode::InvalidArguments,"SaveToDDSMemory failed" });
 
         const std::byte* ptr = reinterpret_cast<const std::byte*>(blob.GetBufferPointer());
         return std::vector<std::byte>(ptr, ptr + blob.GetBufferSize());

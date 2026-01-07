@@ -4,21 +4,15 @@
 #include <span>
 #include <cstdint>
 #include <cstring>
-#include <expected> 
+#include <stdexcept> 
 #include <string_view>
 
 namespace replicant {
 
-    enum class ReaderErrorCode {
-        OutOfBounds,
-        InvalidPointer, 
-        InvalidOffset,  
-        StringError     
-    };
-
-    struct ReaderError {
-        ReaderErrorCode code;
-        std::string message; 
+    class ReaderException : public std::runtime_error {
+    public:
+        explicit ReaderException(const std::string& message)
+            : std::runtime_error(message) {}
     };
 
     class Reader {
@@ -39,9 +33,9 @@ namespace replicant {
         }
 
         template <typename T>
-        std::expected<const T*, ReaderError> view() {
+        const T* view() {
             if (current_ + sizeof(T) > end_) [[unlikely]] {
-                return std::unexpected(ReaderError{ ReaderErrorCode::OutOfBounds, "Buffer overrun viewing struct" });
+				throw(ReaderException("Buffer overrun viewing struct"));
             }
             const T* ptr = reinterpret_cast<const T*>(current_);
             current_ += sizeof(T);
@@ -49,42 +43,56 @@ namespace replicant {
         }
 
         template <typename T>
-        std::expected<std::span<const T>, ReaderError> viewArray(size_t count) {
+        std::span<const T> viewArray(size_t count) {
             if (count > 0 && sizeof(T) > (size_t)(end_ - current_) / count) [[unlikely]] {
-                return std::unexpected(ReaderError{ ReaderErrorCode::OutOfBounds, "Buffer overrun viewing array (size calc)" });
+				throw(ReaderException("Buffer overrun viewing array (size calc)"));
             }
 
             size_t bytes = count * sizeof(T);
             if (current_ + bytes > end_) [[unlikely]] {
-                return std::unexpected(ReaderError{ ReaderErrorCode::OutOfBounds, "Buffer overrun viewing array" });
+				throw(ReaderException("Buffer overrun viewing array"));
             }
             const T* ptr = reinterpret_cast<const T*>(current_);
             current_ += bytes;
             return std::span<const T>(ptr, count);
         }
 
-        std::expected<const char*, ReaderError> getOffsetPtr(const uint32_t& offsetField) const {
+        void seek(const void* ptr) {
+            const char* target = static_cast<const char*>(ptr);
+            if (target < start_ || target > end_) {
+				throw(ReaderException("Seek target is outside reader buffer"));
+            }
+            current_ = target;
+            return;
+        }
+
+        size_t remaining() const {
+            return end_ - current_;
+		}
+
+        const void* currentPtr() const {
+            return current_;
+		}
+
+        const char* getOffsetPtr(const uint32_t& offsetField) const {
             const char* fieldAddress = reinterpret_cast<const char*>(&offsetField);
 
             if (fieldAddress < start_ || fieldAddress >= end_) [[unlikely]] {
-                return std::unexpected(ReaderError{ ReaderErrorCode::InvalidPointer, "Offset source field is not within reader buffer" });
+				throw(ReaderException("Field address is outside buffer"));
             }
 
             const char* target = fieldAddress + offsetField;
 
             if (target < start_ || target >= end_) [[unlikely]] {
-                return std::unexpected(ReaderError{ ReaderErrorCode::InvalidOffset, "Relative offset points outside buffer" });
+				throw(ReaderException("Computed offset pointer is outside buffer"));
             }
             return target;
         }
 
-        std::expected<std::string, ReaderError> readStringRelative(const uint32_t& offsetField) const {
+        std::string readStringRelative(const uint32_t& offsetField) const {
             if (offsetField == 0) return "";
 
-            auto ptrResult = getOffsetPtr(offsetField);
-            if (!ptrResult) return std::unexpected(ptrResult.error());
-
-            const char* ptr = *ptrResult;
+            auto ptr = getOffsetPtr(offsetField);
 
             size_t maxLen = end_ - ptr;
             size_t len = strnlen(ptr, maxLen);

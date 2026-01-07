@@ -1,5 +1,5 @@
 #pragma once
-#include "replicant/core/reader.h"
+#include "replicant/core/common.h"
 #include "replicant/arc.h" 
 #include <vector>
 #include <string>
@@ -24,7 +24,7 @@ namespace replicant {
         std::string name;
 
 
-        uint64_t rawOffset = 0;
+        uint64_t rawOffset = 0; // with scale already applied
 
         uint32_t size = 0;
 
@@ -40,8 +40,8 @@ namespace replicant {
         std::vector<ArchiveEntry> archiveEntries;
         std::vector<FileEntry> fileEntries;
 
-        static std::expected<TpArchiveFileParam, ReaderError> Deserialize(std::span<const std::byte> payload);
-        std::vector<std::byte> Serialize() const;
+        static std::expected<TpArchiveFileParam, Error> Deserialize(std::span<const std::byte> payload);
+        std::expected<std::vector<std::byte>, Error> Serialize() const;
 
 
         uint8_t addArchiveEntry(const std::string& filename, ArchiveLoadType type);
@@ -53,5 +53,8 @@ namespace replicant {
         );
 
         FileEntry* findFile(const std::string& name);
+
+    private:
+        std::vector<std::byte> SerializeInternal() const;
     };
 }

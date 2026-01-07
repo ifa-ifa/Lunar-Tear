@@ -7,6 +7,10 @@ set(LIBREPLICANT_SOURCES
     "src/dds.cpp"
     "src/tpGxTexHead.cpp"
     "src/weapon.cpp"
+    "src/tpActorAssetParam.cpp" 
+    "include/replicant/core/common.h" 
+    "include/replicant/tpXonAssetHeader.h" 
+    "src/tpXonAssetHeader.cpp"
 )
 
 find_package(zstd CONFIG REQUIRED)

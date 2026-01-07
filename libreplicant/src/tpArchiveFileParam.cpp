@@ -1,6 +1,7 @@
 #include "replicant/tpArchiveFileParam.h"
 #include "replicant/core/writer.h"
-#include <cstring>
+#include "replicant/core/reader.h"
+
 #include <string_view>
 #include <algorithm>
 
@@ -36,64 +37,52 @@ namespace replicant {
         };
 #pragma pack(pop)
 
-        uint32_t fnv1_32(std::string_view s) {
-            uint32_t hash = 0x811c9dc5;
-            for (char c : s) {
-                hash *= 0x01000193;         // Multiply First
-                hash ^= static_cast<uint8_t>(c); // XOR Second
-            }
-            return hash;
-        }
     }
 
-    std::expected<TpArchiveFileParam, ReaderError> TpArchiveFileParam::Deserialize(std::span<const std::byte> payload) {
+    TpArchiveFileParam DeserializeInternal(std::span<const std::byte> payload) {
+
         Reader reader(payload);
 
-        auto headerRes = reader.view<RawHeader>();
-        if (!headerRes) return std::unexpected(headerRes.error());
-        const auto* raw = *headerRes;
+        auto rawHeader = reader.view<RawHeader>();
 
         TpArchiveFileParam asset;
 
-        if (raw->numArchives > 0) {
-            auto arcArrayRes = reader.getOffsetPtr(raw->offsetToArray);
-            if (!arcArrayRes) return std::unexpected(arcArrayRes.error());
+        if (rawHeader->numArchives > 0) {
+            auto arcArray = reader.getOffsetPtr(rawHeader->offsetToArray);
 
-            const std::byte* start = reinterpret_cast<const std::byte*>(*arcArrayRes);
+            const std::byte* start = reinterpret_cast<const std::byte*>(arcArray);
             const std::byte* end = payload.data() + payload.size();
-            if (start + (raw->numArchives * sizeof(RawArchiveEntry)) > end) {
-                return std::unexpected(ReaderError{ ReaderErrorCode::OutOfBounds, "Archive array exceeds buffer size" });
+            if (start + (rawHeader->numArchives * sizeof(RawArchiveEntry)) > end) {
+				throw ReaderException("Archive array exceeds buffer size");
             }
 
-            const RawArchiveEntry* rawArcs = reinterpret_cast<const RawArchiveEntry*>(*arcArrayRes);
-            asset.archiveEntries.reserve(raw->numArchives);
+            const RawArchiveEntry* rawArcs = reinterpret_cast<const RawArchiveEntry*>(arcArray);
+            asset.archiveEntries.reserve(rawHeader->numArchives);
 
-            for (uint32_t i = 0; i < raw->numArchives; i++) {
+            for (uint32_t i = 0; i < rawHeader->numArchives; i++) {
                 ArchiveEntry entry;
                 entry.arcOffsetScale = rawArcs[i].arcOffsetScale;
                 entry.loadType = rawArcs[i].loadType;
 
-                auto strRes = reader.readStringRelative(rawArcs[i].offsetToFilename);
-                if (strRes) entry.filename = *strRes;
+                entry.filename = reader.readStringRelative(rawArcs[i].offsetToFilename);
 
                 asset.archiveEntries.push_back(std::move(entry));
             }
         }
 
-        if (raw->fileEntryCount > 0) {
-            auto fileTableRes = reader.getOffsetPtr(raw->offsetToFileTable);
-            if (!fileTableRes) return std::unexpected(fileTableRes.error());
+        if (rawHeader->fileEntryCount > 0) {
+            const char* fileTable = reader.getOffsetPtr(rawHeader->offsetToFileTable);
 
-            const std::byte* start = reinterpret_cast<const std::byte*>(*fileTableRes);
+            const std::byte* start = reinterpret_cast<const std::byte*>(fileTable);
             const std::byte* end = payload.data() + payload.size();
-            if (start + (raw->fileEntryCount * sizeof(RawFileEntry)) > end) {
-                return std::unexpected(ReaderError{ ReaderErrorCode::OutOfBounds, "File table exceeds buffer size" });
+            if (start + (rawHeader->fileEntryCount * sizeof(RawFileEntry)) > end) {
+				throw ReaderException("File table exceeds buffer size");
             }
 
-            const RawFileEntry* rawFiles = reinterpret_cast<const RawFileEntry*>(*fileTableRes);
-            asset.fileEntries.reserve(raw->fileEntryCount);
+            const RawFileEntry* rawFiles = reinterpret_cast<const RawFileEntry*>(fileTable);
+            asset.fileEntries.reserve(rawHeader->fileEntryCount);
 
-            for (uint32_t i = 0; i < raw->fileEntryCount; i++) {
+            for (uint32_t i = 0; i < rawHeader->fileEntryCount; i++) {
                 FileEntry entry;
 
                 entry.size = rawFiles[i].compressedSize;
@@ -102,8 +91,7 @@ namespace replicant {
                 entry.archiveIndex = rawFiles[i].archiveIndex;
                 entry.flags = rawFiles[i].flags;
 
-                auto strRes = reader.readStringRelative(rawFiles[i].nameOffset);
-                if (strRes) entry.name = *strRes;
+                entry.name = reader.readStringRelative(rawFiles[i].nameOffset);
 
                 uint32_t scale = 0;
                 if (entry.archiveIndex < asset.archiveEntries.size()) {
@@ -118,8 +106,20 @@ namespace replicant {
         return asset;
     }
 
+    std::expected<TpArchiveFileParam, Error> TpArchiveFileParam::Deserialize(std::span<const std::byte> payload) {
+    
+        try {
+            return DeserializeInternal(payload);
+        }
+        catch (const ReaderException& e) {
+            return std::unexpected(Error{ ErrorCode::ParseError, e.what() });
+        }
+        catch (const std::exception& e) {
+            return std::unexpected(Error{ ErrorCode::SystemError, e.what() });
+		}
+	}
 
-    std::vector<std::byte> TpArchiveFileParam::Serialize() const {
+    std::vector<std::byte> TpArchiveFileParam::SerializeInternal() const {
 
         size_t estimatedSize = 32 + (archiveEntries.size() * 24) + (fileEntries.size() * 48) + 1024;
         Writer writer(estimatedSize);
@@ -182,6 +182,15 @@ namespace replicant {
         stringPool.flush(writer);
 
         return writer.buffer();
+    }
+
+    std::expected<std::vector<std::byte>, Error> TpArchiveFileParam::Serialize() const {
+        try {
+            return SerializeInternal();
+        }
+        catch (const std::exception& e) {
+            return std::unexpected(Error{ ErrorCode::SystemError, e.what() });
+        }
     }
 
     uint8_t TpArchiveFileParam::addArchiveEntry(const std::string& filename, ArchiveLoadType type) {

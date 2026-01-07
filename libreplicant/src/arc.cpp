@@ -1,4 +1,5 @@
 #include "replicant/arc.h"
+#define ZSTD_STATIC_LINKING_ONLY
 #include <zstd.h>
 #include <iostream>
 #include <algorithm>
@@ -7,57 +8,64 @@
 namespace replicant::archive {
 
     namespace {
-        constexpr size_t SECTOR_ALIGNMENT = 256;
+        constexpr size_t SECTOR_ALIGNMENT = 16;
 
         size_t align_to(size_t value, size_t alignment) {
             return (value + alignment - 1) & ~(alignment - 1);
         }
     }
 
-    std::expected<std::vector<std::byte>, ArchiveError> Compress(std::span<const std::byte> data, CompressionConfig config) {
+    std::expected<std::vector<std::byte>, Error> Compress(std::span<const std::byte> data, CompressionConfig config) {
         if (data.empty()) return std::vector<std::byte>{};
         size_t bound = ZSTD_compressBound(data.size());
         std::vector<std::byte> buffer(bound);
 
         ZSTD_CCtx* cctx = ZSTD_createCCtx();
-        if (!cctx) return std::unexpected(ArchiveError{ ArchiveErrorCode::AllocationError, "Failed to create ZSTD Context" });
+        if (!cctx) return std::unexpected(Error{ ErrorCode::SystemError, "Failed to create ZSTD Context" });
 
         ZSTD_CCtx_setParameter(cctx, ZSTD_c_compressionLevel, config.level);
         ZSTD_CCtx_setParameter(cctx, ZSTD_c_windowLog, config.windowLog);
 
-        size_t cSize = ZSTD_compressCCtx(cctx, buffer.data(), bound, data.data(), data.size(), config.level);
+        size_t cSize = ZSTD_compress2(
+            cctx,
+            buffer.data(),
+            bound,
+            data.data(),
+            data.size()
+        );
+
         ZSTD_freeCCtx(cctx);
 
-        if (ZSTD_isError(cSize)) return std::unexpected(ArchiveError{ ArchiveErrorCode::ZstdError, ZSTD_getErrorName(cSize) });
+        if (ZSTD_isError(cSize)) return std::unexpected(Error{ ErrorCode::SystemError, ZSTD_getErrorName(cSize) });
         buffer.resize(cSize);
         return buffer;
     }
 
 
-    std::expected<std::vector<std::byte>, ArchiveError> Decompress(std::span<const std::byte> data, size_t decompressedSize) {
+    std::expected<std::vector<std::byte>, Error> Decompress(std::span<const std::byte> data, size_t decompressedSize) {
         if (data.empty()) return std::vector<std::byte>{};
 
         std::vector<std::byte> output(decompressedSize);
         size_t dSize = ZSTD_decompress(output.data(), decompressedSize, data.data(), data.size());
 
         if (ZSTD_isError(dSize)) {
-            return std::unexpected(ArchiveError{ ArchiveErrorCode::ZstdError, ZSTD_getErrorName(dSize) });
+            return std::unexpected(Error{ ErrorCode::SystemError, ZSTD_getErrorName(dSize) });
         }
         if (dSize != decompressedSize) {
-            return std::unexpected(ArchiveError{ ArchiveErrorCode::ZstdError, "Decompressed size mismatch" });
+            return std::unexpected(Error{ ErrorCode::InvalidArguments, "Decompressed size mismatch" });
         }
         return output;
     }
 
-    std::expected<size_t, ArchiveError> GetDecompressedSize(std::span<const std::byte> data) {
+    std::expected<size_t, Error> GetDecompressedSize(std::span<const std::byte> data) {
         unsigned long long size = ZSTD_getFrameContentSize(data.data(), data.size());
         if (size == ZSTD_CONTENTSIZE_ERROR || size == ZSTD_CONTENTSIZE_UNKNOWN) {
-            return std::unexpected(ArchiveError{ ArchiveErrorCode::ZstdError, "Could not determine frame content size" });
+            return std::unexpected(Error{ ErrorCode::SystemError, "Could not determine frame content size" });
         }
         return static_cast<size_t>(size);
     }
 
-    std::expected<ArchiveResult, ArchiveError> Build(
+    std::expected<ArchiveResult, Error> Build(
         const std::vector<ArchiveInput>& inputs,
         BuildMode mode,
         CompressionConfig config
@@ -77,6 +85,13 @@ namespace replicant::archive {
 
             size_t currentOffset = 0;
             for (const auto& input : inputs) {
+
+                size_t padding_needed = (16 - (currentOffset % 16)) % 16;
+                if (padding_needed > 0) {
+                    hugeBuffer.insert(hugeBuffer.end(), padding_needed, std::byte{ 0 });
+                    currentOffset += padding_needed;
+                }
+
                 hugeBuffer.insert(hugeBuffer.end(), input.data.begin(), input.data.end());
 
                 ArchiveEntryInfo entry;
@@ -86,7 +101,7 @@ namespace replicant::archive {
                 entry.offset = currentOffset;
 
                 // For Type 0, compressedSize is the size to READ from memory (Uncompressed Size)
-                entry.compressedSize = static_cast<uint32_t>(input.data.size());
+                entry.compressedSize = 0;
 
                 entry.packSerializedSize = input.packSerializedSize;
                 entry.packResourceSize = input.packResourceSize;

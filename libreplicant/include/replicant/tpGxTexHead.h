@@ -1,5 +1,5 @@
 #pragma once
-#include "replicant/core/reader.h"
+#include "replicant/core/common.h"
 #include <vector>
 #include <cstdint>
 #include <expected>
@@ -73,11 +73,10 @@ namespace replicant {
     };
 
 
-    class Texture {
-    public:
-        static std::expected<TextureHeader, ReaderError> DeserializeHeader(std::span<const std::byte> data);
-        static std::vector<std::byte> SerializeHeader(const TextureHeader& header);
-    };
+
+    std::expected<TextureHeader, Error> DeserializeTexHead(std::span<const std::byte> data);
+    std::expected<std::vector<std::byte>, Error> SerializeTexHead(const TextureHeader& header);
+
 }
 
 namespace replicant::raw {

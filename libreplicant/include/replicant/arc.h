@@ -1,4 +1,5 @@
 #pragma once
+#include "replicant/core/common.h"
 #include <vector>
 #include <string>
 #include <cstddef>
@@ -8,20 +9,8 @@
 
 namespace replicant::archive {
 
-    enum class ArchiveErrorCode {
-        Success,
-        ZstdError,
-        EmptyInput,
-        AllocationError
-    };
-
-    struct ArchiveError {
-        ArchiveErrorCode code;
-        std::string message;
-    };
-
     struct CompressionConfig {
-        int level = 3;
+        int level = 1;
         int windowLog = 15; // Game will crash if any higher
     };
 
@@ -32,7 +21,7 @@ namespace replicant::archive {
 
     struct ArchiveInput {
         std::string name;
-        std::span<const std::byte> data;
+        std::vector<std::byte> data;
         uint32_t packSerializedSize = 0;
         uint32_t packResourceSize = 0;
     };
@@ -54,22 +43,22 @@ namespace replicant::archive {
         std::vector<ArchiveEntryInfo> entries;
     };
 
-    std::expected<std::vector<std::byte>, ArchiveError> Compress(
+    std::expected<std::vector<std::byte>, Error> Compress(
         std::span<const std::byte> data,
         CompressionConfig config = {}
     );
 
-    std::expected<std::vector<std::byte>, ArchiveError> Decompress(
+    std::expected<std::vector<std::byte>, Error> Decompress(
         std::span<const std::byte> compressedData,
         size_t decompressedSize
     );
 
-    std::expected<size_t, ArchiveError> GetDecompressedSize(
+    std::expected<size_t, Error> GetDecompressedSize(
         std::span<const std::byte> compressedData
     );
 
 
-    std::expected<ArchiveResult, ArchiveError> Build(
+    std::expected<ArchiveResult, Error> Build(
         const std::vector<ArchiveInput>& inputs,
         BuildMode mode,
         CompressionConfig config = {}

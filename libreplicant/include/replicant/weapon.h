@@ -5,19 +5,12 @@
 #include <cstdint>
 #include <expected>
 #include <array>
+#include <span>
+
+#include "replicant/core/common.h"
 
 namespace replicant::weapon {
 
-    enum class WeaponErrorCode {
-        Success,
-        ParseError,
-        BuildError
-    };
-
-    struct WeaponError {
-        WeaponErrorCode code;
-        std::string message;
-    };
 
     #pragma pack(push, 1)
     struct WeaponStats {
@@ -112,8 +105,8 @@ namespace replicant::weapon {
         float float_0x170;
     };
 
-    std::expected<std::vector<WeaponEntry>, WeaponError> openWeaponSpecs(std::vector<std::byte>& data);
-    std::expected<std::vector<std::byte>, WeaponError> serialiseWeaponSpecs (const std::vector<WeaponEntry>& entries);
+    std::expected<std::vector<WeaponEntry>, Error> openWeaponSpecs(std::span<const std::byte> data);
+    std::expected<std::vector<std::byte>, Error> serialiseWeaponSpecs (std::span<const WeaponEntry> entries);
 }
 
 

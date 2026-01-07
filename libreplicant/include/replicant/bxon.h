@@ -1,6 +1,5 @@
 #pragma once
-#include "replicant/core/reader.h"
-#include "replicant/core/writer.h"
+#include "replicant/core/common.h"
 #include <string>
 #include <vector>
 #include <span >
@@ -15,17 +14,14 @@ namespace replicant {
         std::string assetType; 
     };
 
-    class Bxon {
-    public:
+    std::expected<std::pair<BxonHeaderInfo, std::span<const std::byte>>, Error>
+            ParseBxon(std::span<const std::byte> data);
 
-        static std::expected<std::pair<BxonHeaderInfo, std::span<const std::byte>>, ReaderError>
-            Parse(std::span<const std::byte> data);
-
-        static std::vector<std::byte> Build(
+    std::expected<std::vector<std::byte>, Error> BuildBxon(
             const std::string& assetType,
             uint32_t version,
             uint32_t projectId,
             std::span<const std::byte> payload
         );
-    };
+    
 }

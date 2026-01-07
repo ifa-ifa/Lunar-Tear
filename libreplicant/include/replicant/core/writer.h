@@ -42,16 +42,15 @@ namespace replicant {
             return pos;
         }
 
-        bool satisfyOffset(size_t patch_loc, size_t target_pos) {
+        void satisfyOffset(size_t patch_loc, size_t target_pos) {
             if (patch_loc + sizeof(uint32_t) > buffer_.size()) {
-                return false;
+                throw std::out_of_range("Writer::satisfyOffset: Patch location is out of buffer bounds");
             }
 
             int64_t relative = static_cast<int64_t>(target_pos) - static_cast<int64_t>(patch_loc);
 
             uint32_t val = static_cast<uint32_t>(relative);
             std::memcpy(buffer_.data() + patch_loc, &val, sizeof(uint32_t));
-            return true;
         }
 
         void satisfyOffsetHere(size_t patch_loc) {

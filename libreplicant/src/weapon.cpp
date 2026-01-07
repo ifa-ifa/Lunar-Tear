@@ -11,22 +11,16 @@ using namespace replicant::raw;
 
 namespace replicant::weapon {
 
-    std::expected<std::vector<WeaponEntry>, WeaponError> openWeaponSpecs(std::vector<std::byte>& data) {
-
+    std::vector<WeaponEntry> openWeaponSpecsInternal(std::span<const std::byte> data) {
+        
         Reader reader(data);
-		auto header_res = reader.view<RawHeader>();
-        if (!header_res) {
-            return std::unexpected(WeaponError{ WeaponErrorCode::ParseError, "Failed to read weapon specs header: " + header_res.error().message });
-		}
-		auto header = *header_res;
+        const RawHeader* header = reader.view<RawHeader>();
+        const char* entriesStart = reader.getOffsetPtr(header->offsetToDataStart);
+
+        reader.seek(entriesStart);
 
         std::vector<WeaponEntry> entries(header->entryCount);
-		auto raw_entries_res = reader.viewArray<RawWeaponEntry>(header->entryCount);
-        if (!raw_entries_res) {
-            return std::unexpected(WeaponError{ WeaponErrorCode::ParseError, "Failed to read weapon specs entries: " + raw_entries_res.error().message });
-        }
-		auto raw_entries = *raw_entries_res;
-
+		auto raw_entries = reader.viewArray<RawWeaponEntry>(header->entryCount);
 
         for (int i = 0; i < header->entryCount; i++) {
 
@@ -35,26 +29,20 @@ namespace replicant::weapon {
 
             entry.uint32_0x00_entry = raw_entry.uint32_0x00;
 
-			auto internalNameHeader = reader.readStringRelative(raw_entry.offsetInternalNameHead);
-            if (!internalNameHeader) {
-                return std::unexpected(WeaponError{ WeaponErrorCode::ParseError, "Failed to read weapon internal name header: " + internalNameHeader.error().message });
-			}
-			entry.internalNameHeader = *internalNameHeader;
+			std::string internalNameHeader = reader.readStringRelative(raw_entry.offsetInternalNameHead);
+
+			entry.internalNameHeader = internalNameHeader;
 
             entry.uint32_0x00 = raw_entry.body.uint32_0x00;
             entry.uint32_0x04 = raw_entry.body.uint32_0x04;
 
-			auto jpName = reader.readStringRelative(raw_entry.body.offestToJPName);
-            if (!jpName) {
-                return std::unexpected(WeaponError{ WeaponErrorCode::ParseError, "Failed to read weapon JP name: " + jpName.error().message });
-			}
-			entry.jpName = *jpName;
+			std::string jpName = reader.readStringRelative(raw_entry.body.offestToJPName);
 
-			auto internalNameBody = reader.readStringRelative(raw_entry.body.offsetToInternalWeaponName);
-            if (!internalNameBody) {
-                return std::unexpected(WeaponError{ WeaponErrorCode::ParseError, "Failed to read weapon internal name body: " + internalNameBody.error().message });
-            }
-			entry.internalNameBody = *internalNameBody;
+			entry.jpName = jpName;
+
+			std::string internalNameBody = reader.readStringRelative(raw_entry.body.offsetToInternalWeaponName);
+
+			entry.internalNameBody = internalNameBody;
 
             entry.weaponID = raw_entry.body.weaponID;
             entry.nameStringID = raw_entry.body.nameStringID;
@@ -118,7 +106,7 @@ namespace replicant::weapon {
         return entries;
 	}
 
-    std::expected<std::vector<std::byte>, WeaponError> serialiseWeaponSpecs(const std::vector<WeaponEntry>& entries) {
+    std::vector<std::byte> serialiseWeaponSpecsInternal(std::span<const WeaponEntry> entries) {
 
 		Writer writer(entries.size() * 380 + 500);
 		StringPool stringPool;
@@ -192,4 +180,35 @@ namespace replicant::weapon {
 		stringPool.flush(writer);
         return writer.buffer();
     }
+
+    std::expected<std::vector<WeaponEntry>, Error> openWeaponSpecs(std::span<const std::byte> data) {
+        try {
+            return openWeaponSpecsInternal(data);
+        }
+        catch (const ReaderException& e) {
+            return std::unexpected(Error{ ErrorCode::ParseError, e.what() });
+		}
+        catch (const std::exception& e) {
+            return std::unexpected(Error{ ErrorCode::SystemError,
+                std::string("Parsing failed: ") + e.what()
+                });
+        }
+    }
+
+    std::expected<std::vector<std::byte>, Error> serialiseWeaponSpecs(std::span<const WeaponEntry> entries) {
+        try {
+            return serialiseWeaponSpecsInternal(entries);
+        }
+        catch (const std::exception& e) {
+            return std::unexpected(Error{ ErrorCode::SystemError,
+                std::string("Serialization failed: ") + e.what()
+                });
+        }
+
+    }
+        
+
+
+        
 }
+

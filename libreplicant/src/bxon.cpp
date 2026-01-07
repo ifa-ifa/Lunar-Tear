@@ -17,47 +17,45 @@ namespace replicant {
 #pragma pack(pop)
     }
 
-    std::expected<std::pair<BxonHeaderInfo, std::span<const std::byte>>, ReaderError>
-        Bxon::Parse(std::span<const std::byte> data) {
+    std::pair<BxonHeaderInfo, std::span<const std::byte>>
+        ParseBxonInternal(std::span<const std::byte> data) {
+
         Reader reader(data);
 
-        auto headerRes = reader.view<RawBxonHeader>();
-        if (!headerRes) return std::unexpected(headerRes.error());
-        const auto* raw = *headerRes;
+        const RawBxonHeader* rawHeader = reader.view<RawBxonHeader>();
 
-        if (std::strncmp(raw->magic, "BXON", 4) != 0) {
-            return std::unexpected(ReaderError{ ReaderErrorCode::InvalidPointer, "Invalid Magic: Not a BXON file" });
+        if (std::strncmp(rawHeader->magic, "BXON", 4) != 0) {
+			throw ReaderException("Invalid BXON magic");
         }
 
-        auto typeRes = reader.readStringRelative(raw->offsetToAssetType);
-        if (!typeRes) return std::unexpected(typeRes.error());
+        std::string type = reader.readStringRelative(rawHeader->offsetToAssetType);
 
-        auto payloadPtrRes = reader.getOffsetPtr(raw->offsetToAssetData);
-        if (!payloadPtrRes) return std::unexpected(payloadPtrRes.error());
+        const char* payloadPtr = reader.getOffsetPtr(rawHeader->offsetToAssetData);
 
-        const std::byte* payloadStart = reinterpret_cast<const std::byte*>(*payloadPtrRes);
+        const std::byte* payloadStart = reinterpret_cast<const std::byte*>(payloadPtr);
         const std::byte* fileEnd = data.data() + data.size();
 
         if (payloadStart > fileEnd) {
-            return std::unexpected(ReaderError{ ReaderErrorCode::InvalidOffset, "Asset data starts beyond file end" });
+			throw ReaderException("BXON asset data offset is out of bounds");
         }
 
         size_t payloadSize = fileEnd - payloadStart;
 
         BxonHeaderInfo info;
-        info.version = raw->version;
-        info.projectId = raw->projectId;
-        info.assetType = std::move(*typeRes);
+        info.version = rawHeader->version;
+        info.projectId = rawHeader->projectId;
+        info.assetType = std::move(type);
 
         return std::make_pair(info, std::span<const std::byte>(payloadStart, payloadSize));
     }
 
-    std::vector<std::byte> Bxon::Build(
+    std::vector<std::byte> BuildBxonInternal(
         const std::string& assetType,
         uint32_t version,
         uint32_t projectId,
         std::span<const std::byte> payload
     ) {
+
         Writer writer(64 + payload.size());
 
         writer.write("BXON", 4);
@@ -75,6 +73,36 @@ namespace replicant {
         writer.satisfyOffsetHere(tokenAssetData);
         writer.write(payload.data(), payload.size());
 
+        writer.align(16);
+
         return writer.buffer();
+    }
+
+    std::expected<std::pair<BxonHeaderInfo, std::span<const std::byte>>, Error>
+        ParseBxon(std::span<const std::byte> data) {
+        try {
+            return ParseBxonInternal(data);
+        }
+        catch (const ReaderException& ex) {
+            return std::unexpected(Error{ ErrorCode::ParseError, ex.what() });
+		}
+        catch (const std::exception& ex) {
+            return std::unexpected(Error{ ErrorCode::SystemError, ex.what() });
+        }
+    }
+
+    std::expected<std::vector<std::byte>, Error> BuildBxon(
+        const std::string& assetType,
+        uint32_t version,
+        uint32_t projectId,
+        std::span<const std::byte> payload
+    ) {
+        try {
+            return BuildBxonInternal(assetType, version, projectId, payload);
+        }
+        catch (const std::exception& ex) {
+            return std::unexpected(Error{ ErrorCode::SystemError, ex.what() });
+		}
+
     }
 }
