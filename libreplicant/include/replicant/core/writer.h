@@ -26,8 +26,9 @@ namespace replicant {
         }
 
         void write(const void* data, size_t size) {
-            const std::byte* ptr = reinterpret_cast<const std::byte*>(data);
-            buffer_.insert(buffer_.end(), ptr, ptr + size);
+            size_t current = buffer_.size();
+            buffer_.resize(current + size);
+            std::memcpy(buffer_.data() + current, data, size);
         }
 
         void align(size_t alignment) {
