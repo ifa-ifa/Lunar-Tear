@@ -1,6 +1,6 @@
 project(UnsealedVerses)
 
-add_executable(UnsealedVerses src/main.cpp)
+add_executable(UnsealedVerses src/main.cpp "src/CreateWeaponAsset.h")
 
 # Linking to libreplicant automatically gives us access to its public headers
 # and also links its dependencies (like zstd) into our final executable.
