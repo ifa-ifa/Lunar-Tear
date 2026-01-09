@@ -37,7 +37,7 @@ private:
         payload.insert(payload.end(), serialized_header.begin(), serialized_header.end());
         payload.insert(payload.end(), pixel_data.begin(), pixel_data.end());
 
-        std::vector<std::byte> bxon_data = unwrap(replicant::BuildBxon("rtex", 3, 0x2ea74106, payload), "Failed to build new rtex bxon");
+        std::vector<std::byte> bxon_data = unwrap(replicant::BuildBxon("tpGxTexHead", 3, 0x2ea74106, payload), "Failed to build new rtex bxon");
         unwrap(replicant::WriteFile(output_path, bxon_data), "Failed to write output .rtex file");
 
         std::cout << "Successfully created " << output_path << "\n";
@@ -52,7 +52,7 @@ private:
         auto rtex_data = unwrap(replicant::ReadFile(input_path), "Failed to read .rtex file");
         auto [bxon_info, payload] = unwrap(replicant::ParseBxon(rtex_data), "Failed to parse BXON container");
 
-        if (bxon_info.assetType != "rtex") {
+        if (bxon_info.assetType != "tpGxTexHead") {
             std::cerr << "Error: Input file is not an rtex file.\n"; return 1;
         }
 

@@ -34,9 +34,8 @@ public:
 
                 // TODO: Right now we have to parse the entire PACK file to check for the entry - a regression in the new libreplicant api
 
-                auto pack_data_result = replicant::ReadFile(current_file_path);
-                if (!pack_data_result) continue;
-                auto pack_result = replicant::Pack::Deserialize(*pack_data_result);
+
+                auto pack_result = replicant::Pack::DeserializeNoResources(current_file_path);
                 if (!pack_result) continue;
 
                 if (pack_result->findFile(entry_name)) {
