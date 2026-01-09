@@ -131,7 +131,7 @@ namespace replicant {
         if (rawHeader->filesCount > 0) {
             auto filesPtr = reader.getOffsetPtr(rawHeader->offsetToFiles);
 
-            const RawFile* rawFiles = reinterpret_cast<const RawFile*>(*filesPtr);
+            const RawFile* rawFiles = reinterpret_cast<const RawFile*>(filesPtr);
 
             std::vector<ResourceInfo> resources;
             pack.files.reserve(rawHeader->filesCount);
