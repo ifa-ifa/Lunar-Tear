@@ -26,7 +26,7 @@ void printUsage() {
     std::cout << "    Extracts all files from archives referenced by the given index\n";
     std::cout << "    Options:\n";
     std::cout << "      --chara-only      Extract only the chara folder (character models and weapons) (saves ~20GB)\n\n";
-    std::cout << "  texture-convert <output> <input>\n";
+    std::cout << "  texture-convert <input> <output>\n";
     std::cout << "    Converts a standalone texture between .dds and .rtex\n";
     std::cout << "    Note that here an rtex texture file is considered a header and pixel data concatenated\n\n";
     std::cout << "  unpack <input.xap> <output_folder>\n";
