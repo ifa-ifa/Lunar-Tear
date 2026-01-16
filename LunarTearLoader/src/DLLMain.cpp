@@ -16,7 +16,7 @@ namespace {
         while(!g_lunarTearInitialised) {
             Sleep(100);
 		    slept += 100;
-            if (slept > 10000) {
+            if (slept > 10'000) {
                 MessageBoxW(NULL, L"Lunar Tear failed to initialize.", L"Lunar Tear", MB_OK);
                 break;
 		    }
@@ -28,7 +28,10 @@ namespace {
 
 BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserved) {
     if (ul_reason_for_call == DLL_PROCESS_ATTACH) {
-        
+
+        DisableThreadLibraryCalls(hModule);
+
+
         int ret = MH_Initialize();
         if (ret != MH_OK) {
             std::string error_message = std::format("Failed to Initialse Minhook.\n\nError: {}", ret);
@@ -47,9 +50,6 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
 			MessageBoxW(NULL, std::format(L"Failed to enable hook for loadArchives: {}", ret).c_str(), L"Lunar Tear", MB_OK);
 		}
 
-
-
-        DisableThreadLibraryCalls(hModule);
 
         wchar_t processPath[MAX_PATH];
         GetModuleFileNameW(NULL, processPath, MAX_PATH);

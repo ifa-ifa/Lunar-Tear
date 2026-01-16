@@ -21,9 +21,6 @@ extern "C" {
     void PostPhaseStub();
     void* PostPhaseTrampoline = nullptr;
 
-    void PostLibStub();
-    void* PostLibTrampoline = nullptr;
-
     void PostRootStub();
     void* PostRootTrampoline = nullptr;
 
@@ -34,8 +31,7 @@ extern "C" {
 
 extern "C" {
 
-    void InjectPostPhaseScripts(const char* phaseScriptName);
-    void InjectPostLibScripts();
+    void InjectPostPhaseScripts();
     void InjectPostGameScripts();
     void InjectPostRootScripts();
 
@@ -90,27 +86,24 @@ end
 )";
 
 void ExecuteScriptsForPoint(ScriptContextManager* ctxMn, const std::string& point) {
-    auto scripts = GetInjectionScripts(point);
     std::lock_guard<std::mutex> lock(API::s_lua_binding_mutex);
 
-    // The game re-registers bindings on every single phase load. We will do as the game does.
-
-    const auto& plugin_bindings_pairs = API::GetPluginLuaBindings();
-    if (!plugin_bindings_pairs.empty()) {
-        std::vector<LuaCBinding> bindings_with_terminator;
-        bindings_with_terminator.reserve(plugin_bindings_pairs.size() + 1);
-
-        for (const auto& pair : plugin_bindings_pairs) {
-            bindings_with_terminator.push_back({ pair.first.c_str(), (void*)pair.second });
-        }
-        bindings_with_terminator.push_back({ NULL, NULL }); // NULL terminator
-
-        Logger::Log(Info) << "Registering " << plugin_bindings_pairs.size() << " Lua function(s) from plugins...";
-        ScriptManager_registerBindings(&(ctxMn->scriptManager), bindings_with_terminator.data());
+    const auto& plugin_bindings = API::GetPluginLuaBindings();
+    const auto& core_bindings = GetCoreBindings();
+    auto all_bindings = plugin_bindings;
+    all_bindings.insert(all_bindings.end(), core_bindings.begin(), core_bindings.end());
+    
+    std::vector<LuaCBinding> raw_bindings;
+    for (size_t  i = 0; i < all_bindings.size() ; i++) {
+        raw_bindings.push_back({ all_bindings[i].first.c_str(), all_bindings[i].second });
     }
+    raw_bindings.push_back({ NULL, NULL });
 
-    int64_t ret = ScriptManager_registerBindings(&(ctxMn->scriptManager), GetCoreBindings());
-    Logger::Log(Info) << "regisetered bindings, code:" << ret;
+    int64_t ret = ScriptManager_registerBindings(&(ctxMn->scriptManager), raw_bindings.data());
+
+    Logger::Log(Verbose) << "regisetered bindings, code: " << ret;
+
+    auto scripts = GetInjectionScripts(point);
 
     if (scripts.empty()) {
         return;
@@ -136,40 +129,29 @@ void ExecuteScriptsForPoint(ScriptContextManager* ctxMn, const std::string& poin
     }
 }
 
-extern "C" void InjectPostPhaseScripts(const char* phaseScriptName) {
+extern "C" void InjectPostPhaseScripts() {
 
-    if (!phaseScriptName) return;
+    ExecuteScriptsForPoint((ScriptContextManager*)phaseScriptManager, "_any");
+    ExecuteScriptsForPoint((ScriptContextManager*)phaseScriptManager, "__phase__");
+    ExecuteScriptsForPoint((ScriptContextManager*)phaseScriptManager, playerSaveData->current_phase);
+    ExecuteScriptsForPoint((ScriptContextManager*)phaseScriptManager, "__libnier__");
 
-    std::filesystem::path p(phaseScriptName);
-    if (p.extension() != ".lub") return;
-
-    p.replace_extension(".lua");
-    std::string script_name_lua = p.filename().string();
-
-    ExecuteScriptsForPoint((ScriptContextManager*)phaseScriptManager, "post_phase/_any.lua");
-    ExecuteScriptsForPoint((ScriptContextManager*)phaseScriptManager, "post_phase/" + script_name_lua);
-}
-
-extern "C" void InjectPostLibScripts() {
-    ExecuteScriptsForPoint((ScriptContextManager*)phaseScriptManager, "post_lib/_any.lua");
-    ExecuteScriptsForPoint((ScriptContextManager*)phaseScriptManager, "post_lib/__libnier__.lua");
 }
 
 
 extern "C" void InjectPostRootScripts() {
-    ExecuteScriptsForPoint((ScriptContextManager*)rootScriptManager, "post_root/_any.lua");
-    ExecuteScriptsForPoint((ScriptContextManager*)rootScriptManager, "post_root/__root__.lua");
+    ExecuteScriptsForPoint((ScriptContextManager*)rootScriptManager, "_any");
+    ExecuteScriptsForPoint((ScriptContextManager*)rootScriptManager, "__root__");
 }
 
 extern "C" void InjectPostGameScripts() {
-    ExecuteScriptsForPoint((ScriptContextManager*)gameScriptManager, "post_game/_any.lua");
-    ExecuteScriptsForPoint((ScriptContextManager*)gameScriptManager, "post_game/__game__.lua");
+    ExecuteScriptsForPoint((ScriptContextManager*)gameScriptManager, "_any");
+    ExecuteScriptsForPoint((ScriptContextManager*)gameScriptManager, "__game__");
 }
 
 
 #ifdef __INTELLISENSE__
 void PostPhaseStub() {}
-void PostLibStub() {}
 void PostGameStub() {}
 void PostRootStub() {}
 #endif 
@@ -177,16 +159,13 @@ void PostRootStub() {}
 
 bool InstallScriptInjectHooks() {
 
-    // These targets are right after the call to ScriptManager_LoadAndRunBuffer for each type of cripts,
+    // These targets are right after the call to ScriptManager_LoadAndRunBuffer for each type of scripts,
     // they allow us to inject scripts right after and hook the original
-    void* PostPhaseTarget = (void*)(g_processBaseAddress + 0x4153fd);
-    void* PostLibTarget = (void*)(g_processBaseAddress + 0x415586);
-
+    void* PostPhaseTarget = (void*)(g_processBaseAddress + 0x415586);
     void* PostGameTarget = (void*)(g_processBaseAddress + 0x41479a);
     void* PostRootTarget = (void*)(g_processBaseAddress + 0x414202);
 
     InstallHook(PostPhaseTarget, &PostPhaseStub, &PostPhaseTrampoline, "Post Phase");
-    InstallHook(PostLibTarget, &PostLibStub, &PostLibTrampoline, "Post Lib");
     InstallHook(PostGameTarget, &PostGameStub, &PostGameTrampoline, "Post Game");
     InstallHook(PostRootTarget, &PostRootStub, &PostRootTrampoline, "Post Root");
 

@@ -46,11 +46,13 @@ uint64_t TexHook_detoured(tpGxResTexture* tex, void* param_2, void* param_3) {
     }
 
     // Try loading by original filename
+    // replace the .rtex extension with .dds
+    // texture name is always a flat name, not path
     std::filesystem::path tex_path(tex->name);
     tex_path.replace_extension(".dds");
 
     size_t ddsFileSize = 0;
-    void* ddsFileData = LoadLooseFile(tex_path.string().c_str(), ddsFileSize);
+    void* ddsFileData = LoadLooseTexture(tex_path.string().c_str(), ddsFileSize);
 
     bool foundByHash = false;
     std::string hashed_filename;
@@ -73,7 +75,7 @@ uint64_t TexHook_detoured(tpGxResTexture* tex, void* param_2, void* param_3) {
             hashed_filename = ss.str();
             Logger::Log(Verbose) << "Could not find texture by name. Trying SpecialK hash: " << hashed_filename;
 
-            ddsFileData = LoadLooseFile(hashed_filename.c_str(), ddsFileSize);
+            ddsFileData = LoadLooseTexture(hashed_filename.c_str(), ddsFileSize);
             if (ddsFileData) {
                 foundByHash = true;
             }

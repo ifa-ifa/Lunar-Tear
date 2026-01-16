@@ -12,9 +12,8 @@
 #include <chrono>
 #include <MinHook.h>
 #include <tether/tether.h>
-
 #include <replicant/weapon.h>
-
+#include "Game/Weapons.h"
 
 using enum Logger::LogCategory;
 
@@ -64,6 +63,9 @@ DWORD WINAPI Initialize(LPVOID) {
         InstallDebugHooks();
         InstallScriptUpdateHooks();
         InstallVFSHooks();
+        InstallSaveHooks();
+        InstallStringHooks();
+        InstallWeaponLoadHooks();
 
         // Swapchain and input objects are not initialised until after VFS is initialised
         // Avoid deadlock with VFS hook
@@ -79,6 +81,9 @@ DWORD WINAPI Initialize(LPVOID) {
         if (Settings::Instance().EnablePlugins) {
             LoadPlugins();
         }
+        else {
+            Logger::Log(Info) << "Plugins Disabled";
+        }
 
         if (Settings::Instance().autoBackups) {
             try {
@@ -91,12 +96,6 @@ DWORD WINAPI Initialize(LPVOID) {
         Logger::Log(Info) << "Lunar Tear initialization complete.";
         g_lunarTearInitialised = true;
 
-        Sleep(5000);
-
-        replicant::raw::RawWeaponBody** weapSpecs = (replicant::raw::RawWeaponBody**)(g_processBaseAddress + 0x47c2670);
-
-        char* internName = (char*)(&(weapSpecs[20]->offsetToInternalWeaponName)) + (weapSpecs[20]->offsetToInternalWeaponName);
-		memcpy(internName, "bustersword0", strlen("bustersword0") + 1);
     }
     
     catch (const std::exception& e) {
