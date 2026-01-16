@@ -53,11 +53,11 @@ namespace replicant::weapon {
         uint32_t unkStringID1 = 0;
         uint32_t unkStringID2 = 0;
         uint32_t unkStringID3 = 0;
-        uint32_t storyStringID = 0;
+        uint32_t story1StringID;
+        uint32_t story2StringID;
+        uint32_t story3StringID;
+        uint32_t story4StringID;
 
-        uint32_t uint32_0x2C = 0;
-        uint32_t uint32_0x30 = 0;
-        uint32_t uint32_0x34 = 0;
         uint32_t listOrder = 0;
 
         float float_0x3C = 0;
@@ -132,7 +132,7 @@ namespace replicant::raw {
         int32_t ingredientId3 = 0;
         uint32_t ingredientCount3 = 0;
     };
-    struct RawHeader {
+    struct RawWeaponHeader {
         uint32_t entryCount;
         uint32_t offsetToDataStart;
     };
@@ -149,11 +149,12 @@ namespace replicant::raw {
         uint32_t unkStringID1;
         uint32_t unkStringID2;
         uint32_t unkStringID3;
-        uint32_t storyStringID;
 
-        uint32_t uint32_0x2C;
-        uint32_t uint32_0x30;
-        uint32_t uint32_0x34;
+        uint32_t story1StringID;
+        uint32_t story2StringID;
+        uint32_t story3StringID;
+        uint32_t story4StringID;
+
         uint32_t listOrder;
 
         float float_0x3C;

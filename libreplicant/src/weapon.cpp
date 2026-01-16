@@ -14,7 +14,7 @@ namespace replicant::weapon {
     std::vector<WeaponEntry> openWeaponSpecsInternal(std::span<const std::byte> data) {
         
         Reader reader(data);
-        const RawHeader* header = reader.view<RawHeader>();
+        const RawWeaponHeader* header = reader.view<RawWeaponHeader>();
         const char* entriesStart = reader.getOffsetPtr(header->offsetToDataStart);
 
         reader.seek(entriesStart);
@@ -50,11 +50,11 @@ namespace replicant::weapon {
             entry.unkStringID1 = raw_entry.body.unkStringID1;
             entry.unkStringID2 = raw_entry.body.unkStringID2;
             entry.unkStringID3 = raw_entry.body.unkStringID3;
-            entry.storyStringID = raw_entry.body.storyStringID;
+            entry.story1StringID = raw_entry.body.story1StringID;
 
-            entry.uint32_0x2C = raw_entry.body.uint32_0x2C;
-            entry.uint32_0x30 = raw_entry.body.uint32_0x30;
-            entry.uint32_0x34 = raw_entry.body.uint32_0x34;
+            entry.story2StringID = raw_entry.body.story2StringID;
+            entry.story3StringID = raw_entry.body.story3StringID;
+            entry.story4StringID = raw_entry.body.story4StringID;
             entry.listOrder = raw_entry.body.listOrder;
 
             entry.float_0x3C = raw_entry.body.float_0x3C;
@@ -135,10 +135,10 @@ namespace replicant::weapon {
 			writer.write(entry.unkStringID1);
 			writer.write(entry.unkStringID2);
 			writer.write(entry.unkStringID3);
-			writer.write(entry.storyStringID);
-			writer.write(entry.uint32_0x2C);
-			writer.write(entry.uint32_0x30);
-			writer.write(entry.uint32_0x34);
+			writer.write(entry.story1StringID);
+			writer.write(entry.story2StringID);
+			writer.write(entry.story3StringID);
+			writer.write(entry.story4StringID);
 			writer.write(entry.listOrder);
 			writer.write(entry.float_0x3C);
 			writer.write(entry.uint32_0x40);
