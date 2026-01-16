@@ -1,362 +1,347 @@
 #include "ModLoader.h"
 #include "Common/Logger.h"
 #include "Common/Settings.h"
-#include "Lua/LuaCommandQueue.h"
 #include "API/api.h"
-#include <set>
-#include <vector>
-#include <algorithm>
-#include <sstream>
-#include <chrono>
-#include <thread>
-#include <atomic>
-#include <iterator>
-#include "nlohmann/json.hpp"
 #include "VFS/ArchivePatcher.h"
+#include "Common/Json.h"
+
+#include <map>
+#include <set>
+#include <mutex>
+#include <fstream>
+#include <algorithm>
+#include <nlohmann/json.hpp>
 
 using json = nlohmann::json;
-
 using enum Logger::LogCategory;
 
-
-
 namespace {
-    struct CachedFile {
-        std::vector<char> data;
-        std::chrono::steady_clock::time_point lastAccessTime;
+
+    struct Mod {
+        std::string id;
+        std::filesystem::path rootPath;
+
+        std::vector<std::pair<std::string, std::filesystem::path>> potentialTables;   // <filename, FullPath>
+        std::vector<std::pair<std::string, std::filesystem::path>> potentialTextures; // <filename, FullPath>
+        std::vector<std::pair<std::string, std::filesystem::path>> potentialScripts;  // <filename, FullPath>
+        std::vector<std::filesystem::path> potentialWeapons;
+        std::vector<std::filesystem::path> plugins;
+        std::filesystem::path archivePath;
     };
 
-    static std::map<std::string, std::string> s_resolvedFileMap;
-    static std::mutex s_fileMapMutex;
+    struct CachedFile {
+        std::vector<char> data;
+    };
 
-    // Maps a mod ID (from manifest or folder name) to its absolute directory path
-    static std::map<std::string, std::string> s_mod_paths;
-    static std::mutex s_mod_paths_mutex;
+    std::map<std::string, Mod> s_mods;
 
-    static std::map<std::string, CachedFile> s_fileCache;
-    static std::mutex s_cacheMutex;
+    // "Last one wins" 
+    std::map<std::string, std::filesystem::path> s_resolvedTexturesMap;
+    std::map<std::string, std::filesystem::path> s_resolvedTablesMap;
 
-    // Key: Injection point e.g "post_phase/B_SOUTH_FIELD_01.lua"
-    // Value: List of full paths to the scripts from different mods
-    static std::map<std::string, std::vector<std::string>> s_injectionScripts;
-    static std::mutex s_injectionMutex;
+    // "Run all" 
+    std::vector<std::pair<std::string, std::filesystem::path>> s_resolvedScriptsList;
+    std::vector<nlohmann::json> resolvedWeaponsList;
 
-}
+    std::map<std::string, CachedFile> s_fileCache;
+    std::mutex s_stateMutex;
+    std::mutex s_cacheMutex;
 
-std::optional<std::string> GetModPath(const std::string& mod_id) {
-    const std::lock_guard<std::mutex> lock(s_mod_paths_mutex);
-    auto it = s_mod_paths.find(mod_id);
-    if (it != s_mod_paths.end()) {
-        return it->second;
+    std::string NormalizePath(const std::string& pathStr) {
+        std::string s = pathStr;
+        std::replace(s.begin(), s.end(), '\\', '/');
+        return s;
     }
-    return std::nullopt;
+
+    std::string ToLower(const std::string& input) {
+        std::string out = input;
+        std::transform(out.begin(), out.end(), out.begin(),
+            [](unsigned char c) { return std::tolower(c); });
+        return out;
+    }
+
+    std::string DetermineModID(const std::filesystem::path& modDir) {
+        std::filesystem::path manifestPath = modDir / "manifest.json";
+        if (std::filesystem::exists(manifestPath)) {
+            try {
+                std::ifstream f(manifestPath);
+                json data = json::parse(f);
+                if (data.contains("name") && data["name"].is_string()) {
+                    return data["name"];
+                }
+            }
+            catch (...) {}
+        }
+        return modDir.filename().string();
+    }
+
+
+    void* LoadLooseInternal(const std::string& key, const std::map<std::string, std::filesystem::path>& map, size_t& out_size) {
+        std::filesystem::path fullPath;
+        {
+            std::lock_guard<std::mutex> lock(s_stateMutex);
+            auto it = map.find(key);
+            if (it == map.end()) {
+                out_size = 0;
+                return nullptr;
+            }
+            fullPath = it->second;
+        }
+
+        std::string cacheKey = fullPath.string();
+        std::lock_guard<std::mutex> lock(s_cacheMutex);
+
+        auto it = s_fileCache.find(cacheKey);
+        if (it != s_fileCache.end()) {
+            out_size = it->second.data.size();
+            return it->second.data.data();
+        }
+
+        std::ifstream file(fullPath, std::ios::binary | std::ios::ate);
+        if (!file.is_open()) {
+            out_size = 0;
+            return nullptr;
+        }
+
+        size_t fileSize = static_cast<size_t>(file.tellg());
+        std::vector<char> buffer(fileSize);
+        file.seekg(0, std::ios::beg);
+
+        if (!file.read(buffer.data(), fileSize)) {
+            out_size = 0;
+            return nullptr;
+        }
+
+        auto& entry = s_fileCache[cacheKey];
+        entry.data = std::move(buffer);
+        out_size = entry.data.size();
+        return entry.data.data();
+    }
+
+    enum class AssetType {
+        TEX,
+        TABLE,
+        SCRIPT,
+        WEAPON,
+        PLUGIN,
+    };
+
+    template <typename Func>
+    void ScanDirectoryIfExists(const std::filesystem::path& dir, Func action, std::set<AssetType> types, bool recursive = false) {
+        if (!std::filesystem::exists(dir)) return;
+
+        if (recursive) {
+            for (const auto& entry : std::filesystem::recursive_directory_iterator(dir)) {
+                if (entry.is_regular_file()) action(entry.path(), types);
+            }
+        }
+        else {
+            for (const auto& entry : std::filesystem::directory_iterator(dir)) {
+                if (entry.is_regular_file()) action(entry.path(), types);
+            }
+        }
+    }
 }
+
 
 void ScanModsAndResolveConflicts() {
-    const std::string mods_root = "LunarTear/mods/";
-    if (!std::filesystem::exists(mods_root) || !std::filesystem::is_directory(mods_root)) {
-        Logger::Log(Verbose) << "Mods directory not found, skipping mod scan";
-        return;
-    }
+    const std::filesystem::path modsRoot = "LunarTear/mods/";
+    if (!std::filesystem::exists(modsRoot)) return;
 
-    {
-        const std::lock_guard<std::mutex> lock(s_mod_paths_mutex);
-        s_mod_paths.clear();
+    std::lock_guard<std::mutex> lock(s_stateMutex);
+    Logger::Log(Verbose) << "Starting Mod Scan...";
 
-        for (const auto& mod_entry : std::filesystem::directory_iterator(mods_root)) {
-            if (!mod_entry.is_directory()) continue;
-
-            std::string folder_name = mod_entry.path().filename().string();
-            std::string mod_id = folder_name;
-
-            std::filesystem::path manifest_path = mod_entry.path() / "manifest.json";
-            if (std::filesystem::exists(manifest_path)) {
-                try {
-                    std::ifstream f(manifest_path);
-                    json data = json::parse(f);
-                    if (data.contains("name") && data["name"].is_string()) {
-                        mod_id = data["name"];
-                        Logger::Log(Verbose) << "Found manifest for '" << folder_name << "', using name: '" << mod_id << "'";
-                    }
-                    else {
-                        Logger::Log(Warning) << "Manifest for '" << folder_name << "' exists but is missing a string 'name' field. Falling back to folder name.";
-                    }
-                }
-                catch (const json::parse_error& e) {
-                    Logger::Log(Error) << "Failed to parse manifest for '" << folder_name << "': " << e.what() << ". Falling back to folder name.";
-                }
-            }
-
-            if (s_mod_paths.count(mod_id)) {
-                Logger::Log(Error) << "Duplicate mod ID '" << mod_id << "' detected from folder '" << folder_name << "'. This mod will be ignored. Please ensure all mod IDs are unique.";
-                continue;
-            }
-            s_mod_paths[mod_id] = std::filesystem::absolute(mod_entry.path()).string();
-        }
-    }
-
-    std::vector<std::string> sorted_mod_ids;
-    {
-        const std::lock_guard<std::mutex> lock(s_mod_paths_mutex);
-        for (const auto& pair : s_mod_paths) {
-            sorted_mod_ids.push_back(pair.first);
-        }
-    }
-    std::sort(sorted_mod_ids.begin(), sorted_mod_ids.end());
-
-    Logger::Log(Verbose) << "Starting VFS archive scan...";
+    s_mods.clear();
+    s_resolvedTexturesMap.clear();
+    s_resolvedTablesMap.clear();
+    s_resolvedScriptsList.clear();
     g_patched_archive_mods.clear();
-    for (const auto& mod_id : sorted_mod_ids) {
-        auto mod_path_opt = GetModPath(mod_id);
-        if (!mod_path_opt) continue;
 
-        std::filesystem::path mod_path = *mod_path_opt;
-        std::filesystem::path index_path = mod_path / "info.arc";
 
-        if (std::filesystem::exists(index_path)) {
-            g_patched_archive_mods.push_back({ mod_id, "", index_path.string() });
-        }
-    }
-    Logger::Log(Verbose) << "VFS archive scan complete. Found " << g_patched_archive_mods.size() << " VFS mod(s).";
+    for (const auto& entry : std::filesystem::directory_iterator(modsRoot)) {
+        if (!entry.is_directory()) continue;
 
-    // Maps a relative file path to a list of pairs {mod_id, full_file_path}
-    std::map<std::string, std::vector<std::pair<std::string, std::string>>> file_to_mods_map;
-    std::map<std::string, std::vector<std::string>> temp_injection_scripts;
+        Mod mod;
+        mod.rootPath = entry.path();
+        mod.id = DetermineModID(mod.rootPath);
 
-    for (const auto& mod_id : sorted_mod_ids) {
-        auto mod_path_opt = GetModPath(mod_id);
-        if (!mod_path_opt) continue;
-        std::filesystem::path mod_path = *mod_path_opt;
-
-        Logger::Log(Verbose) << "Scanning mod for loose files: " << mod_id;
-
-        if (!std::filesystem::exists(mod_path) || !std::filesystem::is_directory(mod_path)) continue;
-
-        for (const auto& file_entry : std::filesystem::recursive_directory_iterator(mod_path)) {
-            if (!file_entry.is_regular_file()) continue;
-
-            std::filesystem::path loose_dir_path = mod_path / "loose";
-            std::string relative_path_str;
-
-            if (file_entry.path().string().starts_with(loose_dir_path.string())) {
-                relative_path_str = std::filesystem::relative(file_entry.path(), loose_dir_path).string();
-            }
-            else {
-                relative_path_str = std::filesystem::relative(file_entry.path(), mod_path).string();
-            }
-
-            std::replace(relative_path_str.begin(), relative_path_str.end(), '\\', '/');
-
-            if (relative_path_str.starts_with("inject/")) {
-                std::string injection_point = relative_path_str.substr(7);
-                temp_injection_scripts[injection_point].push_back(file_entry.path().string());
-            }
-            else {
-                if (file_entry.path().filename() == "manifest.json" || file_entry.path().extension() == ".dll") {
-                    continue;
-                }
-                file_to_mods_map[relative_path_str].push_back({ mod_id, file_entry.path().string() });
-            }
-        }
-    }
-
-    {
-        const std::lock_guard<std::mutex> lock(s_injectionMutex);
-        s_injectionScripts = std::move(temp_injection_scripts);
-        for (const auto& [point, paths] : s_injectionScripts) {
-            Logger::Log(Verbose) << "Found " << paths.size() << " injection script(s) for point '" << point << "'";
-        }
-    }
-
-    const std::set<std::string> relevant_extensions = { ".dds", ".lua", ".settbll", ".settb" };
-
-    const std::lock_guard<std::mutex> lock(s_fileMapMutex);
-    s_resolvedFileMap.clear();
-
-    for (auto& [file, mods_and_paths] : file_to_mods_map) {
-        std::filesystem::path p(file);
-        std::string extension = p.extension().string();
-        std::transform(extension.begin(), extension.end(), extension.begin(),
-            [](unsigned char c) { return std::tolower(c); });
-
-        if (!relevant_extensions.count(extension)) {
+        if (s_mods.count(mod.id)) {
+            Logger::Log(Error) << "Duplicate Mod ID: " << mod.id;
             continue;
         }
 
-        std::string winner_full_path;
-        if (mods_and_paths.size() > 1) {
-            std::sort(mods_and_paths.begin(), mods_and_paths.end(),
-                [](const auto& a, const auto& b) {
-                    return a.first < b.first; // Sort by mod_id
-                });
+        if (std::filesystem::exists(mod.rootPath / "info.arc")) {
+            mod.archivePath = mod.rootPath / "info.arc";
+        }
 
-            const auto& winner_entry = mods_and_paths.back();
-            winner_full_path = winner_entry.second;
 
-            std::stringstream losers_ss;
-            for (size_t i = 0; i < mods_and_paths.size() - 1; ++i) {
-                losers_ss << "'" << mods_and_paths[i].first << "'" << (i < mods_and_paths.size() - 2 ? ", " : "");
+
+        auto fileProcessor = [&](const std::filesystem::path& path, std::set<AssetType> types) {
+            std::string ext = path.extension().string();
+            std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+
+            using enum AssetType;
+
+            if (ext == ".dll" && types.contains(PLUGIN)) {
+                mod.plugins.push_back(path);
             }
-            Logger::Log(Warning) << "Conflict for file '" << file << "'. Winner: '" << winner_entry.first
-                << "'. Overridden mods: " << losers_ss.str() << ".";
-        }
-        else {
-            winner_full_path = mods_and_paths[0].second;
-        }
+            else if ((ext == ".settbll" || ext == ".settb") && types.contains(TABLE)) {
+                mod.potentialTables.push_back({ path.filename().string(), path });
+            }
+            else if (ext == ".dds" && types.contains(TEX)) {
+                mod.potentialTextures.push_back({ path.filename().string(), path });
+            }
+            else if (ext == ".lua" && types.contains(SCRIPT)) {
+                mod.potentialScripts.push_back({ path.filename().string(), path });
+            }
+            else if (ext == ".json" && types.contains(WEAPON)) {
+                mod.potentialWeapons.push_back(path);
+            }
 
-        s_resolvedFileMap[file] = winner_full_path;
-        Logger::Log(Verbose) << "Mapping " << file << " -> " << s_resolvedFileMap[file];
-    }
+            };
 
-    Logger::Log(Verbose) << "Mod scan complete.";
-}
-std::vector<std::vector<char>> GetInjectionScripts(const std::string& injectionPoint) {
-    std::vector<std::vector<char>> scripts_data;
+        using enum AssetType;
 
-    std::vector<std::string> script_paths;
-    {
-        const std::lock_guard<std::mutex> lock(s_injectionMutex);
-        auto it = s_injectionScripts.find(injectionPoint);
-        if (it == s_injectionScripts.end()) {
-            return scripts_data;
-        }
-        script_paths = it->second;
-    }
+        ScanDirectoryIfExists(mod.rootPath / "textures", fileProcessor, {TEX});
+        ScanDirectoryIfExists(mod.rootPath / "tables", fileProcessor, {TABLE});
+        ScanDirectoryIfExists(mod.rootPath / "scripts", fileProcessor, {SCRIPT});
+        ScanDirectoryIfExists(mod.rootPath / "plugins", fileProcessor, {PLUGIN});
+        ScanDirectoryIfExists(mod.rootPath / "weapons", fileProcessor, {WEAPON});
 
-    Logger::Log(Verbose) << "Loading " << script_paths.size() << " scripts for injection point: " << injectionPoint;
+        ScanDirectoryIfExists(mod.rootPath / "loose", fileProcessor, {TEX});
+        ScanDirectoryIfExists(mod.rootPath / "inject", fileProcessor, {SCRIPT} ,true);
+        ScanDirectoryIfExists(mod.rootPath, fileProcessor, { TEX, TABLE, PLUGIN });
 
-    for (const auto& path : script_paths) {
-        std::ifstream file(path, std::ios::binary);
-        if (file.is_open()) {
-            scripts_data.emplace_back(
-                std::istreambuf_iterator<char>(file),
-                std::istreambuf_iterator<char>()
-            );
-        }
-        else {
-            Logger::Log(Error) << "Could not open injection script for reading: " << path;
-        }
-    }
-
-    return scripts_data;
-}
-
-
-void* LoadLooseFile(const char* filename, size_t& out_size) {
-    std::string requested_file(filename);
-    std::replace(requested_file.begin(), requested_file.end(), '\\', '/');
-
-    std::string full_path;
-    {
-        const std::lock_guard<std::mutex> lock(s_fileMapMutex);
-        auto it = s_resolvedFileMap.find(requested_file);
-        if (it == s_resolvedFileMap.end()) {
-            out_size = 0;
-            return nullptr;
-        }
-        full_path = it->second;
+        s_mods.emplace(mod.id, std::move(mod));
     }
 
 
-    {
-        const std::lock_guard<std::mutex> lock(s_cacheMutex);
-        auto cache_it = s_fileCache.find(full_path);
-        if (cache_it != s_fileCache.end()) {
-            auto& cachedEntry = cache_it->second;
-            cachedEntry.lastAccessTime = std::chrono::steady_clock::now();
-            out_size = cachedEntry.data.size();
-            return cachedEntry.data.data();
+    std::vector<std::string> sortedIds;
+    for (const auto& [id, _] : s_mods) sortedIds.push_back(id);
+    std::sort(sortedIds.begin(), sortedIds.end());
+
+    std::map<std::string, std::vector<std::string>> collisionTracker;
+
+    for (const auto& modId : sortedIds) {
+        const auto& mod = s_mods.at(modId);
+
+        if (!mod.archivePath.empty()) {
+            g_patched_archive_mods.push_back({ mod.id, "", mod.archivePath.string() });
+        }
+
+        for (const auto& item : mod.potentialScripts) {
+            s_resolvedScriptsList.push_back(item);
+        }
+
+        for (const auto& [name, path] : mod.potentialTextures) {
+            std::string lowerName = ToLower(name); 
+            if (s_resolvedTexturesMap.count(lowerName)) collisionTracker[lowerName].push_back(modId);
+            s_resolvedTexturesMap[lowerName] = path;
+        }
+
+        for (const auto& [name, path] : mod.potentialTables) {
+            std::string lowerName = ToLower(name);
+            if (s_resolvedTablesMap.count(lowerName)) collisionTracker[lowerName].push_back(modId);
+            s_resolvedTablesMap[lowerName] = path;
+        }
+
+        for (const auto& [name, path] : mod.potentialTables) {
+            std::string lowerName = ToLower(name);
+            if (s_resolvedTablesMap.count(lowerName)) collisionTracker[lowerName].push_back(modId);
+            s_resolvedTablesMap[lowerName] = path;
+        }
+
+        for (const auto& path : mod.potentialWeapons) {
+            
+            auto jdataRes = readJSON(path);
+            if (!jdataRes) {
+                Logger::Log(Error) << "Failed to read json for weapon: " << path;
+                continue;
+            }
+            json jdata = *jdataRes;
+            resolvedWeaponsList.push_back(jdata);
+        }
+
+    }
+
+    for (const auto& [file, mods] : collisionTracker) {
+        if (mods.size() > 1) {
+            Logger::Log(Verbose) << "Conflict '" << file << "'. Winner: [" << mods.back() << "]";
         }
     }
 
-    std::vector<char> fileData;
-    {
-        std::ifstream file(full_path, std::ios::binary | std::ios::ate);
-        if (!file.is_open()) {
-            Logger::Log(Error) << "Error: Could not open resolved file: " << full_path;
-            out_size = 0;
-            return nullptr;
-        }
-
-        std::streamsize size = file.tellg();
-        file.seekg(0, std::ios::beg);
-
-        fileData.resize(static_cast<size_t>(size));
-        if (!file.read(fileData.data(), size)) {
-            Logger::Log(Error) << "Error: Could not read entire file: " << full_path;
-            out_size = 0;
-            return nullptr;
-        }
-    }
-
-
-    {
-        const std::lock_guard<std::mutex> lock(s_cacheMutex);
-
-        auto cache_it = s_fileCache.find(full_path);
-        if (cache_it != s_fileCache.end()) {
-            auto& cachedEntry = cache_it->second;
-            cachedEntry.lastAccessTime = std::chrono::steady_clock::now();
-            out_size = cachedEntry.data.size();
-            return cachedEntry.data.data();
-        }
-
-        CachedFile newFile{
-            std::move(fileData),
-            std::chrono::steady_clock::now()
-        };
-
-        auto [inserted_it, success] = s_fileCache.emplace(std::move(full_path), std::move(newFile));
-
-        auto& newEntry = inserted_it->second;
-        out_size = newEntry.data.size();
-        return newEntry.data.data();
-    }
+    Logger::Log(Info) << "Mod Scan Complete. Loaded " << sortedIds.size() << " mods.";
 }
 
 void LoadPlugins() {
-    const std::string mods_root = "LunarTear/mods/";
-    if (!std::filesystem::exists(mods_root) || !std::filesystem::is_directory(mods_root)) {
-        return;
-    }
+    if (!Settings::Instance().EnablePlugins) return;
 
-    Logger::Log(Verbose) << "Scanning for plugins...";
-
-    std::vector<std::string> mod_ids;
+    // Collect plugins while holding the lock
+    std::vector<std::pair<std::string, std::filesystem::path>> pluginsToLoad;
     {
-        const std::lock_guard<std::mutex> lock(s_mod_paths_mutex);
-        for (const auto& pair : s_mod_paths) {
-            mod_ids.push_back(pair.first);
+        std::lock_guard<std::mutex> lock(s_stateMutex);
+
+        std::vector<std::string> sortedIds;
+        for (const auto& [id, _] : s_mods) sortedIds.push_back(id);
+        std::sort(sortedIds.begin(), sortedIds.end());
+
+        for (const auto& modId : sortedIds) {
+            const auto& mod = s_mods.at(modId);
+            for (const auto& dllPath : mod.plugins) {
+                pluginsToLoad.push_back({ modId, dllPath });
+            }
+        }
+    } 
+
+    // Load plugins without the lock
+    // This allows plugins to call API functions (like GetModDirectory) 
+    // which reacquire s_stateMutex without causing a deadlock
+    for (const auto& [modId, dllPath] : pluginsToLoad) {
+        HMODULE hModule = LoadLibraryW(dllPath.c_str());
+        if (hModule) {
+            Logger::Log(Verbose) << "Loaded Plugin: " << dllPath.filename().string();
+            API::InitializePlugin(modId, hModule);
+        }
+        else {
+            Logger::Log(Error) << "Failed to load plugin: " << dllPath.string();
         }
     }
+}
 
-    for (const auto& mod_id : mod_ids) {
-        auto mod_path_opt = GetModPath(mod_id);
-        if (!mod_path_opt) continue;
+void* LoadLooseTexture(const char* relativePath, size_t& out_size) {
+    return LoadLooseInternal(ToLower(NormalizePath(relativePath)), s_resolvedTexturesMap, out_size);
+}
 
-        for (const auto& file_entry : std::filesystem::directory_iterator(*mod_path_opt)) {
-            if (file_entry.is_regular_file() && file_entry.path().extension() == ".dll") {
+void* LoadLooseTable(const char* relativePath, size_t& out_size) {
+    return LoadLooseInternal(ToLower(NormalizePath(relativePath)), s_resolvedTablesMap, out_size);
+}
 
-                std::wstring plugin_path_wstr = file_entry.path().wstring();
-                Logger::Log(Verbose) << "Attempting to load plugin: " << file_entry.path().u8string();
+std::vector<nlohmann::json> GetCustomWeapons() {
+    return resolvedWeaponsList;
+}
 
-                HMODULE plugin_module = LoadLibraryW(plugin_path_wstr.c_str());
-                if (plugin_module) {
-                    Logger::Log(Verbose) << "Successfully loaded plugin: " << plugin_path_wstr;
-                    API::InitializePlugin(mod_id, plugin_module);
-                }
-                else {
-                    DWORD error = GetLastError();
-                    LPSTR messageBuffer = nullptr;
-                    size_t size = FormatMessageA(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
-                        NULL, error, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPSTR)&messageBuffer, 0, NULL);
-                    std::string message(messageBuffer, size);
-                    LocalFree(messageBuffer);
+std::vector<std::vector<char>> GetInjectionScripts(const std::string& injectionPoint) {
+    std::vector<std::vector<char>> files;
+    std::string targetName = injectionPoint + ".lua";
 
-                    Logger::Log(Error) << "Failed to load plugin '" << plugin_path_wstr << "'. Error " << error << ": " << message;
-                }
+    for (const auto& [name, path] : s_resolvedScriptsList) {
+        if (name == targetName) {
+            std::ifstream f(path, std::ios::binary | std::ios::ate);
+            if (f) {
+                size_t size = f.tellg();
+                std::vector<char> buf(size);
+                f.seekg(0);
+                f.read(buf.data(), size);
+                files.push_back(std::move(buf));
             }
         }
     }
-    Logger::Log(Verbose) << "Plugin scan complete.";
+    return files;
+}
+
+std::optional<std::string> GetModPath(const std::string& mod_id) {
+    std::lock_guard<std::mutex> lock(s_stateMutex);
+    auto it = s_mods.find(mod_id);
+    if (it != s_mods.end()) return it->second.rootPath.string();
+    return std::nullopt;
 }
