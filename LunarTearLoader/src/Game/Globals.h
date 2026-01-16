@@ -3,7 +3,7 @@
 
 
 extern uintptr_t g_processBaseAddress;
-extern PhaseScriptManager* phaseScriptManager; // __libnier__ script is also handled by the phaseScriptManager
+extern PhaseScriptManager* phaseScriptManager; 
 extern RootScriptManager* rootScriptManager;
 extern GameScriptManager* gameScriptManager;
 extern EndingsData* endingsData;
@@ -20,5 +20,7 @@ extern tpRhiSwapchain** rhiSwapchainPtr;
 extern uint8_t* inLoadingScreen; // 0 = false, !0 = true
 
 extern void* iDirectInput8Ptr;
+
+extern void* weaponSpecBodies;
 
 void InitialiseGlobals();

@@ -20,6 +20,9 @@ uint8_t* inLoadingScreen;
 
 void* iDirectInput8Ptr;
 
+void* weaponSpecBodies;
+
+
 void InitialiseGlobals() {
 
 	g_processBaseAddress = (uintptr_t)GetModuleHandle(NULL);
@@ -37,5 +40,6 @@ void InitialiseGlobals() {
 	inLoadingScreen = (uint8_t*)(g_processBaseAddress + 0x4B1C9B4);
 
 	iDirectInput8Ptr = (void*)(g_processBaseAddress + 0x5146e98);
-
+	
+	weaponSpecBodies = (void*)(g_processBaseAddress + 0x47c2670);
 }
