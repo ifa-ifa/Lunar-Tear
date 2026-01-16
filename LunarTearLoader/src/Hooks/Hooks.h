@@ -30,4 +30,6 @@ bool InstallDebugHooks();
 bool InstallVFSHooks();
 bool InstallFPSUnlockHooks();
 bool InstallEnumDevicesHooks();
-
+bool InstallSaveHooks();
+bool InstallStringHooks();
+bool InstallWeaponLoadHooks();
