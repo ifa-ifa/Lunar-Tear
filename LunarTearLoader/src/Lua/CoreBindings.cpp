@@ -4,6 +4,7 @@
 #include "Lua/LuaCommandQueue.h"
 #include "API/Api.h"
 #include "ModLoader.h"
+#include "Game/Weapons.h"
 #include <INIReader.h>
 
 using enum Logger::LogCategory;
@@ -12,7 +13,6 @@ void _LTLog(ScriptState* scriptState) {
     const char* modName = GetArgumentString(GetArgumentPointer(scriptState->argBuffer, 0));
     int logLevel = GetArgumentInt(GetArgumentPointer(scriptState->argBuffer, 1));
     const char* logString = GetArgumentString(GetArgumentPointer(scriptState->argBuffer, 2));
-
 
 
     Logger::Log(API::ApiLogLevelToInternal((LT_LogLevel)logLevel), modName) << logString;
@@ -336,10 +336,19 @@ void Binding_GetScript(void* L) {
 }
 
 
+void _GetWeaponID(ScriptState* state) {
+    const char* weaponName = GetArgumentString(GetArgumentPointer(state->argBuffer, 0));
+    int id = getIdFromName(weaponName);
+    SetArgumentInt(state->returnBuffer, id);
+    state->returnArgCount = 1;
 
-LuaCBinding* GetCoreBindings() {
+}
 
-    static LuaCBinding coreBindings[] = {
+
+
+std::vector<std::pair<std::string, LT_LuaCFunc>> GetCoreBindings() {
+
+    static std::vector<std::pair<std::string, LT_LuaCFunc>> coreBindings = {
     { "_LTLog",             Binding_LTLog },
     { "_LTConfigGetString", Binding_LTConfigGetString },
     { "_LTConfigGetBool",   Binding_LTConfigGetBool },
@@ -348,6 +357,8 @@ LuaCBinding* GetCoreBindings() {
     { "_LTIsModActive",     Binding_LTIsModActive },
     { "_LTIsPluginActive",  Binding_LTIsPluginActive },
     { "_LTGetModDirectory", Binding_LTGetModDirectory },
+    { "_LTGetWeaponID", [](void* L) { phaseBindingDispatcher(L, &_GetWeaponID); } },
+
 
     { "_LTLua_type", luaB_type },
     { "_LTLua_xpcall", luaB_xpcall },
@@ -358,9 +369,6 @@ LuaCBinding* GetCoreBindings() {
     // Internal use only
     { "_ifaifa_LTCore_GetScript", Binding_GetScript }, 
     { "_ifaifa_LTCore_ReportResult", Binding_ReportResult },
-
-
-    { NULL, NULL }
     };
 
 

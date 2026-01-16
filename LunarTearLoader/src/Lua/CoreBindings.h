@@ -1,4 +1,5 @@
 #pragma once
 #include "Game/Types.h"
+#include "API/api.h"
 
-LuaCBinding* GetCoreBindings();
+std::vector<std::pair<std::string, LT_LuaCFunc>> GetCoreBindings();
