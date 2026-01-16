@@ -9,7 +9,7 @@ extern "C" {
 
 #define LUNAR_TEAR_VERSION_MAJOR 1
 #define LUNAR_TEAR_VERSION_MINOR 2
-#define LUNAR_TEAR_VERSION_PATCH 5
+#define LUNAR_TEAR_VERSION_PATCH 6
 
 #define LUNAR_TEAR_API_VERSION ((LUNAR_TEAR_VERSION_MAJOR << 16) | \
                                 (LUNAR_TEAR_VERSION_MINOR << 8)  | \
