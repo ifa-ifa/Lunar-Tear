@@ -6,6 +6,8 @@
 #include "ModLoader.h"
 #include "Game/Weapons.h"
 #include <INIReader.h>
+#include <vector>
+#include <string>
 
 using enum Logger::LogCategory;
 
@@ -319,20 +321,17 @@ void Binding_ReportResult(void* L) {
 }
 
 
-void _GetScript(ScriptState* state) {
+int Binding_GetScript(void* L) {
     std::string script;
+
     if (LuaCommandQueue::GetNextScript(script)) {
-        SetArgumentString(state->returnBuffer, script.c_str());
+        lua_pushlstring(L, script.c_str(), script.size());
     }
     else {
-        SetArgumentString(state->returnBuffer, ""); // Return empty string if no command
+        lua_pushlstring(L, "", 0);
     }
-    state->returnArgCount = 1;
-}
 
-
-void Binding_GetScript(void* L) {
-    phaseBindingDispatcher(L, &_GetScript);
+    return 1; 
 }
 
 
@@ -366,8 +365,15 @@ std::vector<std::pair<std::string, LT_LuaCFunc>> GetCoreBindings() {
     { "_LTLua_loadstring", luaB_loadstring },
     { "_LTLua_table_getn", luaB_table_getn },
 
+    {"_LTLua_cocreate", (LT_LuaCFunc)(g_processBaseAddress + 0x3d9b50)},
+    {"_LTLua_cowrap", (LT_LuaCFunc)(g_processBaseAddress + 0x3d9bd0)},
+    {"_LTLua_coresume", (LT_LuaCFunc)(g_processBaseAddress + 0x3d9ab0)},
+    {"_LTLua_coyield", (LT_LuaCFunc)(g_processBaseAddress + 0x3d9c60)},
+    {"_LTLua_costatus", (LT_LuaCFunc)(g_processBaseAddress + 0x3d9c80)},
+
+
     // Internal use only
-    { "_ifaifa_LTCore_GetScript", Binding_GetScript }, 
+    { "_ifaifa_LTCore_GetScript", (LT_LuaCFunc)Binding_GetScript },
     { "_ifaifa_LTCore_ReportResult", Binding_ReportResult },
     };
 
