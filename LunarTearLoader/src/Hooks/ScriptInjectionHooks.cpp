@@ -78,6 +78,7 @@ ififa_LTCore_scriptDispatch = function()
 
     local error_handler = function(err_msg)
         _ifaifa_LTCore_ReportResult("runtime_error:" .. _LTLua_tostring(err_msg))
+        return err_msg
     end
 
     _LTLua_xpcall(function_to_execute, error_handler)
