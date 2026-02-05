@@ -123,7 +123,7 @@ uint64_t TexHook_detoured(tpGxResTexture* tex, void* param_2, void* param_3) {
         return TexHook_original(tex, param_2, param_3);
     }
 
-    if (tex->bxonAssetHeader->width != dds_file.getWidth() || tex->bxonAssetHeader->width != dds_file.getHeight()) {
+    if (tex->bxonAssetHeader->width != dds_file.getWidth() || tex->bxonAssetHeader->height != dds_file.getHeight()) {
         Logger::Log(Error) << " | Resolution mismatch. Original is " << tex->bxonAssetHeader->width << "x" << tex->bxonAssetHeader->height
             << ", but mod is " << dds_file.getWidth() << "x" << dds_file.getHeight() << ". Texture not replaced.";
         return TexHook_original(tex, param_2, param_3);
