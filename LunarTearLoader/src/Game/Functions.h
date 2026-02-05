@@ -12,6 +12,9 @@ extern uint64_t(*ScriptManager_registerBindings)(void*, LuaCBinding*);
 
 extern int (*lua_gettop)(void*);
 extern void (*lua_settop)(void*, int);
+extern const char* (*lua_tostring)(void*, int);
+extern void (*lua_pushlstring)(void*, const char*, size_t);
+
 extern void (*luaL_openlib)(void*, char*, LuaCBinding*, uint32_t);
 		
 extern void (*luaB_type)(void*);

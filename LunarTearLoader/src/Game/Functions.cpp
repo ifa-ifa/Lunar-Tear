@@ -9,6 +9,9 @@ int (*phaseBindingDispatcher)(void*, void*);
 
 int (*lua_gettop)(void*);
 void (*lua_settop)(void*, int);
+const char* (*lua_tostring)(void*, int);
+void (*lua_pushlstring)(void*, const char*, size_t);
+
 void (*luaL_openlib)(void*, char*, LuaCBinding*, uint32_t);
 
 void (*luaB_type)(void*);
@@ -62,6 +65,8 @@ void InitialiseGameFunctions() {
 
 	lua_gettop = (int (*)(void*))(g_processBaseAddress + 0x3d68c0);
 	lua_settop = (void (*)(void*, int))(g_processBaseAddress + 0x3d7280);
+	lua_tostring = (const char* (*)(void*, int))(g_processBaseAddress + 0x03d74b0);
+	lua_pushlstring = (void (*)(void*, const char*, size_t))(g_processBaseAddress + 0x3d6db0);
 	luaL_openlib = (void(*)(void*, char*, LuaCBinding*, uint32_t))(g_processBaseAddress + 0x3d8470);
 
 	luaB_type = (void(*)(void*))(g_processBaseAddress + 0x3d90c0);
