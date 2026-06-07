@@ -46,7 +46,7 @@ add_library(LunarTearLoader SHARED
     "src/Lua/CoreBindings.h"
     "src/Lua/CoreBindings.cpp"
 
- "src/Hooks/VFSHooks.cpp" "include/tether/tether.h" "src/VFS/ArchivePatcher.cpp" "src/VFS/ArchivePatcher.h"   "src/Lua/CallbackQueue.cpp" "src/Init.cpp" "src/Game/d3d11.h" "src/Hooks/FPSUnlockHooks.cpp"  "src/Common/Patch.h" "src/Common/Patch.cpp"  "src/Game/d3d11.cpp" "src/Game/dinput8.h" "src/Hooks/EnumDevicesHooks.cpp" "src/Common/Backup.h" "src/version.rc"     "src/Hooks/StringHooks.cpp" "src/Game/Strings.h" "src/Game/Strings.cpp" "src/Game/Weapons.h" "src/Game/Weapons.cpp" "src/Hooks/SaveHooks.cpp" "src/Common/Save.h" "src/Common/Save.cpp" "src/Common/base16.h" "src/Common/Json.h" "src/Hooks/WeaponLoadHooks.cpp")
+ "src/Hooks/VFSHooks.cpp" "include/tether/tether.h" "src/VFS/ArchivePatcher.cpp" "src/VFS/ArchivePatcher.h"   "src/Lua/CallbackQueue.cpp" "src/Init.cpp" "src/Game/d3d11.h" "src/Hooks/FPSUnlockHooks.cpp"  "src/Common/Patch.h" "src/Common/Patch.cpp"  "src/Game/d3d11.cpp" "src/Game/dinput8.h" "src/Hooks/EnumDevicesHooks.cpp" "src/Common/Backup.h" "src/version.rc"     "src/Hooks/StringHooks.cpp" "src/Game/Strings.h" "src/Game/Strings.cpp" "src/Game/Weapons.h" "src/Game/Weapons.cpp" "src/Hooks/SaveHooks.cpp" "src/Common/Save.h" "src/Common/Save.cpp" "src/Common/base16.h" "src/Common/Json.h" "src/Hooks/WeaponLoadHooks.cpp" "src/Common/SEH.cpp")
 
 add_executable(LunarTearLauncher "src/Launcher.cpp")
 

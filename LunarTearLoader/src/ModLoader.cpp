@@ -11,7 +11,7 @@
 #include <fstream>
 #include <algorithm>
 #include <nlohmann/json.hpp>
-
+#include <iostream>
 using json = nlohmann::json;
 using enum Logger::LogCategory;
 
@@ -35,11 +35,11 @@ namespace {
 
     std::map<std::string, Mod> s_mods;
 
-    // "Last one wins" 
+    // Last one wins 
     std::map<std::string, std::filesystem::path> s_resolvedTexturesMap;
     std::map<std::string, std::filesystem::path> s_resolvedTablesMap;
 
-    // "Run all" 
+    // Run all
     std::vector<std::pair<std::string, std::filesystem::path>> s_resolvedScriptsList;
     std::vector<nlohmann::json> resolvedWeaponsList;
 
@@ -274,6 +274,7 @@ void ScanModsAndResolveConflicts() {
 }
 
 void LoadPlugins() {
+
     if (!Settings::Instance().EnablePlugins) return;
 
     // Collect plugins while holding the lock
