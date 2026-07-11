@@ -33,7 +33,10 @@ public:
         std::cout << "Unpacking archives using index: " << index_path << "\n";
 
         auto compressed_index = unwrap(replicant::ReadFile(index_path), "Failed to read index");
-        auto dSize = unwrap(replicant::archive::GetDecompressedSize(compressed_index), "Bad index ZSTD");
+
+        size_t dSize = 0;
+        if (auto sz = replicant::archive::GetDecompressedSize(compressed_index)) dSize = *sz;
+
         auto bxon_data = unwrap(replicant::archive::Decompress(compressed_index, dSize), "Index decompress failed");
 
         auto [info, payload] = unwrap(replicant::ParseBxon(bxon_data), "Index BXON parse failed");
@@ -115,20 +118,34 @@ private:
             auto arc_data = unwrap(replicant::ReadFile(arc_path), "Failed to read " + arc_meta.filename);
 
             // Decompress the ENTIRE archive to memory - the largest vanilla preload arc is 9MB
-            auto dSize = unwrap(replicant::archive::GetDecompressedSize(arc_data), "Bad ZSTD in " + arc_meta.filename);
+            size_t dSize = 0;
+            if (auto sz = replicant::archive::GetDecompressedSize(arc_data)) dSize = *sz;
             auto blob = unwrap(replicant::archive::Decompress(arc_data, dSize), "Decompress failed " + arc_meta.filename);
 
             for (const auto* file : files) {
                 
                 std::filesystem::path out_path = out_base / file->name;
 
+
+                uint64_t extract_size = file->size;
+                if (extract_size == 0) {
+                    // Preload compressedSizes report 0. Infer size from offsets mapping against the decoded blob!
+                    uint64_t next_offset = blob.size();
+                    for (const auto* f : files) {
+                        if (f->rawOffset > file->rawOffset && f->rawOffset < next_offset) {
+                            next_offset = f->rawOffset;
+                        }
+                    }
+                    extract_size = next_offset - file->rawOffset;
+                }
+
                 // For Type 0: rawOffset is offset into DECOMPRESSED blob
                 // size is the uncompressed size
-                if (file->rawOffset + file->size > blob.size()) {
+                if (file->rawOffset + extract_size > blob.size()) {
                     throw std::runtime_error("File " + file->name + " out of bounds in " + arc_meta.filename);
                 }
 
-                std::span<const std::byte> file_span(blob.data() + file->rawOffset, file->size);
+                std::span<const std::byte> file_span(blob.data() + file->rawOffset, static_cast<size_t>(extract_size));
                 unwrap(replicant::WriteFile(out_path, file_span), "Write failed " + file->name);
             }
         }
@@ -156,7 +173,9 @@ private:
 
                 std::span<const std::byte> chunk_span(compressed_buf.data(), file->size);
 
-                auto dSize = unwrap(replicant::archive::GetDecompressedSize(chunk_span), "Bad ZSTD for " + file->name);
+                size_t dSize = 0;
+                if (auto sz = replicant::archive::GetDecompressedSize(chunk_span)) dSize = *sz;
+
                 auto decompressed = unwrap(replicant::archive::Decompress(chunk_span, dSize), "Decompress failed " + file->name);
 
                 unwrap(replicant::WriteFile(out_path, decompressed), "Write failed " + file->name);
