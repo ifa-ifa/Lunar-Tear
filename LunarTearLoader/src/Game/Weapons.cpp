@@ -19,6 +19,7 @@ namespace {
 
 	std::unordered_map<int, std::string> weaponRegistry;
 	std::unordered_set<int> usedListOrders;
+	std::vector<std::byte> s_weaponBuf;
 
 	bool registerWeapon(const std::string& weaponStringID) {
 
@@ -83,7 +84,7 @@ namespace {
 		replicant::Reader reader(data);
 
 		const size_t count = *reader.view<size_t>();
-		
+
 		for (size_t i = 0; i < count; i++) {
 
 			const char level = *reader.view<char>();
@@ -93,112 +94,108 @@ namespace {
 			if (!id) continue;
 
 			playerSaveData->weaponLevels[*id] = level;
-			
+
 		}
 	}
 
-	std::vector<std::byte> s_weaponBuf;
 
-	
-}
-
-replicant::weapon::WeaponEntry jsonToWeapon(json jdata) {
-	replicant::weapon::WeaponEntry entry;
-	if (!jdata.is_object()) {
-		throw std::string("top level weapon json is not an object");
-	}
-
-	// We need to ensure there are no duplicate listOrder values
-	replicant::raw::RawWeaponBody** bodies = (replicant::raw::RawWeaponBody**)weaponSpecBodies;
-	int newListOrder = 0;
-
-	for (int i = 0; i < 64; i++) {
-		if (usedListOrders.count(i) == 1) continue;
-		newListOrder = i;
-		break;
-	}
-	usedListOrders.insert(newListOrder);
-	entry.listOrder = newListOrder;
-
-	
-
-
-	entry.internalNameBody = jdata.at("asset_name").get<std::string>();
-	entry.nameStringID = getLTStringId(jdata.at("display_name").get<std::string>());
-	entry.descStringID = getLTStringId(jdata.at("display_desc").get<std::string>());
-	
-	entry.story1StringID = getLTStringId(jdata.at("display_story1").get<std::string>());
-	entry.story2StringID = getLTStringId(jdata.at("display_story2").get<std::string>());
-	entry.story3StringID = getLTStringId(jdata.at("display_story3").get<std::string>());
-	entry.story4StringID = getLTStringId(jdata.at("display_story4").get<std::string>());
-	entry.HeightOnBack = jdata.at("displacment_on_back").get<float>();
-	entry.InHandDisplacment = jdata.at("displacment_in_hand").get<float>();
-	entry.shopPrice = jdata.at("shop_price").get<uint32_t>();
-	entry.knockbackPercent = jdata.at("knockback_precent").get<float>();
-	entry.weaponType = jdata.at("weapon_type").get<uint8_t>();
-	entry.excludeFromCompletion = jdata.at("exclude_from_completion").get<bool>() ? 1 : 0;
-	std::vector<uint32_t> attack = jdata.at("attack_power").get<std::vector<uint32_t>>();
-	std::vector<uint32_t> magic = jdata.at("magic_power").get<std::vector<uint32_t>>();
-	std::vector<uint32_t> guard = jdata.at("guard_break").get<std::vector<uint32_t>>();
-	std::vector<uint32_t> armor = jdata.at("armour_break").get<std::vector<uint32_t>>();
-	std::vector<uint32_t> weight = jdata.at("weight").get<std::vector<uint32_t>>();
-
-	auto fillStats = [&](replicant::weapon::WeaponStats& stats, size_t index) {
-		if (index >= attack.size() || index >= magic.size() ||
-			index >= guard.size() || index >= armor.size() || index >= weight.size()) {
-			throw std::out_of_range("Stat arrays in JSON are shorter than required 4 levels");
-		}
-		stats.attack = attack[index];
-		stats.magicPower = magic[index];
-		stats.guardBreak = guard[index];
-		stats.armourBreak = armor[index];
-		stats.weight = weight[index];
-		};
-
-	auto parseRecipe = [&](replicant::weapon::WeaponUpgradeRecipe& recipe, const json& rJson) {
-		recipe.upgradeCost = rJson.at("cost").get<uint32_t>();
-
-		std::vector<int32_t> ingredients = rJson.at("ingredients").get<std::vector<int32_t>>();
-		std::vector<uint32_t> counts = rJson.at("count").get<std::vector<uint32_t>>();
-
-		if (ingredients.size() != counts.size()) {
-			throw std::runtime_error("Recipe ingredient list size does not match count list size");
+	replicant::weapon::WeaponEntry jsonToWeapon(json jdata) {
+		replicant::weapon::WeaponEntry entry;
+		if (!jdata.is_object()) {
+			throw std::string("top level weapon json is not an object");
 		}
 
-		if (ingredients.size() > 0) { recipe.ingredientId1 = ingredients[0]; recipe.ingredientCount1 = counts[0]; }
-		if (ingredients.size() > 1) { recipe.ingredientId2 = ingredients[1]; recipe.ingredientCount2 = counts[1]; }
-		if (ingredients.size() > 2) { recipe.ingredientId3 = ingredients[2]; recipe.ingredientCount3 = counts[2]; }
-		};
+		// We need to ensure there are no duplicate listOrder values
+		int newListOrder = 0;
+
+		for (int i = 0; i < 64; i++) {
+			if (usedListOrders.count(i) == 1) continue;
+			newListOrder = i;
+			break;
+		}
+		usedListOrders.insert(newListOrder);
+		entry.listOrder = newListOrder;
 
 
-	fillStats(entry.level1Stats, 0);
-	fillStats(entry.level2Stats, 1);
-	fillStats(entry.level3Stats, 2);
-	fillStats(entry.level4Stats, 3);
 
-	const auto& recipes = jdata.at("recipes");
-	if (recipes.size() < 3) {
-		throw std::string("Recipes array must contain at least 3 entries (for levels 2, 3, 4)");
+
+		entry.internalNameBody = jdata.at("asset_name").get<std::string>();
+		entry.nameStringID = getLTStringId(jdata.at("display_name").get<std::string>());
+		entry.descStringID = getLTStringId(jdata.at("display_desc").get<std::string>());
+
+		entry.story1StringID = getLTStringId(jdata.at("display_story1").get<std::string>());
+		entry.story2StringID = getLTStringId(jdata.at("display_story2").get<std::string>());
+		entry.story3StringID = getLTStringId(jdata.at("display_story3").get<std::string>());
+		entry.story4StringID = getLTStringId(jdata.at("display_story4").get<std::string>());
+		entry.HeightOnBack = jdata.at("displacment_on_back").get<float>();
+		entry.InHandDisplacment = jdata.at("displacment_in_hand").get<float>();
+		entry.shopPrice = jdata.at("shop_price").get<uint32_t>();
+		entry.knockbackPercent = jdata.at("knockback_precent").get<float>();
+		entry.weaponType = jdata.at("weapon_type").get<uint8_t>();
+		entry.excludeFromCompletion = jdata.at("exclude_from_completion").get<bool>() ? 1 : 0;
+		std::vector<uint32_t> attack = jdata.at("attack_power").get<std::vector<uint32_t>>();
+		std::vector<uint32_t> magic = jdata.at("magic_power").get<std::vector<uint32_t>>();
+		std::vector<uint32_t> guard = jdata.at("guard_break").get<std::vector<uint32_t>>();
+		std::vector<uint32_t> armor = jdata.at("armour_break").get<std::vector<uint32_t>>();
+		std::vector<uint32_t> weight = jdata.at("weight").get<std::vector<uint32_t>>();
+
+		auto fillStats = [&](replicant::weapon::WeaponStats& stats, size_t index) {
+			if (index >= attack.size() || index >= magic.size() ||
+				index >= guard.size() || index >= armor.size() || index >= weight.size()) {
+				throw std::out_of_range("Stat arrays in JSON are shorter than required 4 levels");
+			}
+			stats.attack = attack[index];
+			stats.magicPower = magic[index];
+			stats.guardBreak = guard[index];
+			stats.armourBreak = armor[index];
+			stats.weight = weight[index];
+			};
+
+		auto parseRecipe = [&](replicant::weapon::WeaponUpgradeRecipe& recipe, const json& rJson) {
+			recipe.upgradeCost = rJson.at("cost").get<uint32_t>();
+
+			std::vector<int32_t> ingredients = rJson.at("ingredients").get<std::vector<int32_t>>();
+			std::vector<uint32_t> counts = rJson.at("count").get<std::vector<uint32_t>>();
+
+			if (ingredients.size() != counts.size()) {
+				throw std::runtime_error("Recipe ingredient list size does not match count list size");
+			}
+
+			if (ingredients.size() > 0) { recipe.ingredientId1 = ingredients[0]; recipe.ingredientCount1 = counts[0]; }
+			if (ingredients.size() > 1) { recipe.ingredientId2 = ingredients[1]; recipe.ingredientCount2 = counts[1]; }
+			if (ingredients.size() > 2) { recipe.ingredientId3 = ingredients[2]; recipe.ingredientCount3 = counts[2]; }
+			};
+
+
+		fillStats(entry.level1Stats, 0);
+		fillStats(entry.level2Stats, 1);
+		fillStats(entry.level3Stats, 2);
+		fillStats(entry.level4Stats, 3);
+
+		const auto& recipes = jdata.at("recipes");
+		if (recipes.size() < 3) {
+			throw std::string("Recipes array must contain at least 3 entries (for levels 2, 3, 4)");
+		}
+
+		parseRecipe(entry.level2Recipe, recipes.at(0));
+		parseRecipe(entry.level3Recipe, recipes.at(1));
+		parseRecipe(entry.level4Recipe, recipes.at(2));
+
+		return entry;
+
 	}
 
-	parseRecipe(entry.level2Recipe, recipes.at(0));
-	parseRecipe(entry.level3Recipe, recipes.at(1));
-	parseRecipe(entry.level4Recipe, recipes.at(2));
 
-	return entry;
+	void fixEquippedWeapon() {
 
-}
+		if (!((replicant::raw::RawWeaponBody**)weaponSpecBodies)[playerSaveData->currentWeapon]) {
 
+			playerSaveData->currentWeapon = 0;
+		}
 
-void fixEquippedWeapon() {
-
-	if (!((replicant::raw::RawWeaponBody**)weaponSpecBodies)[playerSaveData->currentWeapon]) {
-
-		playerSaveData->currentWeapon = 0;
 	}
 
 }
-
 
 // We just fill the registry blindly and patch weapon specs loadCustomWeapons will fill the players
 //   inventory based on unique string ids in the registry, the registry itself is volatile and 
