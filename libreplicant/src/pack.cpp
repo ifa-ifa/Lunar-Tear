@@ -9,6 +9,8 @@
 
 namespace replicant {
 
+    using namespace raw;
+
     namespace {
 #pragma pack(push, 1)
         struct RawPackHeader {
@@ -26,20 +28,6 @@ namespace replicant {
 
             uint32_t filesCount;
             uint32_t offsetToFiles;
-        };
-
-        struct RawImport {
-            uint32_t pathHash;
-            uint32_t offsetToPath;
-            uint32_t unknown0;
-        };
-
-        struct RawAssetPackage {
-            uint32_t nameHash;
-            uint32_t offsetToName;
-            uint32_t contentSize;
-            uint32_t offsetToContentStart;
-            uint32_t offsetToContentEnd;
         };
 
         struct DataOffset {
@@ -277,7 +265,7 @@ namespace replicant {
             size_t tName = writer.reserveOffset();
             writer.write<uint32_t>(static_cast<uint32_t>(f.serializedData.size()));
 
-            FilePatchTokens ft;
+            FilePatchTokens ft{};
             ft.content = writer.reserveOffset();
             ft.dataOffsetField = writer.reserveOffset();
             fileTokens.push_back(ft);
@@ -353,7 +341,7 @@ namespace replicant {
 
     std::expected<Pack, Error> Pack::DeserializeNoResources(const std::filesystem::path& filePath) {
         try {
-            RawPackHeader rawHeader;
+            RawPackHeader rawHeader{};
 
             std::ifstream file(filePath, std::ios::binary);
             if (!file) {
@@ -392,7 +380,7 @@ namespace replicant {
 
     std::expected<Pack::PackFileSizes, Error> Pack::getFileSizes(const std::filesystem::path& filePath) {
         try {
-            RawPackHeader rawHeader;
+            RawPackHeader rawHeader{};
 
             std::ifstream file(filePath, std::ios::binary);
             if (!file) {

@@ -15,7 +15,7 @@ namespace replicant {
     };
 
     struct ImportEntry {
-        uint32_t pathHash;
+        uint32_t pathHash = 0;
         std::string path;
     };
 
@@ -34,6 +34,24 @@ namespace replicant {
 
         bool hasResource() const { return !resourceData.empty(); }
     };
+
+    namespace raw {
+
+        struct RawImport {
+            uint32_t pathHash;
+            uint32_t offsetToPath;
+            uint32_t unknown0;
+        };
+
+        struct RawAssetPackage {
+            uint32_t nameHash;
+            uint32_t offsetToName;
+            uint32_t contentSize;
+            uint32_t offsetToContentStart;
+            uint32_t offsetToContentEnd;
+        };
+
+    }
 
     class Pack {
     public:
