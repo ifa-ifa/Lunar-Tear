@@ -21,7 +21,7 @@ namespace {
     struct PluginContext {
         std::string name;
         std::unique_ptr<INIReader> configReader;
-        HMODULE moduleHandle;
+        HMODULE moduleHandle{};
     };
 
     static LunarTearAPI s_api;

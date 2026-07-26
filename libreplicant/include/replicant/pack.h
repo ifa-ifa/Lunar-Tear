@@ -20,7 +20,7 @@ namespace replicant {
     };
 
     struct AssetPackageEntry {
-        uint32_t nameHash;
+        uint32_t nameHash = 0;
         std::string name;
         std::vector<std::byte> content;
     };
@@ -55,7 +55,7 @@ namespace replicant {
 
     class Pack {
     public:
-        PackHeaderInfo info;
+        PackHeaderInfo info{};
         std::vector<ImportEntry> imports;
         std::vector<AssetPackageEntry> assetPackages;
         std::vector<PackFileEntry> files;

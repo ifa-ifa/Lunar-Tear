@@ -149,7 +149,7 @@ uint64_t TexHook_detoured(tpGxResTexture* tex, void* param_2, void* param_3) {
 
     tex->texData = static_cast<char*>(ddsFileData) + headerSize;
     tex->texDataSize = ddsFileSize - headerSize;
-    tex->bxonAssetHeader->size = tex->texDataSize;
+    tex->bxonAssetHeader->size = static_cast<int32_t>(tex->texDataSize);
 
     Logger::Log(Verbose) << " | Successfully replaced texture data for " << tex->name;
 

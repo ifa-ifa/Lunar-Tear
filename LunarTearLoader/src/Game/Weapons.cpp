@@ -9,7 +9,6 @@
 #include <replicant/core/reader.h>
 #include "Game/Strings.h"
 #include <replicant/core/writer.h>
-#include <replicant/weapon.h>
 #include <nlohmann/json.hpp>
 #include <unordered_set>
 

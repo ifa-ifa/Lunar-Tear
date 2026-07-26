@@ -53,10 +53,10 @@ namespace replicant::weapon {
         uint32_t unkStringID1 = 0;
         uint32_t unkStringID2 = 0;
         uint32_t unkStringID3 = 0;
-        uint32_t story1StringID;
-        uint32_t story2StringID;
-        uint32_t story3StringID;
-        uint32_t story4StringID;
+        uint32_t story1StringID = 0;
+        uint32_t story2StringID = 0;
+        uint32_t story3StringID = 0;
+        uint32_t story4StringID = 0;
 
         uint32_t listOrder = 0;
 
@@ -72,38 +72,38 @@ namespace replicant::weapon {
         uint32_t uint32_0x58 = 0;
         uint32_t uint32_0x5C = 0;
 
-        float float_0x60;
-        uint32_t uint32_0x64;
-        uint32_t uint32_0x68;
+        float float_0x60 = 0;
+        uint32_t uint32_0x64 = 0;
+        uint32_t uint32_0x68 = 0;
 
-        float InHandDisplacment; 
-        uint32_t uint32_0x70;
-        uint32_t uint32_0x74;
+        float InHandDisplacment = 0; 
+        uint32_t uint32_0x70 = 0;
+        uint32_t uint32_0x74 = 0;
 
-        float float_0x78;
-        uint32_t uint32_0x7C;
-        uint32_t uint32_0x80;
+        float float_0x78 = 0;
+        uint32_t uint32_0x7C = 0;
+        uint32_t uint32_0x80 = 0;
 
-        int32_t int32_0x84;
+        int32_t int32_0x84 = 0;
         uint32_t shopPrice = 0;
         float knockbackPercent = 0.0f;
-        uint32_t uint32_0x90;
+        uint32_t uint32_0x90 = 0;
 
-        WeaponStats level1Stats;
-        WeaponStats level2Stats;
-        WeaponUpgradeRecipe level2Recipe;
-        WeaponStats level3Stats;
-        WeaponUpgradeRecipe level3Recipe;
-        WeaponStats level4Stats;
-        WeaponUpgradeRecipe level4Recipe;
+        WeaponStats level1Stats{};
+        WeaponStats level2Stats{};
+        WeaponUpgradeRecipe level2Recipe{};
+        WeaponStats level3Stats{};
+        WeaponUpgradeRecipe level3Recipe{};
+        WeaponStats level4Stats{};
+        WeaponUpgradeRecipe level4Recipe{};
 
-        uint32_t excludeFromCompletion;
-        uint8_t  weaponType;
+        uint32_t excludeFromCompletion = 0;
+        uint8_t  weaponType = 0;
 
-        uint8_t  uint8_0x16D;
-        uint8_t  uint8_0x16E;
-        uint8_t  uint8_0x16F;
-        uint8_t  uint8_0x170;
+        uint8_t  uint8_0x16D = 0;
+        uint8_t  uint8_0x16E = 0;
+        uint8_t  uint8_0x16F = 0;
+        uint8_t  uint8_0x170 = 0;
     };
 
     std::expected<std::vector<WeaponEntry>, Error> openWeaponSpecs(std::span<const std::byte> data);
