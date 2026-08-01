@@ -52,16 +52,58 @@ namespace replicant::archive {
     std::expected<std::vector<std::byte>, Error> Decompress(std::span<const std::byte> data, size_t decompressedSize) {
         if (data.empty()) return std::vector<std::byte>{};
 
-        std::vector<std::byte> output(decompressedSize);
-        size_t dSize = ZSTD_decompress(output.data(), decompressedSize, data.data(), data.size());
+        if (decompressedSize > 0) {
+            std::vector<std::byte> output(decompressedSize);
+            size_t dSize = ZSTD_decompress(output.data(), decompressedSize, data.data(), data.size());
 
-        if (ZSTD_isError(dSize)) {
-            return std::unexpected(Error{ ErrorCode::SystemError, ZSTD_getErrorName(dSize) });
+            if (ZSTD_isError(dSize)) {
+                return std::unexpected(Error{ ErrorCode::SystemError, ZSTD_getErrorName(dSize) });
+            }
+            if (dSize != decompressedSize) {
+                return std::unexpected(Error{ ErrorCode::InvalidArguments, "Decompressed size mismatch" });
+            }
+            return output;
         }
-        if (dSize != decompressedSize) {
-            return std::unexpected(Error{ ErrorCode::InvalidArguments, "Decompressed size mismatch" });
+
+        // Streaming decompression fallback if size is unknown (0)
+        ZSTD_DCtx* dctx = ZSTD_createDCtx();
+        if (!dctx) return std::unexpected(Error{ ErrorCode::SystemError, "Failed to create ZSTD DCtx" });
+
+        std::vector<std::byte> output;
+        output.reserve(data.size() * 4); // General heuristic
+
+        ZSTD_inBuffer input = { data.data(), data.size(), 0 };
+        size_t const buffOutSize = ZSTD_DStreamOutSize();
+        std::vector<std::byte> outBuf(buffOutSize);
+
+        while (input.pos < input.size) {
+            ZSTD_outBuffer out = { outBuf.data(), outBuf.size(), 0 };
+            size_t const ret = ZSTD_decompressStream(dctx, &out, &input);
+
+            if (ZSTD_isError(ret)) {
+                ZSTD_freeDCtx(dctx);
+                return std::unexpected(Error{ ErrorCode::SystemError, ZSTD_getErrorName(ret) });
+            }
+            output.insert(output.end(), outBuf.data(), outBuf.data() + out.pos);
         }
+
+        // Check if there's any pending output buffered when input is exhausted
+        while (true) {
+            ZSTD_outBuffer out = { outBuf.data(), outBuf.size(), 0 };
+            ZSTD_inBuffer empty_input = { nullptr, 0, 0 };
+            size_t const ret = ZSTD_decompressStream(dctx, &out, &empty_input);
+
+            if (ZSTD_isError(ret)) {
+                ZSTD_freeDCtx(dctx);
+                return std::unexpected(Error{ ErrorCode::SystemError, ZSTD_getErrorName(ret) });
+            }
+            output.insert(output.end(), outBuf.data(), outBuf.data() + out.pos);
+            if (out.pos == 0) break;
+        }
+
+        ZSTD_freeDCtx(dctx);
         return output;
+
     }
 
     std::expected<size_t, Error> GetDecompressedSize(std::span<const std::byte> data) {

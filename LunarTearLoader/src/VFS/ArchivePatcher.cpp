@@ -54,7 +54,7 @@ bool GeneratePatchedIndex() {
 
         auto bxonRes = replicant::ParseBxon(*decompressed_result);
         if (!bxonRes) {
-            Logger::Log(Error) << "Failed to parse info.arc BXON", bxonRes.error();
+            Logger::Log(Error) << "Failed to parse info.arc BXON" << bxonRes.error().message;
             return false;
         }
 

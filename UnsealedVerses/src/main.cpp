@@ -46,7 +46,7 @@ void printUsage() {
     std::cout << "    (end with 0 for level 1, end with 1 for level 2, etc.).\n";
     std::cout << "    assets_local_mesh_path should be local to game vfs.\n";
     std::cout << "    Your mesh can be wherever you want, i reccomend something like 'chara/weapon/[modname]/[weaponName]'.\n";
-    std::cout << "    You will need ones of these weapon assets for every level, however they can all point to the same mesh.\n";
+    std::cout << "    You will need ones of these weapon assets for every level, however they can all point to the same mesh.\n\n\n";
 
 }
 

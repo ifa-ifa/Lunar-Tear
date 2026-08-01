@@ -9,8 +9,8 @@
 namespace replicant {
 
     struct BxonHeaderInfo {
-        uint32_t version;
-        uint32_t projectId;
+        uint32_t version = 0;
+        uint32_t projectId = 0;
         std::string assetType; 
     };
 

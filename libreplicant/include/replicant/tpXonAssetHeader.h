@@ -10,7 +10,7 @@
 namespace replicant {
 
 	struct XonAssetEntry {
-		uint32_t assetTypeHash;
+		uint32_t assetTypeHash = 0;
 		std::vector<std::byte> assetData;
 	};
 

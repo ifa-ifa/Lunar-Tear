@@ -48,7 +48,7 @@ namespace replicant::archive {
 
     std::expected<std::vector<std::byte>, Error> Decompress(
         std::span<const std::byte> compressedData,
-        size_t decompressedSize
+        size_t decompressedSize = 0
     );
 
     std::expected<size_t, Error> GetDecompressedSize(

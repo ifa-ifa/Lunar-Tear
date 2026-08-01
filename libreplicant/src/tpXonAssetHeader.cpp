@@ -1,10 +1,12 @@
 #include "replicant/tpXonAssetHeader.h"
-#include "pack.cpp"
+#include "replicant/pack.h"
 #include "replicant/core/reader.h"
 #include "replicant/core/writer.h"
 #include "replicant/core/common.h"
 
 namespace replicant {
+
+	using namespace raw;
 
 	namespace {
 

@@ -15,12 +15,12 @@ namespace replicant {
     };
 
     struct ImportEntry {
-        uint32_t pathHash;
+        uint32_t pathHash = 0;
         std::string path;
     };
 
     struct AssetPackageEntry {
-        uint32_t nameHash;
+        uint32_t nameHash = 0;
         std::string name;
         std::vector<std::byte> content;
     };
@@ -35,9 +35,27 @@ namespace replicant {
         bool hasResource() const { return !resourceData.empty(); }
     };
 
+    namespace raw {
+
+        struct RawImport {
+            uint32_t pathHash;
+            uint32_t offsetToPath;
+            uint32_t unknown0;
+        };
+
+        struct RawAssetPackage {
+            uint32_t nameHash;
+            uint32_t offsetToName;
+            uint32_t contentSize;
+            uint32_t offsetToContentStart;
+            uint32_t offsetToContentEnd;
+        };
+
+    }
+
     class Pack {
     public:
-        PackHeaderInfo info;
+        PackHeaderInfo info{};
         std::vector<ImportEntry> imports;
         std::vector<AssetPackageEntry> assetPackages;
         std::vector<PackFileEntry> files;

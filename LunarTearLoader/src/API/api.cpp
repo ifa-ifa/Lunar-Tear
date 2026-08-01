@@ -21,7 +21,7 @@ namespace {
     struct PluginContext {
         std::string name;
         std::unique_ptr<INIReader> configReader;
-        HMODULE moduleHandle;
+        HMODULE moduleHandle{};
     };
 
     static LunarTearAPI s_api;
@@ -79,7 +79,7 @@ namespace {
         std::string value = ctx->configReader->Get(section, key, default_value);
         strncpy_s(out_buffer, buffer_size, value.c_str(), _TRUNCATE);
 
-        return strnlen_s(out_buffer, buffer_size);
+        return static_cast<int>(strnlen_s(out_buffer, buffer_size));
     }
 
     long API_Config_GetInteger(LT_PluginHandle handle, const char* section, const char* key, long default_value) {
@@ -120,26 +120,26 @@ namespace {
         }
     }
 
-    LT_HookStatus API_Hook_Create(LT_PluginHandle handle, void* pTarget, void* pDetour, void** ppOriginal) {
+    LT_HookStatus API_Hook_Create(LT_PluginHandle, void* pTarget, void* pDetour, void** ppOriginal) {
         return ToLTHookStatus(MH_CreateHook(pTarget, pDetour, ppOriginal));
     }
 
-    LT_HookStatus API_Hook_Enable(LT_PluginHandle handle, void* pTarget) {
+    LT_HookStatus API_Hook_Enable(LT_PluginHandle, void* pTarget) {
         return ToLTHookStatus(MH_EnableHook(pTarget));
     }
 
 
-    bool API_IsModActive(LT_PluginHandle handle, const char* mod_id) {
+    bool API_IsModActive(LT_PluginHandle, const char* mod_id) {
         if (!mod_id) return false;
         return GetModPath(mod_id).has_value();
     }
 
-    bool API_IsPluginActive(LT_PluginHandle handle, const char* plugin_name) {
+    bool API_IsPluginActive(LT_PluginHandle, const char* plugin_name) {
         if (!plugin_name) return false;
         return API::IsPluginLoaded(plugin_name);
     }
 
-    int API_GetModDirectory(LT_PluginHandle handle, const char* mod_id, char* out_buffer, uint32_t buffer_size) {
+    int API_GetModDirectory(LT_PluginHandle, const char* mod_id, char* out_buffer, uint32_t buffer_size) {
         if (!mod_id || !out_buffer || buffer_size == 0) return -1;
 
         auto mod_path_opt = GetModPath(mod_id);
@@ -148,7 +148,7 @@ namespace {
         }
 
         strncpy_s(out_buffer, buffer_size, mod_path_opt->c_str(), _TRUNCATE);
-        return strnlen_s(out_buffer, buffer_size);
+        return static_cast<int>(strnlen_s(out_buffer, buffer_size));
     }
 
     void API_Lua_QueuePhaseScriptExecution(LT_PluginHandle handle, const char* script, LT_ScriptExecutionCallbackFunc callback, void* userData) {
