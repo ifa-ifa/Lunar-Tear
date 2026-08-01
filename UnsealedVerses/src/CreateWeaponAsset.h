@@ -46,7 +46,7 @@ public:
 
 		replicant::ActorAssetEntry actor_asset_entry;
 		actor_asset_entry.u32_00 = 1198150135; //idk what this is
-		actor_asset_entry.assetPath = mesh_path.string();
+		actor_asset_entry.assetPath = mesh_path.string() + ".asset";
 		actor_asset_entry.u32_0c = 0;
 		actor_asset_entry.u32_10 = 0;
 
