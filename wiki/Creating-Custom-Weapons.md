@@ -206,3 +206,5 @@ assets
 ```
 
 No need to keep the assets folder in your final mod.
+
+Does this corrupt save if you delete the mod? No, Lunar Tear makes sure that your save file remains untouched, modded data like which custom weapons the player has are stored in a seperate file in the LunarTear/Gamedata folder. If you delete the mod, the player will no longer be able to use that weapon, but it will not corrupt their save.
