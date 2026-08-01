@@ -11,8 +11,10 @@
 #include "TextureConvertCommand.h"
 #include "CreateWeaponAsset.h"
 
+#define UNSEALED_VERSIONS_VERSION "1.0.5"
+
 void printUsage() {
-    std::cout << "UnsealedVerses - A tool for editing Nier Replicant files.\n\n";
+    std::cout << "UnsealedVerses - A tool for editing Nier Replicant files.\nVersion " << UNSEALED_VERSIONS_VERSION << "\n\n";
     std::cout << "Usage: UnsealedVerses <command> [options] <args...>\n\n";
     std::cout << "COMMANDS:\n\n";
     std::cout << "  archive <output.arc> <assets_path> [options]\n";
