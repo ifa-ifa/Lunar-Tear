@@ -10,8 +10,9 @@
 #include "UnarchiveCommand.h"
 #include "TextureConvertCommand.h"
 #include "CreateWeaponAsset.h"
+#include "UnpackKPKCommand.h"
 
-#define UNSEALED_VERSIONS_VERSION "1.0.5"
+#define UNSEALED_VERSIONS_VERSION "1.0.6"
 
 void printUsage() {
     std::cout << "UnsealedVerses - A tool for editing Nier Replicant files.\nVersion " << UNSEALED_VERSIONS_VERSION << "\n\n";
@@ -46,7 +47,10 @@ void printUsage() {
     std::cout << "    (end with 0 for level 1, end with 1 for level 2, etc.).\n";
     std::cout << "    assets_local_mesh_path should be local to game vfs.\n";
     std::cout << "    Your mesh can be wherever you want, i reccomend something like 'chara/weapon/[modname]/[weaponName]'.\n";
-    std::cout << "    You will need ones of these weapon assets for every level, however they can all point to the same mesh.\n\n\n";
+    std::cout << "    You will need ones of these weapon assets for every level, however they can all point to the same mesh.\n\n";
+    std::cout << "  unpack-kpk <input> <output_folder>\n";
+    std::cout << "    Extracts all files from a KPK file into a specified folder.\n\n";
+    std::cout << "\n";
 
 }
 
@@ -80,6 +84,9 @@ int main(int argc, char* argv[]) {
     }
     else if (command_name == "create-weapon-asset") {
         command = std::make_unique<CreateWeaponAsset>(command_args);
+    }
+    else if (command_name == "unpack-kpk") {
+        command = std::make_unique<UnpackKPKCommand>(command_args);
     }
     else {
         std::cerr << "Error: Unknown command '" << command_name << "'\n\n";
