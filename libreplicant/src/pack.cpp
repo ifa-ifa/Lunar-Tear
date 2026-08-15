@@ -133,7 +133,7 @@ namespace replicant {
                 // Serialized Data
                 auto contentPtrRes = reader.getOffsetPtr(rawFiles[i].offsetToContent);
                 if (contentPtrRes) {
-                    const std::byte* start = reinterpret_cast<const std::byte*>(*contentPtrRes);
+                    const std::byte* start = reinterpret_cast<const std::byte*>(contentPtrRes);
                     if (start >= data.data() && start + rawFiles[i].contentSize <= data.data() + data.size()) {
                         entry.serializedData.assign(start, start + rawFiles[i].contentSize);
                     }
