@@ -14,7 +14,7 @@ While the game only loads math, the other libraries can be found in the executab
 
 ## Scripts
 
-The game has a script for every phase (map) plus 3 more: \_\_root__, \_\_libnier__ and \_\_game__. You can extract them by enabling Script Dumping in config. Then decompile them using a lua 5.0.2 decompiler. I use this one: https://github.com/loosepolygon/luadec-5.0 but for some scripts it doesn't work, in which case i use this one: `https://sourceforge.net/projects/unluac/`. The `batchDecompile.py` in this repository will batch decompile + handle weird Japanese encoding issues.
+The game has a script for every phase (map) plus 3 more: \_\_root__, \_\_libnier__ and \_\_game__. You can extract them by using Unsealed verses to extract the archives, and then with the ExtractScripts.bat script included with it. Then decompile them using a lua 5.0.2 decompiler. I use this one: https://github.com/loosepolygon/luadec-5.0 but for some scripts it doesn't work, in which case i use this one: `https://sourceforge.net/projects/unluac/`. The `batchDecompile.py` in this repository will batch decompile + handle weird Japanese encoding issues.
 
 ## Injection
 
