@@ -83,7 +83,6 @@ public:
     bool EnablePlugins;
 
     bool DumpTextures;
-    bool DumpScripts;
     bool DumpTables;
 
     bool AllowColourSpaceMismatch;
@@ -117,7 +116,6 @@ public:
         registerSetting("EnablePlugins", false, &Settings::EnablePlugins, "Allows mods to execute code. Make sure you trust all mods you install before enabling this");
 
         registerSetting("DumpTextures", false, &Settings::DumpTextures, "");
-        registerSetting("DumpScripts", false, &Settings::DumpScripts, "");
         registerSetting("DumpTables", false, &Settings::DumpTables, "");
 
         registerSetting("AllowColourSpaceMismatch", true, &Settings::AllowColourSpaceMismatch, "Many texture mods incorrectly use RGB when sRGB is expected and vice versa");
