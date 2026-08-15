@@ -11,6 +11,8 @@ set(LIBREPLICANT_SOURCES
     "include/replicant/core/common.h" 
     "include/replicant/tpXonAssetHeader.h" 
     "src/tpXonAssetHeader.cpp"
+    "include/replicant/kpk.h"
+    "src/kpk.cpp"
 )
 
 find_package(zstd CONFIG REQUIRED)
