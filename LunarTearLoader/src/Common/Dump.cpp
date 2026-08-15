@@ -12,18 +12,6 @@ constexpr size_t MAX_STBL_SIZE = 16 * 1000 * 1000;
 
 using enum Logger::LogCategory;
 
-void dumpScript(const std::string& name, const std::vector<char>& data) {
-	if (!std::filesystem::exists("LunarTear/dump/scripts/")) {
-		std::filesystem::create_directories("LunarTear/dump/scripts/");
-	}
-	std::ofstream f("LunarTear/dump/scripts/" + name, std::ios::binary);
-
-
-	f.write(data.data(), data.size());
-    Logger::Log(Verbose) << "Dumped script: " << name;
-
-}
-
 void dumpTexture(const tpGxResTexture* tex) {
     if (!tex || !tex->name || !tex->bxonAssetHeader || !tex->texData) {
         Logger::Log(Error) << "Attempted to dump an invalid texture";
