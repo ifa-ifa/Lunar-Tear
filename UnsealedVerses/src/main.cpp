@@ -12,7 +12,7 @@
 #include "CreateWeaponAsset.h"
 #include "UnpackKPKCommand.h"
 
-#define UNSEALED_VERSIONS_VERSION "1.0.6"
+#define UNSEALED_VERSIONS_VERSION "1.0.7"
 
 void printUsage() {
     std::cout << "UnsealedVerses - A tool for editing Nier Replicant files.\nVersion " << UNSEALED_VERSIONS_VERSION << "\n\n";
