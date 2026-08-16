@@ -128,11 +128,22 @@ namespace replicant::archive {
 
         if (mode == BuildMode::SingleStream) {
             // PRELOAD_DECOMPRESS (Type 0)
-            // Concatenate uncompressed -> Record Offsets -> Compress Whole
-
             ZSTD_CStream* cstream = ZSTD_createCStream();
             if (!cstream) return std::unexpected(Error{ ErrorCode::SystemError, "Failed to create ZSTD Stream" });
 
+            size_t totalPledgedSize = 0;
+            for (const auto& input : inputs) {
+                std::error_code ec;
+                uintmax_t physicalSize = std::filesystem::file_size(input.fullPath, ec);
+                if (ec) {
+                    ZSTD_freeCStream(cstream);
+                    return std::unexpected(Error{ ErrorCode::IoError, std::format("Could not determine file size for pledge: {}", input.fullPath.string()) });
+                }
+
+                totalPledgedSize = align_to(totalPledgedSize, SECTOR_ALIGNMENT);
+                totalPledgedSize += physicalSize;
+            }
+            ZSTD_CCtx_setPledgedSrcSize(cstream, totalPledgedSize);
             ZSTD_CCtx_setParameter(cstream, ZSTD_c_compressionLevel, config.level);
             ZSTD_CCtx_setParameter(cstream, ZSTD_c_windowLog, config.windowLog);
 
@@ -142,11 +153,17 @@ namespace replicant::archive {
             size_t currentUncompressedOffset = 0;
 
             for (const auto& input : inputs) {
+                std::error_code ec;
+                uintmax_t physicalSize = std::filesystem::file_size(input.fullPath, ec);
+                if (ec) {
+                    return std::unexpected(Error{ ErrorCode::IoError, std::format("Could not determine file size for pledge: {}", input.fullPath.string()) });
+                }
                 auto sizesRes = replicant::Pack::getFileSizes(input.fullPath);
                 if (!sizesRes) { ZSTD_freeCStream(cstream); return std::unexpected(sizesRes.error()); }
-				auto sizes = *sizesRes;
+                auto sizes = *sizesRes;
 
-                size_t padding_needed = (16 - (currentUncompressedOffset % 16)) % 16;
+                size_t targetOffset = align_to(currentUncompressedOffset, SECTOR_ALIGNMENT);
+                size_t padding_needed = targetOffset - currentUncompressedOffset;
                 if (padding_needed > 0) {
                     std::vector<char> zeros(padding_needed, 0);
                     ZSTD_inBuffer zIn = { zeros.data(), zeros.size(), 0 };
@@ -157,7 +174,7 @@ namespace replicant::archive {
                         if (ZSTD_isError(ret)) { ZSTD_freeCStream(cstream); return std::unexpected(Error{ ErrorCode::SystemError, ZSTD_getErrorName(ret) }); }
                         outArc.write(outBuf.data(), zOut.pos);
                     }
-                    currentUncompressedOffset += padding_needed;
+                    currentUncompressedOffset = targetOffset;
                 }
 
                 ArchiveEntryInfo entry;
@@ -185,7 +202,7 @@ namespace replicant::archive {
                         outArc.write(outBuf.data(), zOut.pos);
                     }
                 }
-                currentUncompressedOffset += sizes.fileSize;
+                currentUncompressedOffset += physicalSize;
             }
 
             // 4. Finish Stream
@@ -206,10 +223,10 @@ namespace replicant::archive {
             for (const auto& input : inputs) {
                 auto infoRes = Pack::getFileSizes(input.fullPath);
                 if (!infoRes) {
-					std::cerr << "Failed to get file sizes for " << input.fullPath << ": " << infoRes.error().toString() << "\n";
-					return std::unexpected(infoRes.error());
+                    std::cerr << "Failed to get file sizes for " << input.fullPath << ": " << infoRes.error().toString() << "\n";
+                    return std::unexpected(infoRes.error());
                 };
-				auto info = *infoRes;
+                auto info = *infoRes;
 
                 // Read file
                 auto fileBlob = ReadFile(input.fullPath);
