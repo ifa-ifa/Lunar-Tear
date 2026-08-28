@@ -106,7 +106,7 @@ namespace replicant {
 
                 auto contentPtrRes = reader.getOffsetPtr(rawAP[i].offsetToContentStart);
                 if (contentPtrRes) {
-                    const std::byte* start = reinterpret_cast<const std::byte*>(*contentPtrRes);
+                    const std::byte* start = reinterpret_cast<const std::byte*>(contentPtrRes);
                     if (start >= data.data() && start + rawAP[i].contentSize <= data.data() + data.size()) {
                         entry.content.assign(start, start + rawAP[i].contentSize);
                     }
