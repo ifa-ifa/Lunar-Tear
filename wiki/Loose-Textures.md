@@ -1,4 +1,4 @@
-This method of texture replacment is simpler, easier, and better tested, but requires the same resolution, format and mipmap count as the original. If you want higher resolution, you should use Custom Archives
+This method of texture replacment is simpler, easier, and better tested, but requires the same resolution, format and mipmap count as the original. If you want higher resolution textures, you should use [Custom Archives](Custom-Archives.md).
 
 Extract files by enabling texture dumping in the config. Alternatively something like Replicant2Blender (https://github.com/WoefulWolf/Replicant2Blender) may be more useful. Then change them however you want and save them as dds images. New textures must have the same resolution, mipmap count, and compression format as the original. The last two can be found out by enabling File Info logging. Textures should be placed in the root folder of the mod. There are two ways to match:
 
