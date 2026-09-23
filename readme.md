@@ -1,5 +1,7 @@
 # Lunar Tear
 
+[Guide for making mods](https://github.com/ifa-ifa/Lunar-Tear/blob/master/wiki/Home.md)
+
 ### Lunar Tear Loader 
 - See the [Nexus page](https://www.nexusmods.com/nierreplicant/mods/87)
 ### UnsealedVerses 
@@ -11,8 +13,6 @@
 - C++ library for reading and writing Nier Replicant file formats
 
 ---
-
-For modding instructions see the [Wiki](https://github.com/ifa-ifa/Lunar-Tear/wiki)
 
 ## Build
 
