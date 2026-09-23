@@ -8,12 +8,12 @@ To find out what to do with these, see the index below:
 
 ## Index  
 
-Models & Textures - https://github.com/WoefulWolf/Replicant2Blender  
-Textures only - [Loose Textures](Loose-Textures.md), [Custom Archives](Custom-Archives.md)  
+Models - https://github.com/WoefulWolf/Replicant2Blender  
+Textures - [Loose Textures](Loose-Textures.md), [Custom Archives](Custom-Archives.md)  
+Any other files or assets - [Custom Archives](Custom-Archives.md)  
 Scripting - [Scripts](Scripts.md), [Game Lua API](Game-Lua-API.md), [LT Lua API](LT-Lua-API.md)  
 Plugins - [Plugins](Plugins.md)  
 Tables - [Tables](Tables.md)  
-Any other assets - [Custom Archives](Custom-Archives.md)  
 Custom Weapons - [Custom Weapons](Custom-Weapons.md)  
 
 ## Preparing a mod
