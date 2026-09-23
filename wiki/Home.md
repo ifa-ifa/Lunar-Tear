@@ -8,7 +8,7 @@ To find out what to do with these, see the index below:
 
 ## Index  
 
-Models & Textures - https://github.com/WoefulWolf/Replicant2Blender
+Models & Textures - https://github.com/WoefulWolf/Replicant2Blender  
 Textures only - [Loose Textures](Loose-Textures.md), [Custom Archives](Custom-Archives.md)  
 Scripting - [Scripts](Scripts.md), [Game Lua API](Game-Lua-API.md), [LT Lua API](LT-Lua-API.md)  
 Plugins - [Plugins](Plugins.md)  
