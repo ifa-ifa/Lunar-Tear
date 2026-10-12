@@ -165,8 +165,15 @@ namespace replicant::archive {
                 size_t targetOffset = align_to(currentUncompressedOffset, SECTOR_ALIGNMENT);
                 size_t padding_needed = targetOffset - currentUncompressedOffset;
                 if (padding_needed > 0) {
-                    std::vector<char> zeros(padding_needed, 0);
-                    ZSTD_inBuffer zIn = { zeros.data(), zeros.size(), 0 };
+                    std::vector<char> padding(padding_needed, 0);
+
+                    for (size_t i = 0; i < padding_needed; ++i) {
+                        padding[i] = static_cast<char>(
+                            replicant::paddingPattern[i % replicant::paddingPattern.size()]
+                            );
+                    }
+
+                    ZSTD_inBuffer zIn = { padding.data(), padding.size(), 0 };
 
                     while (zIn.pos < zIn.size) {
                         ZSTD_outBuffer zOut = { outBuf.data(), outBuf.size(), 0 };
@@ -185,7 +192,6 @@ namespace replicant::archive {
                 entry.packResourceSize = sizes.resourceSize;
                 result.entries.push_back(entry);
 
-                // 3. Feed File Content to Compressor
                 std::ifstream inFile(input.fullPath, std::ios::binary);
                 if (!inFile) { ZSTD_freeCStream(cstream); return std::unexpected(Error{ ErrorCode::IoError, "Failed to read input: " + input.fullPath.string() }); }
 
@@ -205,7 +211,6 @@ namespace replicant::archive {
                 currentUncompressedOffset += physicalSize;
             }
 
-            // 4. Finish Stream
             ZSTD_outBuffer zOut = { outBuf.data(), outBuf.size(), 0 };
             size_t ret;
             do {
@@ -256,9 +261,8 @@ namespace replicant::archive {
                 outArc.write(reinterpret_cast<const char*>(compressRes->data()), cSize);
 
                 // Write padding
-                if (padding > 0) {
-                    std::vector<char> pad(padding, 0);
-                    outArc.write(pad.data(), padding);
+                for (size_t i = 0; i < padding; ++i) {
+                    outArc.put(static_cast<char>(replicant::paddingPattern[i % replicant::paddingPattern.size()]));
                 }
             }
         }

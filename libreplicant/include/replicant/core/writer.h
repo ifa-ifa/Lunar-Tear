@@ -4,7 +4,7 @@
 #include <cstring>
 #include <cstdint>
 #include <map>
-#include <span>
+#include "common.h"
 
 namespace replicant {
 
@@ -20,6 +20,7 @@ namespace replicant {
         size_t tell() const { return buffer_.size(); }
 
         template <typename T>
+            requires std::is_trivially_copyable_v<T>
         void write(const T& value) {
             const std::byte* ptr = reinterpret_cast<const std::byte*>(&value);
             buffer_.insert(buffer_.end(), ptr, ptr + sizeof(T));
@@ -31,10 +32,17 @@ namespace replicant {
             std::memcpy(buffer_.data() + current, data, size);
         }
 
+        void write(std::span<const std::byte> data) {
+            buffer_.insert(buffer_.end(), data.begin(), data.end());
+        }
+
         void align(size_t alignment) {
             size_t current = tell();
             size_t padding = (alignment - (current % alignment)) % alignment;
-            for (size_t i = 0; i < padding; i++) buffer_.push_back(std::byte{ 0 });
+
+            for (size_t i = 0; i < padding; i++) {
+                buffer_.push_back(paddingPattern[i % std::size(paddingPattern)]);
+            }
         }
 
         size_t reserveOffset() {

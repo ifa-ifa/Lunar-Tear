@@ -111,7 +111,7 @@ namespace replicant {
 		for (size_t i = 0; i < assets.size(); ++i) {
 			writer.satisfyOffsetHere(assetDataOffsets[i]);
 			writer.write(assets[i].assetTypeHash);
-			writer.write(assets[i].assetData.data(), assets[i].assetData.size());
+			writer.write(assets[i].assetData);
 			writer.align(16);
 		}
 
