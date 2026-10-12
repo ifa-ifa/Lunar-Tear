@@ -17,6 +17,8 @@ using enum Logger::LogCategory;
 
 namespace {
 
+	constexpr char WEAPON_LEVEL_UNOBTAINED = -1;
+
 	std::unordered_map<int, std::string> weaponRegistry;
 	std::unordered_set<int> usedListOrders;
 	std::vector<std::byte> s_weaponBuf;
@@ -64,7 +66,7 @@ namespace {
 		for (auto& [id, name] : weaponRegistry) {
 
 			writer.write(static_cast<char>(playerSaveData->weaponLevels[id]));
-			playerSaveData->weaponLevels[id] = static_cast<char>(-1);
+			playerSaveData->weaponLevels[id] = static_cast<char>(WEAPON_LEVEL_UNOBTAINED);
 
 			strPool.add(name, writer.reserveOffset());
 		}
@@ -218,14 +220,18 @@ void InitWeaponSystem() {
 	}
 
 	std::vector<replicant::weapon::WeaponEntry> weapons;
-	std::vector<int> weaponID;
 
 	for (size_t i = 0; i < jweapons.size(); i++) {
 
 		try {
-			bool res = registerWeapon(jweapons[i].at("unique_name").get<std::string>());
+			std::string unique_name = jweapons[i].at("unique_name").get<std::string>();
+			bool res = registerWeapon(unique_name);
 			if (!res) break;
-			weapons.push_back(jsonToWeapon(jweapons[i]));
+
+			auto entry = jsonToWeapon(jweapons[i]);
+			entry.weaponID = getIdFromName(unique_name);
+
+			weapons.push_back(entry);
 
 		}
 		catch (const std::string& e) {
