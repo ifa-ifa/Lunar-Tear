@@ -1,5 +1,6 @@
-Any dll file found in the root directory of a mod will be injected, provided plugins are enabled in LunarTear.ini. The loader provides an api that exposes game functions, scripting integration, logging, hooking, and config functionality. Your plugin does not have to use the API, and even if it does, you do not have to use all the functionality (the hooking and config interface is very basic, for advanced use you can use your own libraries). If you do want to use the apis built in config, place a config file named config.ini in your mod's root directory (mod name is name of folder)
-
+- Any dll file found in the root directory of a mod will be injected (provided plugins are enabled in LunarTear.ini). The loader provides an api that exposes game functions, scripting integration, logging, hooking, and config functionality. 
+- Your plugin does not have to use the API, lunar tear will just call DllMain.
+- If you do want to use the apis built in config, place a config file named config.ini in your mod's root directory (mod name is name of folder)
 
 # API
 
