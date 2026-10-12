@@ -1,4 +1,3 @@
-
 #include "Hooks/Hooks.h"
 #include "Game/Globals.h"
 #include "Common/Logger.h"

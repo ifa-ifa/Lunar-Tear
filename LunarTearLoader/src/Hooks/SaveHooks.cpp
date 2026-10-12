@@ -2,12 +2,8 @@
 #include "Hooks/Hooks.h"
 #include "Game/Globals.h"
 #include "Common/Logger.h"
-#include "VFS/ArchivePatcher.h"
-#include "ModLoader.h"
-#include <string>
-#include <filesystem>
-#include <format>
-#include <chrono>
+#include <cstdint>
+
 
 using enum Logger::LogCategory;
 

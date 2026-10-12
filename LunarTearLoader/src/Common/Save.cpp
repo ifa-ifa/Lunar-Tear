@@ -254,7 +254,6 @@ namespace Save {
 		if (activeSave.contains(key) && activeSave[key].is_string()) {
 			return activeSave[key];
 		}
-		Logger::Log(Warning) << "Save data key: `" << key << "` does not exist";
 		return std::nullopt;
 	}
 
@@ -270,7 +269,6 @@ namespace Save {
 		if (activeSave.contains(key) && activeSave[key].is_string()) {
 			return decodeBase16(activeSave[key]);
 		}
-		Logger::Log(Warning) << "Save data key: `" << key << "` does not exist";
 		return std::nullopt;
 	}
 

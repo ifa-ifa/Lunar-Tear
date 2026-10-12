@@ -1,16 +1,5 @@
-#define NOMINMAX
 #include "Hooks.h"
-#include "Game/TextureFormats.h"
-#include "ModLoader.h"
-#include "Common/Settings.h"
-#include "Common/Dump.h"
-#include "Common/Logger.h"
 #include "Game/Globals.h"
-#include <crc32c/crc32c.h>
-#include <MinHook.h>
-#include <filesystem>
-#include <replicant/dds.h>
-#include <replicant/tpGxTexHead.h>
 #include "Game/Weapons.h"
 
 namespace {
@@ -19,10 +8,10 @@ namespace {
 
 }
 
+// Called once on startup
 void WeaponLoad_detoured() {
 
     WeaponLoad_original();
-
     InitWeaponSystem();
 
 }
