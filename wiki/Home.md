@@ -1,12 +1,19 @@
 This wiki is a guide on how to make mods using Lunar Tear. I may forget to update it sometimes so if you need help either create an issue or ask me on discord (@iiiba)
 
+## Extracting Assets
+
+Chances are you will want to start by extracting the files. To do that, download Unsealed Verses from the Releases page (https://github.com/ifa-ifa/Lunar-Tear/releases). then, run `UnsealedVerses.exe unarchive C:\Program Files (x86)\Steam\steamapps\common\NieR Replicant ver.1.22474487139\data\info.arc" "C:\Users\[User]\Desktop\extracted"`. Swap out the first path for your own path to the games assets, and the second path for where you want to extract the assets to. If you only want the character models and weapons, add `--chara-only` to the end. That will save you about ~20GB).
+
+To find out what to do with these, see the index below:
+
 ## Index  
 
+Models - https://github.com/WoefulWolf/Replicant2Blender  
 Textures - [Loose Textures](Loose-Textures.md), [Custom Archives](Custom-Archives.md)  
+Any other files or assets - [Custom Archives](Custom-Archives.md)  
 Scripting - [Scripts](Scripts.md), [Game Lua API](Game-Lua-API.md), [LT Lua API](LT-Lua-API.md)  
 Plugins - [Plugins](Plugins.md)  
 Tables - [Tables](Tables.md)  
-Any other assets - [Custom Archives](Custom-Archives.md)  
 Custom Weapons - [Custom Weapons](Custom-Weapons.md)  
 
 ## Preparing a mod
