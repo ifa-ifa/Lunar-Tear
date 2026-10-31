@@ -156,7 +156,9 @@ int (*GetModDirectory)(LT_PluginHandle handle, const char* mod_name, char* out_b
 
 Use a manifest to define a mod name and this to access resources in your mod directory, as users may change the folder name for conflict resolution
 
+## Save data
 
+You may want to store additional data for your mod to use on a per save basis. It stores data in an external file that tracks the saving/deleting/restoring of them so you can store any data as if part of the save data. Its what Lunar tear uses internally to store the obtain state of custom weapons. I never exposed this to the API because im lazy. If you want this let me know and i will expose it.
 
 ## Versioning
 
